@@ -23,7 +23,7 @@ namespace Assignment.Models
         public TicketStatus Status { get; set; } = TicketStatus.Open;
 
         [ForeignKey("UserId")]
-        public virtual User User { get; set; }
+        public virtual User? User { get; set; }
         public virtual ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
     }
 }

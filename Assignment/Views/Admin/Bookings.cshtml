@@ -1,0 +1,109 @@
+@model List<Assignment.Models.Booking>
+@{
+    ViewData["Title"] = "Booking Management";
+}
+
+<div class="container-fluid">
+    <h2 class="mb-4">Booking Management</h2>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="mb-3">
+                <div class="row">
+                    <div class="col-md-4">
+                        <input type="text" name="searchTerm" value="@ViewBag.SearchTerm" class="form-control" placeholder="Search by customer..." />
+                    </div>
+                    <div class="col-md-3">
+                        <select name="status" class="form-select">
+                            <option value="">All Statuses</option>
+                            @foreach (var status in Enum.GetValues(typeof(BookingStatus)))
+                            {
+                                <option value="@status" selected="@(ViewBag.Status?.ToString() == status.ToString())">@status</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <button type="submit" class="btn btn-secondary">Search</button>
+                        <a asp-action="Bookings" class="btn btn-outline-secondary">Clear</a>
+                    </div>
+                </div>
+            </form>
+
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Customer</th>
+                        <th>Room</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Total Price</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var booking in Model)
+                    {
+                        <tr>
+                            <td>@booking.BookingId</td>
+                            <td>@booking.User.FullName<br /><small>@booking.User.Email</small></td>
+                            <td>@booking.Room.RoomNumber<br /><small>@booking.Room.RoomType.Name</small></td>
+                            <td>@booking.CheckInDate.ToString("MM/dd/yyyy")</td>
+                            <td>@booking.CheckOutDate.ToString("MM/dd/yyyy")</td>
+                            <td>RM @booking.TotalPrice.ToString("F2")</td>
+                            <td>
+                                <span class="badge @(booking.Status == BookingStatus.Confirmed ? "bg-success" : booking.Status == BookingStatus.Cancelled ? "bg-danger" : "bg-warning")">
+                                    @booking.Status
+                                </span>
+                            </td>
+                            <td>
+                                <a asp-action="BookingDetails" asp-route-id="@booking.BookingId" class="btn btn-sm btn-info">Details</a>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                        Update Status
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        @foreach (var status in Enum.GetValues(typeof(BookingStatus)))
+                                        {
+                                            <li>
+                                                <form asp-action="UpdateBookingStatus" method="post" class="d-inline">
+                                                    <input type="hidden" name="id" value="@booking.BookingId" />
+                                                    <input type="hidden" name="status" value="@status" />
+                                                    <button type="submit" class="dropdown-item">@status</button>
+                                                </form>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (ViewBag.TotalPages > 1)
+            {
+                <nav>
+                    <ul class="pagination">
+                        @for (int i = 1; i <= ViewBag.TotalPages; i++)
+                        {
+                            <li class="page-item @(i == ViewBag.CurrentPage ? "active" : "")">
+                                <a class="page-link" href="?page=@i&searchTerm=@ViewBag.SearchTerm&status=@ViewBag.Status">@i</a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+            }
+        </div>
+    </div>
+</div>
+

@@ -25,6 +25,6 @@ namespace Assignment.Models
 
         public DateTime PaymentDate { get; set; } = DateTime.Now;
 
-        public virtual Booking Booking { get; set; }
+        public virtual Booking? Booking { get; set; }
     }
 }

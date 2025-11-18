@@ -20,7 +20,7 @@ namespace Assignment.Models
         public RoomStatus Status { get; set; } = RoomStatus.Available;
 
         [ForeignKey("RoomTypeId")]
-        public virtual RoomType RoomType { get; set; }
+        public virtual RoomType? RoomType { get; set; }
 
         public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
     }

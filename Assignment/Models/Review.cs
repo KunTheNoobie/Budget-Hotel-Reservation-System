@@ -20,7 +20,7 @@ namespace Assignment.Models
         public DateTime ReviewDate { get; set; } = DateTime.Now;
 
         [ForeignKey("UserId")]
-        public virtual User User { get; set; }
-        public virtual Booking Booking { get; set; }
+        public virtual User? User { get; set; }
+        public virtual Booking? Booking { get; set; }
     }
 }

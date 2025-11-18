@@ -21,8 +21,8 @@ namespace Assignment.Models
         public bool IsRead { get; set; } = false;
 
         [ForeignKey("TicketId")]
-        public virtual SupportTicket SupportTicket { get; set; }
+        public virtual SupportTicket? SupportTicket { get; set; }
         [ForeignKey("SenderId")]
-        public virtual User Sender { get; set; }
+        public virtual User? Sender { get; set; }
     }
 }

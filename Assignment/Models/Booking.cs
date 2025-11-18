@@ -35,9 +35,9 @@ namespace Assignment.Models
         public int? PromotionId { get; set; }
 
         [ForeignKey("UserId")]
-        public virtual User User { get; set; }
+        public virtual User? User { get; set; }
         [ForeignKey("RoomId")]
-        public virtual Room Room { get; set; }
+        public virtual Room? Room { get; set; }
         [ForeignKey("PromotionId")]
         public virtual Promotion? Promotion { get; set; }
 

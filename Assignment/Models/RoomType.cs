@@ -20,6 +20,12 @@ namespace Assignment.Models
         [Required, Column(TypeName = "decimal(18, 2)"), Range(0, 99999.99)]
         public decimal BasePrice { get; set; }
 
+        [Required]
+        public int HotelId { get; set; }
+
+        [ForeignKey("HotelId")]
+        public virtual Hotel? Hotel { get; set; }
+
         public virtual ICollection<Room> Rooms { get; set; } = new List<Room>();
         public virtual ICollection<RoomImage> RoomImages { get; set; } = new List<RoomImage>();
         public virtual ICollection<RoomTypeAmenity> RoomTypeAmenities { get; set; } = new List<RoomTypeAmenity>();

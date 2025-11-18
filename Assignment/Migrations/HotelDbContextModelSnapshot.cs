@@ -477,6 +477,9 @@ namespace Assignment.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<int>("HotelId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -486,6 +489,8 @@ namespace Assignment.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("RoomTypeId");
+
+                    b.HasIndex("HotelId");
 
                     b.ToTable("RoomTypes");
                 });
@@ -844,6 +849,17 @@ namespace Assignment.Migrations
                         .IsRequired();
 
                     b.Navigation("RoomType");
+                });
+
+            modelBuilder.Entity("Assignment.Models.RoomType", b =>
+                {
+                    b.HasOne("Assignment.Models.Hotel", "Hotel")
+                        .WithMany()
+                        .HasForeignKey("HotelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Hotel");
                 });
 
             modelBuilder.Entity("Assignment.Models.RoomTypeAmenity", b =>

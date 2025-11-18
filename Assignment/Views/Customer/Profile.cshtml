@@ -1,0 +1,60 @@
+@model Assignment.Models.User
+@{
+    ViewData["Title"] = "My Profile";
+}
+
+<div class="container mt-4">
+    <h2>My Profile</h2>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Personal Information</h5>
+                    <p><strong>Full Name:</strong> @Model.FullName</p>
+                    <p><strong>Email:</strong> @Model.Email</p>
+                    <p><strong>Phone Number:</strong> @(Model.PhoneNumber ?? "Not provided")</p>
+                    <p><strong>Role:</strong> @Model.Role</p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Account Status</h5>
+                    <p><strong>Email Verified:</strong> 
+                        @if (Model.IsEmailVerified)
+                        {
+                            <span class="badge bg-success">Verified</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning">Not Verified</span>
+                        }
+                    </p>
+                    <p><strong>Account Status:</strong> 
+                        @if (Model.IsActive)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Inactive</span>
+                        }
+                    </p>
+                    <p><strong>Member Since:</strong> @Model.CreatedAt.ToString("MM/dd/yyyy")</p>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <a asp-action="EditProfile" class="btn btn-primary">Edit Profile</a>
+                <a asp-controller="Booking" asp-action="MyBookings" class="btn btn-secondary">My Bookings</a>
+            </div>
+        </div>
+    </div>
+</div>
+

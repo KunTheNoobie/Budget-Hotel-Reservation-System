@@ -25,6 +25,6 @@ namespace Assignment.Models
         public bool IsUsed { get; set; } = false;
 
         [ForeignKey("UserId")]
-        public virtual User User { get; set; }
+        public virtual User? User { get; set; }
     }
 }

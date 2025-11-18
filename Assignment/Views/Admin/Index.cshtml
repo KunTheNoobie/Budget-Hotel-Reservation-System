@@ -1,0 +1,68 @@
+@{
+    ViewData["Title"] = "Admin Dashboard";
+    var stats = ViewBag.Stats as dynamic;
+}
+
+<div class="container-fluid">
+    <h2 class="mb-4">Admin Dashboard</h2>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Total Users</h5>
+                    <h2>@stats.TotalUsers</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">Total Hotels</h5>
+                    <h2>@stats.TotalHotels</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h5 class="card-title">Total Rooms</h5>
+                    <h2>@stats.TotalRooms</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">Total Bookings</h5>
+                    <h2>@stats.TotalBookings</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Booking Status</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Pending:</strong> @stats.PendingBookings</p>
+                    <p><strong>Confirmed:</strong> @stats.ConfirmedBookings</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <h4>Quick Links</h4>
+        <div class="list-group">
+            <a asp-action="Users" class="list-group-item list-group-item-action">Manage Users</a>
+            <a asp-action="Hotels" class="list-group-item list-group-item-action">Manage Hotels</a>
+            <a asp-action="Rooms" class="list-group-item list-group-item-action">Manage Rooms</a>
+            <a asp-action="Bookings" class="list-group-item list-group-item-action">Manage Bookings</a>
+        </div>
+    </div>
+</div>
+

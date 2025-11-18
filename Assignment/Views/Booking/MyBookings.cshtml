@@ -1,0 +1,87 @@
+@model List<Assignment.Models.Booking>
+@{
+    ViewData["Title"] = "My Bookings";
+}
+
+<div class="container mt-4">
+    <h2>My Bookings</h2>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (Model.Any())
+    {
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Booking ID</th>
+                        <th>Room</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Total Price</th>
+                        <th>Status</th>
+                        <th>Payment</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var booking in Model)
+                    {
+                        <tr>
+                            <td>#@booking.BookingId</td>
+                            <td>@booking.Room.RoomNumber<br /><small>@booking.Room.RoomType.Name</small></td>
+                            <td>@booking.CheckInDate.ToString("MM/dd/yyyy")</td>
+                            <td>@booking.CheckOutDate.ToString("MM/dd/yyyy")</td>
+                            <td>RM @booking.TotalPrice.ToString("F2")</td>
+                            <td>
+                                <span class="badge @(booking.Status == Assignment.Models.BookingStatus.Confirmed ? "bg-success" : booking.Status == Assignment.Models.BookingStatus.Cancelled ? "bg-danger" : "bg-warning")">
+                                    @booking.Status
+                                </span>
+                            </td>
+                            <td>
+                                @if (booking.Payment != null)
+                                {
+                                    <span class="badge bg-success">@booking.Payment.Status</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning">Pending</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="BookingDetails" asp-route-id="@booking.BookingId" class="btn btn-sm btn-info">Details</a>
+                                @if (booking.Status != Assignment.Models.BookingStatus.Cancelled && booking.CheckInDate > DateTime.Today)
+                                {
+                                    <form asp-action="CancelBooking" asp-route-id="@booking.BookingId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to cancel this booking?');">
+                                        <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            You have no bookings yet. <a asp-controller="Room" asp-action="Catalog">Browse rooms</a> to make a booking.
+        </div>
+    }
+</div>
+

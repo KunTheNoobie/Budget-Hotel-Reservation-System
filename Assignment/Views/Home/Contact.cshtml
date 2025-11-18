@@ -1,0 +1,76 @@
+@{
+    ViewData["Title"] = "Contact Us";
+}
+
+<div class="container mt-5 mb-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <h1 class="mb-4">Contact Us</h1>
+            
+            <div class="row mb-4">
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-envelope me-2"></i>Email</h5>
+                            <p class="card-text">
+                                <a href="mailto:info@budgetstay.com">info@budgetstay.com</a><br>
+                                <a href="mailto:support@budgetstay.com">support@budgetstay.com</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="bi bi-telephone me-2"></i>Phone</h5>
+                            <p class="card-text">
+                                +60 3-1234 5678<br>
+                                Monday - Friday: 9:00 AM - 6:00 PM (MYT)
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="mb-3">Send Us a Message</h3>
+                    <form>
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="subject" class="form-label">Subject</label>
+                            <input type="text" class="form-control" id="subject" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="message" class="form-label">Message</label>
+                            <textarea class="form-control" id="message" rows="5" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Send Message</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="mb-3">Visit Us</h3>
+                    <p><strong>Address:</strong></p>
+                    <p>123 Jalan Bukit Bintang<br>
+                    55100 Kuala Lumpur<br>
+                    Malaysia</p>
+                    <p class="mt-3"><strong>Business Hours:</strong><br>
+                    Monday - Friday: 9:00 AM - 6:00 PM (MYT)<br>
+                    Saturday: 10:00 AM - 2:00 PM (MYT)<br>
+                    Sunday: Closed</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

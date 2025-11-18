@@ -1,0 +1,60 @@
+@{
+    ViewData["Title"] = "Verify Email";
+    var userId = ViewBag.UserId as int?;
+    var email = ViewBag.Email as string;
+    var token = ViewBag.Token as string;
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white text-center">
+                    <h3><i class="bi bi-envelope-check"></i> Email Verification</h3>
+                </div>
+                <div class="card-body">
+                    @if (ViewBag.Success != null)
+                    {
+                        <div class="alert alert-success">
+                            <h5>@ViewBag.Success</h5>
+                            <a asp-action="Login" class="btn btn-primary">Go to Login</a>
+                        </div>
+                    }
+                    else if (ViewBag.Error != null)
+                    {
+                        <div class="alert alert-danger">
+                            <h5>@ViewBag.Error</h5>
+                        </div>
+                    }
+                    else if (userId.HasValue && !string.IsNullOrEmpty(token))
+                    {
+                        <div class="alert alert-info">
+                            <h5>Please verify your email address</h5>
+                            <p>An email verification link has been sent to <strong>@email</strong></p>
+                            <p>Click the link below to verify your email:</p>
+                            <div class="mt-3">
+                                <a href="@Url.Action("ConfirmEmail", "Security", new { userId = userId, token = token })" 
+                                   class="btn btn-primary btn-lg">
+                                    Verify Email Address
+                                </a>
+                            </div>
+                            <p class="mt-3 text-muted">
+                                <small>Or copy this link: <br />
+                                <code>@Url.Action("ConfirmEmail", "Security", new { userId = userId, token = token }, Context.Request.Scheme)</code>
+                                </small>
+                            </p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning">
+                            <h5>Verification Required</h5>
+                            <p>Please check your email for the verification link.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

@@ -18,6 +18,6 @@ namespace Assignment.Models
         public string? Caption { get; set; }
 
         [ForeignKey("RoomTypeId")]
-        public virtual RoomType RoomType { get; set; }
+        public virtual RoomType? RoomType { get; set; }
     }
 }
