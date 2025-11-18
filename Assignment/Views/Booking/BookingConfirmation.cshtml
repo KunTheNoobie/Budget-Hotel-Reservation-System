@@ -24,7 +24,7 @@
                     <h5>Payment Information</h5>
                     @if (Model.Payment != null)
                     {
-                        <p><strong>Amount Paid:</strong> RM@Model.Payment.Amount.ToString("F2")</p>
+                        <p><strong>Amount Paid:</strong> RM @Model.Payment.Amount.ToString("F2")</p>
                         <p><strong>Payment Method:</strong> @Model.Payment.PaymentMethod</p>
                         <p><strong>Payment Status:</strong> <span class="badge bg-success">@Model.Payment.Status</span></p>
                         <p><strong>Transaction ID:</strong> @(Model.Payment.TransactionId ?? "N/A")</p>

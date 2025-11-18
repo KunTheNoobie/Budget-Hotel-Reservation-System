@@ -1,7 +1,7 @@
 @model Assignment.ViewModels.Booking.PaymentViewModel
 @{
     ViewData["Title"] = "Payment";
-    var booking = Model.Booking;
+    var booking = Model.Booking!;
     var nights = (booking.CheckOutDate - booking.CheckInDate).Days;
     var basePrice = booking.Room.RoomType.BasePrice * nights;
     var discount = basePrice - booking.TotalPrice;
@@ -30,19 +30,19 @@
                             <div class="table-responsive">
                                 <table class="table table-sm">
                                     <tr>
-                                        <td>Base Price (@nights nights × RM@booking.Room.RoomType.BasePrice.ToString("F2")):</td>
-                                        <td class="text-end">RM@basePrice.ToString("F2")</td>
+                                        <td>Base Price (@nights nights × RM @booking.Room.RoomType.BasePrice.ToString("F2")):</td>
+                                        <td class="text-end">RM @basePrice.ToString("F2")</td>
                                     </tr>
                                     @if (booking.Promotion != null)
                                     {
                                         <tr>
                                             <td>Promotion (@booking.Promotion.Code):</td>
-                                            <td class="text-end text-danger">-RM@discount.ToString("F2")</td>
+                                            <td class="text-end text-danger">-RM @discount.ToString("F2")</td>
                                         </tr>
                                     }
                                     <tr class="table-active">
                                         <td><strong>Total Amount:</strong></td>
-                                        <td class="text-end"><strong class="price-display">RM@booking.TotalPrice.ToString("F2")</strong></td>
+                                        <td class="text-end"><strong class="price-display">RM @booking.TotalPrice.ToString("F2")</strong></td>
                                     </tr>
                                 </table>
                             </div>
@@ -159,7 +159,7 @@
                             </div>
                             <div class="alert alert-info">
                                 <strong>Bank Transfer Instructions:</strong><br />
-                                Please transfer RM@booking.TotalPrice.ToString("F2") to:<br />
+                                Please transfer RM @booking.TotalPrice.ToString("F2") to:<br />
                                 <strong>Account:</strong> BudgetHotel Sdn Bhd<br />
                                 <strong>Account Number:</strong> 1234567890<br />
                                 <strong>Bank:</strong> Maybank<br />
@@ -190,7 +190,7 @@
                     <hr />
                     <div class="d-flex justify-content-between">
                         <strong>Total Amount:</strong>
-                        <strong class="price-display">RM@booking.TotalPrice.ToString("F2")</strong>
+                        <strong class="price-display">RM @booking.TotalPrice.ToString("F2")</strong>
                     </div>
                     @if (booking.Promotion != null)
                     {

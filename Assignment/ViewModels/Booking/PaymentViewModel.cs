@@ -1,4 +1,6 @@
 using Assignment.Models;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using System.ComponentModel.DataAnnotations;
 using BookingModel = Assignment.Models.Booking;
 
@@ -7,7 +9,10 @@ namespace Assignment.ViewModels.Booking
     public class PaymentViewModel
     {
         public int BookingId { get; set; }
-        public BookingModel Booking { get; set; } = null!;
+
+        [BindNever]
+        [ValidateNever]
+        public BookingModel? Booking { get; set; }
 
         [Required(ErrorMessage = "Payment method is required")]
         [Display(Name = "Payment Method")]

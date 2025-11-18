@@ -14,7 +14,7 @@
             <div class="card">
                 <div class="card-body">
                     <h4>@roomType.Name</h4>
-                    <p><strong>Price per night:</strong> RM@roomType.BasePrice.ToString("F2")</p>
+                    <p><strong>Price per night:</strong> RM @roomType.BasePrice.ToString("F2")</p>
                     <p><strong>Occupancy:</strong> @roomType.Occupancy person(s)</p>
 
                     <form asp-action="Create" method="post">
@@ -61,19 +61,19 @@
                 <div class="card-body">
                     <div class="mb-3">
                         <p class="mb-1"><strong>Room:</strong> @roomType.Name</p>
-                        <p class="mb-1"><strong>Price per night:</strong> RM@roomType.BasePrice.ToString("F2")</p>
+                        <p class="mb-1"><strong>Price per night:</strong> RM @roomType.BasePrice.ToString("F2")</p>
                         <p class="mb-1"><strong>Occupancy:</strong> @roomType.Occupancy person(s)</p>
                     </div>
                     <hr />
                     <div id="priceBreakdown">
                         <p id="nights" class="mb-1">Nights: <span id="nightsValue">Calculating...</span></p>
-                        <p id="basePrice" class="mb-1">Base Price: <span id="basePriceValue">RM@roomType.BasePrice.ToString("F2")</span></p>
+                        <p id="basePrice" class="mb-1">Base Price: <span id="basePriceValue">RM @roomType.BasePrice.ToString("F2")</span></p>
                         <p id="promotionInfo" class="mb-1 text-muted" style="display: none;">Promotion: <span id="promotionName"></span></p>
                         <p id="discount" class="mb-1 text-success">Discount: <span id="discountValue">RM0.00</span></p>
                         <hr />
                         <div class="d-flex justify-content-between align-items-center">
                             <strong>Total:</strong>
-                            <span id="totalPrice" class="price-display">RM@roomType.BasePrice.ToString("F2")</span>
+                            <span id="totalPrice" class="price-display">RM @roomType.BasePrice.ToString("F2")</span>
                         </div>
                     </div>
                 </div>
