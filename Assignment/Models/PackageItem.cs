@@ -10,6 +10,10 @@ namespace Assignment.Models
         public int? ServiceId { get; set; }
         public int Quantity { get; set; }
 
+        // Soft Delete
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
+
         [ForeignKey("PackageId")]
         public virtual Package Package { get; set; }
         [ForeignKey("RoomTypeId")]

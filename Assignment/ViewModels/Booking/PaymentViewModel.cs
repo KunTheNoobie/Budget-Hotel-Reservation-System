@@ -16,7 +16,7 @@ namespace Assignment.ViewModels.Booking
 
         [Required(ErrorMessage = "Payment method is required")]
         [Display(Name = "Payment Method")]
-        public PaymentMethod PaymentMethod { get; set; }
+        public PaymentMethod? PaymentMethod { get; set; }
 
         // Credit Card Fields
         [Display(Name = "Card Number")]

@@ -22,6 +22,10 @@ namespace Assignment.Models
         [ForeignKey("RoomTypeId")]
         public virtual RoomType? RoomType { get; set; }
 
+        // Soft Delete
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
+
         public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
     }
 }

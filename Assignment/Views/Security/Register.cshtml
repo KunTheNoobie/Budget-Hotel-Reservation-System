@@ -28,23 +28,40 @@
 
                         <div class="mb-3">
                             <label asp-for="PhoneNumber" class="form-label"></label>
-                            <input asp-for="PhoneNumber" class="form-control" placeholder="Enter your phone number (optional)" />
+                            <input asp-for="PhoneNumber" class="form-control" placeholder="Enter your phone number (optional)" pattern="^(\+?[0-9]{1,4}[-]?[0-9]{2,4}[-]?[0-9]{3,4}[-]?[0-9]{3,4}|[0-9]{7,15})$" title="Phone number format: +60-12-345-6789, 012-345-6789, or 0123456789" />
                             <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+                            <small class="form-text text-muted">Format: +60-12-345-6789, 012-345-6789, or similar (optional)</small>
                         </div>
 
                         <div class="mb-3">
                             <label asp-for="Password" class="form-label"></label>
-                            <input asp-for="Password" class="form-control" placeholder="Enter your password" />
+                            <div class="input-group">
+                                <input asp-for="Password" class="form-control" placeholder="Enter your password" id="password" />
+                                <button type="button" class="btn btn-outline-secondary border" id="togglePassword" onclick="togglePasswordVisibility('password', 'passwordIcon')">
+                                    <i class="bi bi-eye" id="passwordIcon"></i>
+                                </button>
+                            </div>
                             <span asp-validation-for="Password" class="text-danger"></span>
-                            <small class="form-text text-muted">
-                                Password must be at least 8 characters with uppercase, lowercase, and number.
+                            <small class="form-text text-muted d-block mt-1">
+                                Must include: 8+ chars, uppercase, lowercase, number, special char (&#64;&#36;!%*?&amp;)
                             </small>
                         </div>
 
                         <div class="mb-3">
                             <label asp-for="ConfirmPassword" class="form-label"></label>
-                            <input asp-for="ConfirmPassword" class="form-control" placeholder="Confirm your password" />
+                            <div class="input-group">
+                                <input asp-for="ConfirmPassword" class="form-control" placeholder="Confirm your password" id="confirmPassword" />
+                                <button type="button" class="btn btn-outline-secondary border" id="toggleConfirmPassword" onclick="togglePasswordVisibility('confirmPassword', 'confirmPasswordIcon')">
+                                    <i class="bi bi-eye" id="confirmPasswordIcon"></i>
+                                </button>
+                            </div>
                             <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3 p-3 bg-light border rounded">
+                            <label asp-for="CaptchaAnswer" class="form-label fw-bold">Security Question: What is @ViewBag.Num1 + @ViewBag.Num2 ?</label>
+                            <input asp-for="CaptchaAnswer" class="form-control" placeholder="Enter the sum" />
+                            <span asp-validation-for="CaptchaAnswer" class="text-danger"></span>
                         </div>
 
                         <div class="d-grid">
@@ -67,5 +84,21 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        function togglePasswordVisibility(inputId, iconId) {
+            const passwordInput = document.getElementById(inputId);
+            const passwordIcon = document.getElementById(iconId);
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                passwordIcon.classList.remove('bi-eye');
+                passwordIcon.classList.add('bi-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                passwordIcon.classList.remove('bi-eye-slash');
+                passwordIcon.classList.add('bi-eye');
+            }
+        }
+    </script>
 }
 

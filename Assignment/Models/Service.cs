@@ -16,5 +16,9 @@ namespace Assignment.Models
 
         [Required, Column(TypeName = "decimal(18, 2)")]
         public decimal Price { get; set; }
+
+        // Soft Delete
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
     }
 }

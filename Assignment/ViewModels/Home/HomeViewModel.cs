@@ -11,6 +11,7 @@ namespace Assignment.ViewModels.Home
         public HomeStatsViewModel Stats { get; set; } = new();
         public List<PackageSummaryViewModel> Packages { get; set; } = new();
         public List<Service> HighlightedServices { get; set; } = new();
+        public List<Review> CustomerReviews { get; set; } = new();
     }
 }
 

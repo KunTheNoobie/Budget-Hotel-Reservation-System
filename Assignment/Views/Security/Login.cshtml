@@ -32,7 +32,12 @@
 
                         <div class="mb-3">
                             <label asp-for="Password" class="form-label"></label>
-                            <input asp-for="Password" class="form-control" placeholder="Enter your password" />
+                            <div class="input-group">
+                                <input asp-for="Password" class="form-control" placeholder="Enter your password" id="password" />
+                                <button type="button" class="btn btn-outline-secondary border" id="togglePassword" onclick="togglePasswordVisibility('password', 'passwordIcon')">
+                                    <i class="bi bi-eye" id="passwordIcon"></i>
+                                </button>
+                            </div>
                             <span asp-validation-for="Password" class="text-danger"></span>
                         </div>
 
@@ -64,5 +69,21 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        function togglePasswordVisibility(inputId, iconId) {
+            const passwordInput = document.getElementById(inputId);
+            const passwordIcon = document.getElementById(iconId);
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                passwordIcon.classList.remove('bi-eye');
+                passwordIcon.classList.add('bi-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                passwordIcon.classList.remove('bi-eye-slash');
+                passwordIcon.classList.add('bi-eye');
+            }
+        }
+    </script>
 }
 

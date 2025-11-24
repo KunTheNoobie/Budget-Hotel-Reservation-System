@@ -14,16 +14,43 @@
         </div>
     }
 
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
     <div class="card">
         <div class="card-body">
             <div class="row">
-                <div class="col-md-6">
-                    <h5>Personal Information</h5>
-                    <p><strong>Full Name:</strong> @Model.FullName</p>
-                    <p><strong>Email:</strong> @Model.Email</p>
-                    <p><strong>Phone Number:</strong> @(Model.PhoneNumber ?? "Not provided")</p>
-                    <p><strong>Role:</strong> @Model.Role</p>
+            <div class="row">
+                <div class="col-md-4 text-center mb-4">
+                    <div class="mb-3">
+                        @if (!string.IsNullOrEmpty(Model.ProfilePictureUrl))
+                        {
+                            <img src="@Model.ProfilePictureUrl" alt="Profile Picture" class="rounded-circle img-thumbnail" style="width: 150px; height: 150px; object-fit: cover;">
+                        }
+                        else
+                        {
+                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto" style="width: 150px; height: 150px;">
+                                <i class="bi bi-person fs-1 text-muted"></i>
+                            </div>
+                        }
+                    </div>
+                    <p class="text-muted">To change your profile picture, please use the Edit Profile page.</p>
                 </div>
+
+                <div class="col-md-8">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Personal Information</h5>
+                            <p><strong>Full Name:</strong> @Model.FullName</p>
+                            <p><strong>Email:</strong> @Model.Email</p>
+                            <p><strong>Phone Number:</strong> @(Model.DecryptedPhoneNumber ?? "Not provided")</p>
+                            <p><strong>Role:</strong> @Model.Role</p>
+                        </div>
                 <div class="col-md-6">
                     <h5>Account Status</h5>
                     <p><strong>Email Verified:</strong> 
@@ -47,6 +74,15 @@
                         }
                     </p>
                     <p><strong>Member Since:</strong> @Model.CreatedAt.ToString("MM/dd/yyyy")</p>
+                </div>
+            </div>
+            
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h5>Profile Details</h5>
+                    <p><strong>Bio:</strong> @(Model.Bio ?? "No bio provided")</p>
+                    <p><strong>Preferred Language:</strong> @Model.PreferredLanguage</p>
+                    <p><strong>Theme:</strong> @Model.Theme</p>
                 </div>
             </div>
 

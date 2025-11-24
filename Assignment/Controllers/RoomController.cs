@@ -18,6 +18,40 @@ namespace Assignment.Controllers
 
         public async Task<IActionResult> Catalog(string searchTerm = "", int? roomTypeId = null, decimal? maxPrice = null, DateTime? checkIn = null, int? guests = null, int page = 1, int pageSize = 9)
         {
+            // Validate input parameters
+            if (guests.HasValue && (guests.Value < 1 || guests.Value > 20))
+            {
+                ModelState.AddModelError("Guests", "Number of guests must be between 1 and 20.");
+                guests = 1;
+            }
+
+            if (maxPrice.HasValue && maxPrice.Value < 0)
+            {
+                ModelState.AddModelError("MaxPrice", "Maximum price cannot be negative.");
+                maxPrice = null;
+            }
+
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                if (searchTerm.Length > 200)
+                {
+                    ModelState.AddModelError("SearchTerm", "Search term cannot exceed 200 characters.");
+                    searchTerm = searchTerm.Substring(0, 200);
+                }
+                // Check for invalid characters
+                if (!System.Text.RegularExpressions.Regex.IsMatch(searchTerm, @"^[a-zA-Z0-9\s,.-]+$"))
+                {
+                    ModelState.AddModelError("SearchTerm", "Search term contains invalid characters. Only letters, numbers, spaces, commas, periods, and hyphens are allowed.");
+                }
+            }
+
+            // Validate check-in date - must be today or in the future
+            if (checkIn.HasValue && checkIn.Value.Date < DateTime.Today)
+            {
+                ModelState.AddModelError("CheckIn", "Check-in date cannot be in the past. Please select today or a future date.");
+                checkIn = DateTime.Today;
+            }
+
             var query = _context.RoomTypes
                 .Include(rt => rt.Hotel)
                 .Include(rt => rt.RoomImages)
@@ -28,6 +62,30 @@ namespace Assignment.Controllers
             if (!string.IsNullOrEmpty(searchTerm))
             {
                 var term = searchTerm.Trim().ToLower();
+                
+                // Require minimum 2 characters for meaningful search
+                if (term.Length < 2)
+                {
+                    ViewBag.SearchTerm = searchTerm;
+                    ViewBag.SearchError = "Please enter at least 2 characters to search.";
+                    ViewBag.RoomTypeId = roomTypeId;
+                    ViewBag.MaxPrice = maxPrice;
+                    ViewBag.Guests = guests;
+                    ViewBag.CheckIn = checkIn?.ToString("yyyy-MM-dd");
+                    ViewBag.CurrentPage = 1;
+                    ViewBag.TotalPages = 0;
+                    ViewBag.PageSize = pageSize;
+                    ViewBag.AllRoomTypes = await _context.RoomTypes.OrderBy(rt => rt.RoomTypeId).ToListAsync();
+                    var maxPriceDb = await _context.RoomTypes.MaxAsync(rt => (decimal?)rt.BasePrice) ?? 0;
+                    ViewBag.MaxPriceInDb = maxPriceDb > 0 ? maxPriceDb : 1000;
+                    ViewBag.Destinations = await _context.Hotels
+                        .Select(h => h.City + ", " + h.Country)
+                        .Distinct()
+                        .OrderBy(d => d)
+                        .ToListAsync();
+                    return View(new List<RoomType>());
+                }
+                
                 var locationParts = term.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 if (locationParts.Length >= 2)
                 {
@@ -46,12 +104,17 @@ namespace Assignment.Controllers
                 }
                 else
                 {
+                    // More strict matching - require the term to be at the start of words or be a significant match
                     query = query.Where(rt =>
-                        rt.Name.ToLower().Contains(term) ||
+                        rt.Name.ToLower().StartsWith(term) ||
+                        rt.Name.ToLower().Contains(" " + term) ||
                         (rt.Hotel != null && (
-                            rt.Hotel.Name.ToLower().Contains(term) ||
-                            rt.Hotel.City.ToLower().Contains(term) ||
-                            rt.Hotel.Country.ToLower().Contains(term))));
+                            rt.Hotel.Name.ToLower().StartsWith(term) ||
+                            rt.Hotel.Name.ToLower().Contains(" " + term) ||
+                            rt.Hotel.City.ToLower().StartsWith(term) ||
+                            rt.Hotel.City.ToLower().Contains(" " + term) ||
+                            rt.Hotel.Country.ToLower().StartsWith(term) ||
+                            rt.Hotel.Country.ToLower().Contains(" " + term))));
                 }
             }
 
@@ -70,12 +133,44 @@ namespace Assignment.Controllers
                 query = query.Where(rt => rt.Occupancy >= guests.Value);
             }
 
-            var totalCount = await query.CountAsync();
-            var roomTypes = await query
+            // Get distinct room types to avoid duplicates
+            var roomTypeIds = await query.Select(rt => rt.RoomTypeId).Distinct().ToListAsync();
+            var totalCount = roomTypeIds.Count;
+            
+            var roomTypes = await _context.RoomTypes
+                .Include(rt => rt.Hotel)
+                .Include(rt => rt.RoomImages)
+                .Include(rt => rt.RoomTypeAmenities)
+                    .ThenInclude(rta => rta.Amenity)
+                .Include(rt => rt.Rooms)
+                    .ThenInclude(r => r.Bookings)
+                        .ThenInclude(b => b.Reviews)
+                .Where(rt => roomTypeIds.Contains(rt.RoomTypeId))
                 .OrderBy(rt => rt.RoomTypeId)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
+
+            // Calculate available rooms for each room type based on check-in date if provided
+            var availableRoomsDict = new Dictionary<int, int>();
+            if (checkIn.HasValue)
+            {
+                var checkOutDate = checkIn.Value.AddDays(1); // Default to 1 night if no check-out specified
+                foreach (var rt in roomTypes)
+                {
+                    var availableCount = await _context.Rooms
+                        .Where(r => r.RoomTypeId == rt.RoomTypeId && r.Status == RoomStatus.Available)
+                        .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
+                            b.Status != BookingStatus.Cancelled &&
+                            b.Status != BookingStatus.CheckedOut &&
+                            ((b.CheckInDate <= checkIn.Value && b.CheckOutDate > checkIn.Value) ||
+                             (b.CheckInDate < checkOutDate && b.CheckOutDate >= checkOutDate) ||
+                             (b.CheckInDate >= checkIn.Value && b.CheckOutDate <= checkOutDate))))
+                        .CountAsync();
+                    availableRoomsDict[rt.RoomTypeId] = availableCount;
+                }
+            }
+            ViewBag.AvailableRoomsDict = availableRoomsDict;
 
             ViewBag.SearchTerm = searchTerm;
             ViewBag.RoomTypeId = roomTypeId;
@@ -86,7 +181,8 @@ namespace Assignment.Controllers
             ViewBag.TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
             ViewBag.PageSize = pageSize;
             ViewBag.AllRoomTypes = await _context.RoomTypes.OrderBy(rt => rt.RoomTypeId).ToListAsync();
-            ViewBag.MaxPriceInDb = await _context.RoomTypes.MaxAsync(rt => (decimal?)rt.BasePrice) ?? 0;
+            var maxPriceInDb = await _context.RoomTypes.MaxAsync(rt => (decimal?)rt.BasePrice) ?? 0;
+            ViewBag.MaxPriceInDb = maxPriceInDb > 0 ? maxPriceInDb : 1000; // Default to 1000 if no rooms exist
             ViewBag.Destinations = await _context.Hotels
                 .Select(h => h.City + ", " + h.Country)
                 .Distinct()
@@ -97,7 +193,7 @@ namespace Assignment.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Details(int id)
+        public async Task<IActionResult> Details(int id, int reviewPage = 1, int reviewPageSize = 9)
         {
             var roomType = await _context.RoomTypes
                 .Include(rt => rt.Hotel)
@@ -105,6 +201,9 @@ namespace Assignment.Controllers
                 .Include(rt => rt.RoomTypeAmenities)
                     .ThenInclude(rta => rta.Amenity)
                 .Include(rt => rt.Rooms)
+                    .ThenInclude(r => r.Bookings)
+                        .ThenInclude(b => b.Reviews)
+                            .ThenInclude(r => r.User)
                 .FirstOrDefaultAsync(rt => rt.RoomTypeId == id);
 
             if (roomType == null)
@@ -120,6 +219,26 @@ namespace Assignment.Controllers
                     b.Status != BookingStatus.CheckedOut))
                 .CountAsync();
             ViewBag.AvailableRooms = availableRooms;
+
+            // Get all reviews for this room type
+            var allReviews = roomType.Rooms
+                .SelectMany(r => r.Bookings)
+                .SelectMany(b => b.Reviews)
+                .OrderByDescending(r => r.ReviewDate)
+                .ToList();
+
+            // Paginate reviews
+            var totalReviews = allReviews.Count;
+            var paginatedReviews = allReviews
+                .Skip((reviewPage - 1) * reviewPageSize)
+                .Take(reviewPageSize)
+                .ToList();
+
+            ViewBag.AllReviews = allReviews;
+            ViewBag.PaginatedReviews = paginatedReviews;
+            ViewBag.ReviewCurrentPage = reviewPage;
+            ViewBag.ReviewTotalPages = (int)Math.Ceiling(totalReviews / (double)reviewPageSize);
+            ViewBag.ReviewPageSize = reviewPageSize;
 
             return View(roomType);
         }
@@ -137,6 +256,13 @@ namespace Assignment.Controllers
             if (!string.IsNullOrEmpty(term))
             {
                 var lowerTerm = term.Trim().ToLower();
+                
+                // Require minimum 2 characters for meaningful search
+                if (lowerTerm.Length < 2)
+                {
+                    return Json(new List<object>());
+                }
+                
                 var locationParts = lowerTerm.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
                 if (locationParts.Length >= 2)
@@ -156,12 +282,17 @@ namespace Assignment.Controllers
                 }
                 else
                 {
+                    // More strict matching - require the term to be at the start of words or be a significant match
                     query = query.Where(rt =>
-                        rt.Name.ToLower().Contains(lowerTerm) ||
+                        rt.Name.ToLower().StartsWith(lowerTerm) ||
+                        rt.Name.ToLower().Contains(" " + lowerTerm) ||
                         (rt.Hotel != null && (
-                            rt.Hotel.Name.ToLower().Contains(lowerTerm) ||
-                            rt.Hotel.City.ToLower().Contains(lowerTerm) ||
-                            rt.Hotel.Country.ToLower().Contains(lowerTerm))));
+                            rt.Hotel.Name.ToLower().StartsWith(lowerTerm) ||
+                            rt.Hotel.Name.ToLower().Contains(" " + lowerTerm) ||
+                            rt.Hotel.City.ToLower().StartsWith(lowerTerm) ||
+                            rt.Hotel.City.ToLower().Contains(" " + lowerTerm) ||
+                            rt.Hotel.Country.ToLower().StartsWith(lowerTerm) ||
+                            rt.Hotel.Country.ToLower().Contains(" " + lowerTerm))));
                 }
             }
 
@@ -180,21 +311,60 @@ namespace Assignment.Controllers
                 query = query.Where(rt => rt.Occupancy >= guests.Value);
             }
 
-            var roomTypes = await query
+            // Get distinct room type IDs first to avoid duplicates
+            var distinctRoomTypeIds = await query
+                .Select(rt => rt.RoomTypeId)
+                .Distinct()
+                .ToListAsync();
+            
+            // Then fetch the full room type data for those IDs, ordered by price
+            var roomTypesData = await _context.RoomTypes
+                .Include(rt => rt.Hotel)
+                .Include(rt => rt.RoomImages)
+                .Include(rt => rt.RoomTypeAmenities)
+                    .ThenInclude(rta => rta.Amenity)
+                .Include(rt => rt.Rooms)
+                    .ThenInclude(r => r.Bookings)
+                        .ThenInclude(b => b.Reviews)
+                .Where(rt => distinctRoomTypeIds.Contains(rt.RoomTypeId))
                 .OrderBy(rt => rt.BasePrice)
                 .Take(9)
-                .Select(rt => new
-                {
-                    rt.RoomTypeId,
-                    rt.Name,
-                    rt.Description,
-                    rt.BasePrice,
-                    rt.Occupancy,
-                    Location = rt.Hotel != null ? rt.Hotel.City + ", " + rt.Hotel.Country : "Malaysia",
-                    ImageUrl = rt.RoomImages.FirstOrDefault() != null ? rt.RoomImages.FirstOrDefault().ImageUrl : null,
-                    Amenities = rt.RoomTypeAmenities.Select(rta => rta.Amenity.Name).ToList()
-                })
                 .ToListAsync();
+            
+            // Project to anonymous type after materialization to avoid EF translation issues
+            var roomTypes = roomTypesData.Select(rt => {
+                var reviews = rt.Rooms
+                    .SelectMany(r => r.Bookings)
+                    .SelectMany(b => b.Reviews)
+                    .ToList();
+                var avgRating = reviews.Any() ? reviews.Average(r => r.Rating) : 0;
+                var reviewCount = reviews.Count;
+                
+                // Calculate available rooms - exclude rooms with overlapping bookings
+                // Note: For AJAX search, we don't have check-in date, so we just count Available status rooms
+                // The actual availability check happens when user selects dates
+                var availableRooms = rt.Rooms.Count(r => r.Status == RoomStatus.Available &&
+                    !r.Bookings.Any(b => b.Status != BookingStatus.Cancelled && 
+                                        b.Status != BookingStatus.CheckedOut &&
+                                        b.CheckOutDate > DateTime.Today));
+                
+                return new
+            {
+                RoomTypeId = rt.RoomTypeId,
+                Name = rt.Name,
+                Description = rt.Description,
+                BasePrice = rt.BasePrice,
+                Occupancy = rt.Occupancy,
+                Location = rt.Hotel != null ? rt.Hotel.City + ", " + rt.Hotel.Country : "Malaysia",
+                    HotelName = rt.Hotel?.Name,
+                    HotelImageUrl = rt.Hotel?.ImageUrl,
+                ImageUrl = rt.RoomImages.FirstOrDefault()?.ImageUrl,
+                    Amenities = rt.RoomTypeAmenities.Select(rta => new { Name = rta.Amenity.Name, ImageUrl = rta.Amenity.ImageUrl }).ToList(),
+                    AverageRating = avgRating,
+                    ReviewCount = reviewCount,
+                    AvailableRooms = availableRooms
+                };
+            }).ToList();
 
             return Json(roomTypes);
         }

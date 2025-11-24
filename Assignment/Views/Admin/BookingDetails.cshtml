@@ -64,13 +64,16 @@
                 </div>
                 <div class="col-md-6">
                     <h5>Payment Information</h5>
-                    @if (Model.Payment != null)
+                    @if (Model.PaymentAmount.HasValue)
                     {
-                        <p><strong>Payment Status:</strong> <span class="badge bg-success">@Model.Payment.Status</span></p>
-                        <p><strong>Payment Method:</strong> @Model.Payment.PaymentMethod</p>
-                        <p><strong>Transaction ID:</strong> @Model.Payment.TransactionId</p>
-                        <p><strong>Payment Date:</strong> @Model.Payment.PaymentDate.ToString("MM/dd/yyyy HH:mm")</p>
-                        <p><strong>Amount Paid:</strong> RM @Model.Payment.Amount.ToString("F2")</p>
+                        <p><strong>Payment Status:</strong> <span class="badge bg-success">@Model.PaymentStatus</span></p>
+                        <p><strong>Payment Method:</strong> @(Model.PaymentMethod?.ToString() ?? "N/A")</p>
+                        <p><strong>Transaction ID:</strong> @(Model.TransactionId ?? "N/A")</p>
+                        @if (Model.PaymentDate.HasValue)
+                        {
+                            <p><strong>Payment Date:</strong> @Model.PaymentDate.Value.ToString("MM/dd/yyyy HH:mm")</p>
+                        }
+                        <p><strong>Amount Paid:</strong> RM @Model.PaymentAmount.Value.ToString("F2")</p>
                     }
                     else
                     {

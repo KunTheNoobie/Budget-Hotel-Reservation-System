@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc.ViewEngines;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Assignment.Services;
 
 namespace Assignment.Models
 {
@@ -10,19 +12,26 @@ namespace Assignment.Models
         public int UserId { get; set; }
 
         [Required]
-        [StringLength(100)]
-        public string FullName { get; set; }
-
-        [Required]
         [EmailAddress]
         [StringLength(100)]
         public string Email { get; set; }
 
         [Required]
+        [StringLength(100)]
+        public string FullName { get; set; }
+
+        [Required]
         public string PasswordHash { get; set; }
 
-        [StringLength(20)]
+        [StringLength(255)] // Increased length for encrypted string
         public string? PhoneNumber { get; set; }
+
+        [NotMapped]
+        public string? DecryptedPhoneNumber 
+        { 
+            get => EncryptionService.Decrypt(PhoneNumber ?? "");
+            set => PhoneNumber = EncryptionService.Encrypt(value ?? "");
+        }
 
         [Required]
         public UserRole Role { get; set; } = UserRole.Customer;
@@ -31,10 +40,24 @@ namespace Assignment.Models
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+        [StringLength(255)]
+        public string? ProfilePictureUrl { get; set; }
+
+        [StringLength(500)]
+        public string? Bio { get; set; }
+
+        [StringLength(10)]
+        public string PreferredLanguage { get; set; } = "en-US";
+
+        [StringLength(50)]
+        public string Theme { get; set; } = "Default";
+
+        // Soft Delete
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
+
         // Navigation Properties
-        public virtual UserProfile? UserProfile { get; set; }
         public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
         public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
-        public virtual ICollection<SupportTicket> SupportTickets { get; set; } = new List<SupportTicket>();
     }
 }

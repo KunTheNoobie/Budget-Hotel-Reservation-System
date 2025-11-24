@@ -35,25 +35,94 @@
             <div class="card mb-4">
                 <div class="card-body">
                     <h3 class="mb-3">Send Us a Message</h3>
-                    <form>
+                    
+                    @if (TempData["Success"] != null)
+                    {
+                        <div class="alert alert-success mb-3">
+                            <i class="bi bi-check-circle-fill me-2"></i>@TempData["Success"]
+                        </div>
+                    }
+                    
+                    <form id="contactForm" asp-controller="Contact" asp-action="Send" method="post">
+                        @Html.AntiForgeryToken()
                         <div class="mb-3">
                             <label for="name" class="form-label">Name</label>
-                            <input type="text" class="form-control" id="name" required>
+                            <input type="text" class="form-control" id="name" name="Name" required>
                         </div>
                         <div class="mb-3">
                             <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" required>
+                            <input type="email" class="form-control" id="email" name="Email" required>
                         </div>
                         <div class="mb-3">
                             <label for="subject" class="form-label">Subject</label>
-                            <input type="text" class="form-control" id="subject" required>
+                            <input type="text" class="form-control" id="subject" name="Subject" required>
                         </div>
                         <div class="mb-3">
                             <label for="message" class="form-label">Message</label>
-                            <textarea class="form-control" id="message" rows="5" required></textarea>
+                            <textarea class="form-control" id="message" name="Message" rows="5" required></textarea>
                         </div>
                         <button type="submit" class="btn btn-primary">Send Message</button>
                     </form>
+                    
+                    <script>
+                        document.getElementById('contactForm').addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            var form = this;
+                            var formData = new FormData(form);
+                            
+                            // Get anti-forgery token
+                            var token = document.querySelector('input[name="__RequestVerificationToken"]');
+                            if (token) {
+                                formData.append('__RequestVerificationToken', token.value);
+                            }
+                            
+                            fetch(form.action, {
+                                method: 'POST',
+                                body: formData,
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
+                            .then(response => {
+                                // Check if response is JSON
+                                const contentType = response.headers.get("content-type");
+                                if (contentType && contentType.includes("application/json")) {
+                                    return response.json();
+                                } else {
+                                    // If not JSON, might be HTML redirect or error
+                                    throw new Error('Unexpected response format');
+                                }
+                            })
+                            .then(data => {
+                                if (data && data.success) {
+                                    form.reset();
+                                    // Remove existing alerts
+                                    var existingAlerts = form.parentNode.querySelectorAll('.alert');
+                                    existingAlerts.forEach(function(alert) {
+                                        alert.remove();
+                                    });
+                                    // Show success message
+                                    var successDiv = document.createElement('div');
+                                    successDiv.className = 'alert alert-success mb-3';
+                                    successDiv.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i>' + (data.message || 'Your message has been sent successfully! We\'ll get back to you soon.');
+                                    form.parentNode.insertBefore(successDiv, form);
+                                    // Scroll to top to show message
+                                    successDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                    setTimeout(function() {
+                                        successDiv.remove();
+                                    }, 5000);
+                                } else {
+                                    alert(data.message || 'Please fill in all required fields correctly.');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                // Fallback: submit form normally
+                                form.removeEventListener('submit', arguments.callee);
+                                form.submit();
+                            });
+                        });
+                    </script>
                 </div>
             </div>
 

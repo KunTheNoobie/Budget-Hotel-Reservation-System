@@ -16,24 +16,26 @@ namespace Assignment.ViewModels.Security
         [Display(Name = "Email Address")]
         public string Email { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Password is required")]
-        [StringLength(100, ErrorMessage = "Password must be at least 8 characters", MinimumLength = 8)]
+        [Required]
         [DataType(DataType.Password)]
-        [Display(Name = "Password")]
-        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$", 
-            ErrorMessage = "Password must contain at least one uppercase letter, one lowercase letter, and one number")]
-        public string Password { get; set; } = string.Empty;
+        [StringLength(100, ErrorMessage = "Password must be 8-100 characters", MinimumLength = 8)]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$", 
+            ErrorMessage = "Password must contain uppercase, lowercase, number, and special character (@$!%*?&)")]
+        public string Password { get; set; }
 
-        [Required(ErrorMessage = "Please confirm your password")]
+        [Required]
         [DataType(DataType.Password)]
-        [Display(Name = "Confirm Password")]
-        [Compare("Password", ErrorMessage = "Password and confirmation password do not match")]
-        public string ConfirmPassword { get; set; } = string.Empty;
+        [Compare("Password", ErrorMessage = "Passwords do not match")]
+        public string ConfirmPassword { get; set; }
 
         [StringLength(20, ErrorMessage = "Phone number cannot exceed 20 characters")]
         [Phone(ErrorMessage = "Invalid phone number format")]
         [Display(Name = "Phone Number (Optional)")]
         public string? PhoneNumber { get; set; }
+
+        [Required(ErrorMessage = "Please answer the security question")]
+        [Display(Name = "Security Question")]
+        public int CaptchaAnswer { get; set; }
     }
 }
 

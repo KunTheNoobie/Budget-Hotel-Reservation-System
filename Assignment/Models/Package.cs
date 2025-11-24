@@ -17,7 +17,14 @@ namespace Assignment.Models
         [Required, Column(TypeName = "decimal(18, 2)")]
         public decimal TotalPrice { get; set; }
 
+        [StringLength(255)]
+        public string? ImageUrl { get; set; }
+
         public bool IsActive { get; set; } = true;
+
+        // Soft Delete
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
 
         public virtual ICollection<PackageItem> PackageItems { get; set; } = new List<PackageItem>();
     }

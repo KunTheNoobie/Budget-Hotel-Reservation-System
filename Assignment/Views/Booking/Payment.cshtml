@@ -53,15 +53,18 @@
 
                     <form asp-action="ProcessPayment" method="post">
                         <input type="hidden" asp-for="BookingId" />
+                        @if (!ViewData.ModelState.IsValid)
+                        {
                         <div asp-validation-summary="All" class="alert alert-danger"></div>
+                        }
 
                         <h5 class="mb-3">Payment Method</h5>
                         <div class="mb-3">
                             <select asp-for="PaymentMethod" id="paymentMethod" class="form-select" required>
                                 <option value="">-- Select Payment Method --</option>
-                                <option value="CreditCard">Credit/Debit Card</option>
-                                <option value="PayPal">PayPal</option>
-                                <option value="BankTransfer">Bank Transfer</option>
+                                <option value="0">Credit/Debit Card</option>
+                                <option value="1">PayPal</option>
+                                <option value="2">Bank Transfer</option>
                             </select>
                             <span asp-validation-for="PaymentMethod" class="text-danger"></span>
                         </div>
@@ -208,6 +211,22 @@
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
     <script>
         $(document).ready(function() {
+                // Hide validation summary if no errors
+                var validationSummary = $('.alert-danger');
+                if (validationSummary.length > 0 && validationSummary.text().trim() === '') {
+                    validationSummary.hide();
+                }
+                
+                // Ensure all fields are hidden by default
+                $('#creditCardFields').hide();
+                $('#paypalFields').hide();
+                $('#bankTransferFields').hide();
+                
+                // Remove required attributes by default
+                $('input[name="CardNumber"], input[name="CardholderName"], select[name="ExpiryMonth"], select[name="ExpiryYear"], input[name="CVV"]').prop('required', false);
+                $('input[name="PayPalEmail"]').prop('required', false);
+                $('select[name="BankName"], input[name="AccountNumber"], input[name="AccountHolderName"]').prop('required', false);
+                
             $('#paymentMethod').on('change', function() {
                 var method = $(this).val();
                 
@@ -216,26 +235,25 @@
                 $('#paypalFields').hide();
                 $('#bankTransferFields').hide();
                 
-                // Show relevant fields
-                if (method === 'CreditCard') {
-                    $('#creditCardFields').show();
-                    $('input[name="CardNumber"], input[name="CardholderName"], select[name="ExpiryMonth"], select[name="ExpiryYear"], input[name="CVV"]').prop('required', true);
-                } else {
+                    // Remove all required attributes first
                     $('input[name="CardNumber"], input[name="CardholderName"], select[name="ExpiryMonth"], select[name="ExpiryYear"], input[name="CVV"]').prop('required', false);
+                    $('input[name="PayPalEmail"]').prop('required', false);
+                    $('select[name="BankName"], input[name="AccountNumber"], input[name="AccountHolderName"]').prop('required', false);
+                    
+                    // Show relevant fields based on selected method
+                    if (method === '0' || method === 'CreditCard') {
+                        $('#creditCardFields').show();
+                        $('input[name="CardNumber"], input[name="CardholderName"], select[name="ExpiryMonth"], select[name="ExpiryYear"], input[name="CVV"]').prop('required', true);
                 }
                 
-                if (method === 'PayPal') {
+                    if (method === '1' || method === 'PayPal') {
                     $('#paypalFields').show();
                     $('input[name="PayPalEmail"]').prop('required', true);
-                } else {
-                    $('input[name="PayPalEmail"]').prop('required', false);
                 }
                 
-                if (method === 'BankTransfer') {
+                    if (method === '2' || method === 'BankTransfer') {
                     $('#bankTransferFields').show();
                     $('select[name="BankName"], input[name="AccountNumber"], input[name="AccountHolderName"]').prop('required', true);
-                } else {
-                    $('select[name="BankName"], input[name="AccountNumber"], input[name="AccountHolderName"]').prop('required', false);
                 }
             });
             

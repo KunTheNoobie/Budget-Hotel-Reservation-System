@@ -11,11 +11,11 @@ namespace Assignment.ViewModels.Security
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Password is required")]
-        [StringLength(100, ErrorMessage = "Password must be at least 8 characters", MinimumLength = 8)]
+        [StringLength(100, ErrorMessage = "Password must be 8-100 characters", MinimumLength = 8)]
         [DataType(DataType.Password)]
         [Display(Name = "New Password")]
-        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$",
-            ErrorMessage = "Password must contain at least one uppercase letter, one lowercase letter, and one number")]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$",
+            ErrorMessage = "Password must contain uppercase, lowercase, number, and special character (@$!%*?&)")]
         public string Password { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Please confirm your password")]

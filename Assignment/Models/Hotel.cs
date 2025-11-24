@@ -31,7 +31,11 @@ namespace Assignment.Models
         [StringLength(1000)]
         public string? Description { get; set; }
 
-        public double? Latitude { get; set; }
-        public double? Longitude { get; set; }
+        [StringLength(255)]
+        public string? ImageUrl { get; set; }
+
+        // Soft Delete
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
     }
 }

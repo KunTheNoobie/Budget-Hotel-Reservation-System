@@ -68,6 +68,11 @@ namespace Assignment.Helpers
             return httpContext.User.FindFirst(ClaimUserEmail)?.Value;
         }
 
+        public static string? GetUserName(HttpContext httpContext)
+        {
+            return httpContext.User.FindFirst(ClaimUserName)?.Value;
+        }
+
         public static bool IsAuthenticated(HttpContext httpContext)
         {
             return httpContext.User.Identity?.IsAuthenticated ?? false;

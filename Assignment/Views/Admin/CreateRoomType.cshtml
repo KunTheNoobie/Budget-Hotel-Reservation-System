@@ -1,0 +1,104 @@
+@model Assignment.Models.RoomType
+@{
+    ViewData["Title"] = "Create Room Type";
+    var hotels = ViewBag.Hotels as List<Assignment.Models.Hotel> ?? new List<Assignment.Models.Hotel>();
+}
+
+<div class="container">
+    <h2>Create New Room Type</h2>
+
+    <form asp-action="CreateRoomType" method="post" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="text-danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control" maxlength="100" required />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Description" class="form-label"></label>
+            <textarea asp-for="Description" class="form-control" rows="4" maxlength="1000"></textarea>
+            <span asp-validation-for="Description" class="text-danger"></span>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="Occupancy" class="form-label"></label>
+                <input asp-for="Occupancy" class="form-control" type="number" min="1" max="10" required />
+                <span asp-validation-for="Occupancy" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="BasePrice" class="form-label"></label>
+                <input asp-for="BasePrice" class="form-control" type="number" step="0.01" min="0" max="99999.99" required />
+                <span asp-validation-for="BasePrice" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="HotelId" class="form-label"></label>
+            <select asp-for="HotelId" class="form-select" required>
+                <option value="">-- Select Hotel --</option>
+                @foreach (var hotel in hotels)
+                {
+                    <option value="@hotel.HotelId">@hotel.Name - @hotel.City</option>
+                }
+            </select>
+            <span asp-validation-for="HotelId" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Image</label>
+            <div class="mb-2">
+                <input type="file" name="imageFile" class="form-control" accept="image/*" />
+                <small class="form-text text-muted">Upload an image file (JPG, PNG, GIF, etc.)</small>
+            </div>
+            <div class="text-muted mb-2">OR</div>
+            <div>
+                <input type="url" name="imageUrl" class="form-control" placeholder="https://example.com/image.jpg" />
+                <small class="form-text text-muted">Enter a full URL to an image</small>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Amenities</label>
+            @{
+                var amenities = ViewBag.Amenities as List<Assignment.Models.Amenity> ?? new List<Assignment.Models.Amenity>();
+            }
+            @if (amenities.Any())
+            {
+                <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                    @foreach (var amenity in amenities)
+                    {
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="selectedAmenities" value="@amenity.AmenityId" id="amenity_@amenity.AmenityId" />
+                            <label class="form-check-label" for="amenity_@amenity.AmenityId">
+                                @if (!string.IsNullOrEmpty(amenity.ImageUrl))
+                                {
+                                    <img src="@amenity.ImageUrl" alt="@amenity.Name" class="me-2" style="width: 20px; height: 20px; object-fit: cover;" onerror="this.style.display='none';">
+                                }
+                                @amenity.Name
+                            </label>
+                        </div>
+                    }
+                </div>
+                <small class="form-text text-muted">Select amenities available in this room type</small>
+            }
+            else
+            {
+                <p class="text-muted">No amenities available. <a asp-action="Amenities">Create amenities first</a>.</p>
+            }
+        </div>
+
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Create</button>
+            <a asp-action="RoomTypes" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+

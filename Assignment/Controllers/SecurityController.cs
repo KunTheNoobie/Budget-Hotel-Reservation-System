@@ -14,13 +14,17 @@ namespace Assignment.Controllers
     {
         private readonly HotelDbContext _context;
         private readonly ILogger<SecurityController> _logger;
-        private const int MaxLoginAttempts = 3;
-        private const int LockoutMinutes = 15;
+        private readonly SecurityLogger _securityLogger;
+        private readonly IConfiguration _configuration;
+        private int MaxLoginAttempts => _configuration.GetValue<int>("SecuritySettings:MaxLoginAttempts", 3);
+        private int LockoutMinutes => _configuration.GetValue<int>("SecuritySettings:LockoutMinutes", 15);
 
-        public SecurityController(HotelDbContext context, ILogger<SecurityController> logger)
+        public SecurityController(HotelDbContext context, ILogger<SecurityController> logger, IConfiguration configuration)
         {
             _context = context;
             _logger = logger;
+            _securityLogger = new SecurityLogger(context);
+            _configuration = configuration;
         }
 
         [HttpGet]
@@ -53,6 +57,7 @@ namespace Assignment.Controllers
 
             if (recentFailedAttempts >= MaxLoginAttempts)
             {
+                await _securityLogger.LogAsync("LoginLockedOut", null, HttpContext.Connection.RemoteIpAddress?.ToString(), $"Email: {model.Email}");
                 ModelState.AddModelError("", $"Too many failed login attempts. Please try again after {LockoutMinutes} minutes.");
                 return View(model);
             }
@@ -71,6 +76,8 @@ namespace Assignment.Controllers
                     Timestamp = DateTime.Now
                 });
                 await _context.SaveChangesAsync();
+
+                await _securityLogger.LogAsync("LoginFailed", null, HttpContext.Connection.RemoteIpAddress?.ToString(), $"Email: {model.Email}");
 
                 ModelState.AddModelError("", "Invalid email or password.");
                 return View(model);
@@ -95,6 +102,7 @@ namespace Assignment.Controllers
 
             // Sign in user
             await AuthenticationHelper.SignInAsync(HttpContext, user);
+            await _securityLogger.LogAsync("LoginSuccess", user.UserId, HttpContext.Connection.RemoteIpAddress?.ToString());
 
             if (!string.IsNullOrEmpty(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
             {
@@ -114,7 +122,9 @@ namespace Assignment.Controllers
         [HttpGet]
         public async Task<IActionResult> Logout()
         {
+            var userId = AuthenticationHelper.GetUserId(HttpContext);
             await AuthenticationHelper.SignOutAsync(HttpContext);
+            await _securityLogger.LogAsync("Logout", userId, HttpContext.Connection.RemoteIpAddress?.ToString());
             return RedirectToAction("Index", "Home");
         }
 
@@ -126,6 +136,14 @@ namespace Assignment.Controllers
                 return RedirectToAction("Index", "Home");
             }
 
+            // Generate simple math captcha
+            var random = new Random();
+            int num1 = random.Next(1, 10);
+            int num2 = random.Next(1, 10);
+            TempData["CaptchaSum"] = num1 + num2;
+            ViewBag.Num1 = num1;
+            ViewBag.Num2 = num2;
+
             return View(new RegisterViewModel());
         }
 
@@ -133,8 +151,30 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(RegisterViewModel model)
         {
+            // Validate Captcha
+            if (TempData["CaptchaSum"] is int expectedSum)
+            {
+                if (model.CaptchaAnswer != expectedSum)
+                {
+                    ModelState.AddModelError("CaptchaAnswer", "Incorrect answer to the security question.");
+                }
+            }
+            else
+            {
+                // If TempData is lost (e.g. session timeout), regenerate captcha and show error
+                ModelState.AddModelError("CaptchaAnswer", "Session expired. Please try again.");
+            }
+
             if (!ModelState.IsValid)
             {
+                // Regenerate captcha for retry
+                var random = new Random();
+                int num1 = random.Next(1, 10);
+                int num2 = random.Next(1, 10);
+                TempData["CaptchaSum"] = num1 + num2;
+                ViewBag.Num1 = num1;
+                ViewBag.Num2 = num2;
+
                 return View(model);
             }
 
@@ -142,7 +182,32 @@ namespace Assignment.Controllers
             if (await _context.Users.AnyAsync(u => u.Email == model.Email))
             {
                 ModelState.AddModelError("Email", "This email is already registered.");
+                // Regenerate captcha for retry
+                var random = new Random();
+                int num1 = random.Next(1, 10);
+                int num2 = random.Next(1, 10);
+                TempData["CaptchaSum"] = num1 + num2;
+                ViewBag.Num1 = num1;
+                ViewBag.Num2 = num2;
                 return View(model);
+            }
+
+            // Validate phone number if provided
+            if (!string.IsNullOrWhiteSpace(model.PhoneNumber))
+            {
+                var phonePattern = @"^(\+?[0-9]{1,4}[-]?[0-9]{2,4}[-]?[0-9]{3,4}[-]?[0-9]{3,4}|[0-9]{7,15})$";
+                if (!System.Text.RegularExpressions.Regex.IsMatch(model.PhoneNumber, phonePattern))
+                {
+                    ModelState.AddModelError("PhoneNumber", "Please enter a valid phone number (e.g., +60-12-345-6789, 012-345-6789, or 0123456789).");
+                    // Regenerate captcha for retry
+                    var random = new Random();
+                    int num1 = random.Next(1, 10);
+                    int num2 = random.Next(1, 10);
+                    TempData["CaptchaSum"] = num1 + num2;
+                    ViewBag.Num1 = num1;
+                    ViewBag.Num2 = num2;
+                    return View(model);
+                }
             }
 
             // Create new user
@@ -151,7 +216,8 @@ namespace Assignment.Controllers
                 FullName = model.FullName,
                 Email = model.Email,
                 PasswordHash = PasswordService.HashPassword(model.Password),
-                PhoneNumber = model.PhoneNumber,
+                // Encrypt phone number
+                PhoneNumber = EncryptionService.Encrypt(model.PhoneNumber ?? ""),
                 Role = UserRole.Customer,
                 IsEmailVerified = false,
                 IsActive = true,

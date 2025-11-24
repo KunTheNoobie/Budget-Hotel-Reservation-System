@@ -41,9 +41,30 @@
                 <div class="card-body">
                     <h4 class="mb-3">Subscribe to Our Newsletter</h4>
                     <p>Stay updated with the latest travel tips, deals, and destination guides. Subscribe to our newsletter!</p>
-                    <form>
+                    
+                    @if (TempData["NewsletterSuccess"] != null)
+                    {
+                        <div class="alert alert-success mb-3">
+                            <i class="bi bi-check-circle-fill me-2"></i>@TempData["NewsletterSuccess"]
+                        </div>
+                    }
+                    @if (TempData["NewsletterError"] != null)
+                    {
+                        <div class="alert alert-danger mb-3">
+                            <i class="bi bi-exclamation-circle-fill me-2"></i>@TempData["NewsletterError"]
+                        </div>
+                    }
+                    @if (TempData["NewsletterInfo"] != null)
+                    {
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle-fill me-2"></i>@TempData["NewsletterInfo"]
+                        </div>
+                    }
+                    
+                    <form asp-action="SubscribeNewsletter" method="post">
+                        @Html.AntiForgeryToken()
                         <div class="mb-3">
-                            <input type="email" class="form-control" placeholder="Enter your email address" required>
+                            <input type="email" name="email" class="form-control" placeholder="Enter your email address" required>
                         </div>
                         <button type="submit" class="btn btn-primary">Subscribe</button>
                     </form>

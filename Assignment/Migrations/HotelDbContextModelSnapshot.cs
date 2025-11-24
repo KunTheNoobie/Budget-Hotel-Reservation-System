@@ -30,6 +30,16 @@ namespace Assignment.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AmenityId"));
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -51,14 +61,42 @@ namespace Assignment.Migrations
                     b.Property<DateTime>("BookingDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("CancellationDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<DateTime>("CheckInDate")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime>("CheckOutDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("PaymentAmount")
+                        .HasColumnType("decimal(18, 2)");
+
+                    b.Property<DateTime?>("PaymentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("PaymentMethod")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PaymentStatus")
+                        .HasColumnType("int");
+
                     b.Property<int?>("PromotionId")
                         .HasColumnType("int");
+
+                    b.Property<decimal?>("RefundAmount")
+                        .HasColumnType("decimal(18, 2)");
 
                     b.Property<int>("RoomId")
                         .HasColumnType("int");
@@ -68,6 +106,10 @@ namespace Assignment.Migrations
 
                     b.Property<decimal>("TotalPrice")
                         .HasColumnType("decimal(18, 2)");
+
+                    b.Property<string>("TransactionId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");
@@ -83,27 +125,7 @@ namespace Assignment.Migrations
                     b.ToTable("Bookings");
                 });
 
-            modelBuilder.Entity("Assignment.Models.BookingCancellation", b =>
-                {
-                    b.Property<int>("BookingId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CancellationDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Reason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<decimal>("RefundAmount")
-                        .HasColumnType("decimal(18, 2)");
-
-                    b.HasKey("BookingId");
-
-                    b.ToTable("BookingCancellations");
-                });
-
-            modelBuilder.Entity("Assignment.Models.ChatMessage", b =>
+            modelBuilder.Entity("Assignment.Models.ContactMessage", b =>
                 {
                     b.Property<int>("MessageId")
                         .ValueGeneratedOnAdd()
@@ -111,29 +133,41 @@ namespace Assignment.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("MessageId"));
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsRead")
                         .HasColumnType("bit");
 
-                    b.Property<string>("MessageText")
+                    b.Property<string>("Message")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
-                    b.Property<int>("SenderId")
-                        .HasColumnType("int");
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<DateTime>("SentAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("TicketId")
-                        .HasColumnType("int");
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("MessageId");
 
-                    b.HasIndex("SenderId");
-
-                    b.HasIndex("TicketId");
-
-                    b.ToTable("ChatMessages");
+                    b.ToTable("ContactMessages");
                 });
 
             modelBuilder.Entity("Assignment.Models.Hotel", b =>
@@ -167,15 +201,19 @@ namespace Assignment.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("float");
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("float");
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -219,47 +257,34 @@ namespace Assignment.Migrations
                     b.ToTable("LoginAttempts");
                 });
 
-            modelBuilder.Entity("Assignment.Models.NotificationLog", b =>
+            modelBuilder.Entity("Assignment.Models.Newsletter", b =>
                 {
-                    b.Property<int>("LogId")
+                    b.Property<int>("NewsletterId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("LogId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("NewsletterId"));
 
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Recipient")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("SentAt")
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Subject")
+                    b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
-                    b.HasKey("LogId");
+                    b.Property<DateTime>("SubscribedAt")
+                        .HasColumnType("datetime2");
 
-                    b.HasIndex("UserId");
+                    b.HasKey("NewsletterId");
 
-                    b.ToTable("NotificationLogs");
+                    b.ToTable("Newsletters");
                 });
 
             modelBuilder.Entity("Assignment.Models.Package", b =>
@@ -270,11 +295,21 @@ namespace Assignment.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PackageId"));
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
                     b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("Name")
@@ -297,6 +332,12 @@ namespace Assignment.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PackageItemId"));
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<int>("PackageId")
                         .HasColumnType("int");
@@ -321,32 +362,6 @@ namespace Assignment.Migrations
                     b.ToTable("PackageItems");
                 });
 
-            modelBuilder.Entity("Assignment.Models.Payment", b =>
-                {
-                    b.Property<int>("BookingId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("decimal(18, 2)");
-
-                    b.Property<DateTime>("PaymentDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("PaymentMethod")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<string>("TransactionId")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.HasKey("BookingId");
-
-                    b.ToTable("Payments");
-                });
-
             modelBuilder.Entity("Assignment.Models.Promotion", b =>
                 {
                     b.Property<int>("PromotionId")
@@ -360,6 +375,9 @@ namespace Assignment.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
@@ -369,6 +387,33 @@ namespace Assignment.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LimitPerDevice")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LimitPerPaymentCard")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LimitPerPhoneNumber")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LimitPerUserAccount")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("MaxTotalUses")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MaxUsesPerLimit")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("MinimumAmount")
+                        .HasColumnType("decimal(18, 2)");
+
+                    b.Property<int?>("MinimumNights")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
@@ -384,14 +429,79 @@ namespace Assignment.Migrations
                     b.ToTable("Promotions");
                 });
 
+            modelBuilder.Entity("Assignment.Models.PromotionUsage", b =>
+                {
+                    b.Property<int>("PromotionUsageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PromotionUsageId"));
+
+                    b.Property<int>("BookingId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CardIdentifier")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeviceFingerprint")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PhoneNumberHash")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("PromotionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("PromotionUsageId");
+
+                    b.HasIndex("BookingId");
+
+                    b.HasIndex("PromotionId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PromotionUsages");
+                });
+
             modelBuilder.Entity("Assignment.Models.Review", b =>
                 {
+                    b.Property<int>("ReviewId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ReviewId"));
+
                     b.Property<int>("BookingId")
                         .HasColumnType("int");
 
                     b.Property<string>("Comment")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<int>("Rating")
                         .HasColumnType("int");
@@ -402,7 +512,9 @@ namespace Assignment.Migrations
                     b.Property<int>("UserId")
                         .HasColumnType("int");
 
-                    b.HasKey("BookingId");
+                    b.HasKey("ReviewId");
+
+                    b.HasIndex("BookingId");
 
                     b.HasIndex("UserId");
 
@@ -416,6 +528,12 @@ namespace Assignment.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RoomId"));
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<string>("RoomNumber")
                         .IsRequired()
@@ -447,10 +565,16 @@ namespace Assignment.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ImageUrl")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<int>("RoomTypeId")
                         .HasColumnType("int");
@@ -473,12 +597,18 @@ namespace Assignment.Migrations
                     b.Property<decimal>("BasePrice")
                         .HasColumnType("decimal(18, 2)");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
                     b.Property<int>("HotelId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -518,36 +648,44 @@ namespace Assignment.Migrations
                     b.ToTable("RoomTypeAmenities");
                 });
 
-            modelBuilder.Entity("Assignment.Models.SeasonalPricing", b =>
+            modelBuilder.Entity("Assignment.Models.SecurityLog", b =>
                 {
-                    b.Property<int>("PricingId")
+                    b.Property<int>("LogId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PricingId"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("LogId"));
 
-                    b.Property<DateTime>("EndDate")
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<decimal>("Price")
-                        .HasColumnType("decimal(18, 2)");
+                    b.Property<string>("Details")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
-                    b.Property<int>("RoomTypeId")
+                    b.Property<string>("IPAddress")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UserId")
                         .HasColumnType("int");
 
-                    b.Property<string>("RuleName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                    b.HasKey("LogId");
 
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime2");
+                    b.HasIndex("UserId");
 
-                    b.HasKey("PricingId");
-
-                    b.HasIndex("RoomTypeId");
-
-                    b.ToTable("SeasonalPricings");
+                    b.ToTable("SecurityLogs");
                 });
 
             modelBuilder.Entity("Assignment.Models.SecurityToken", b =>
@@ -590,9 +728,15 @@ namespace Assignment.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ServiceId"));
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -607,38 +751,6 @@ namespace Assignment.Migrations
                     b.ToTable("Services");
                 });
 
-            modelBuilder.Entity("Assignment.Models.SupportTicket", b =>
-                {
-                    b.Property<int>("TicketId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TicketId"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("LastModifiedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Subject")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("TicketId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("SupportTickets");
-                });
-
             modelBuilder.Entity("Assignment.Models.User", b =>
                 {
                     b.Property<int>("UserId")
@@ -647,7 +759,14 @@ namespace Assignment.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserId"));
 
+                    b.Property<string>("Bio")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
@@ -663,6 +782,9 @@ namespace Assignment.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsEmailVerified")
                         .HasColumnType("bit");
 
@@ -671,25 +793,8 @@ namespace Assignment.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PhoneNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<int>("Role")
-                        .HasColumnType("int");
-
-                    b.HasKey("UserId");
-
-                    b.ToTable("Users");
-                });
-
-            modelBuilder.Entity("Assignment.Models.UserProfile", b =>
-                {
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Bio")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<string>("PreferredLanguage")
                         .IsRequired()
@@ -700,6 +805,9 @@ namespace Assignment.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
+
                     b.Property<string>("Theme")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -707,7 +815,7 @@ namespace Assignment.Migrations
 
                     b.HasKey("UserId");
 
-                    b.ToTable("UserProfiles");
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("Assignment.Models.Booking", b =>
@@ -735,47 +843,6 @@ namespace Assignment.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Assignment.Models.BookingCancellation", b =>
-                {
-                    b.HasOne("Assignment.Models.Booking", "Booking")
-                        .WithOne("BookingCancellation")
-                        .HasForeignKey("Assignment.Models.BookingCancellation", "BookingId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Booking");
-                });
-
-            modelBuilder.Entity("Assignment.Models.ChatMessage", b =>
-                {
-                    b.HasOne("Assignment.Models.User", "Sender")
-                        .WithMany()
-                        .HasForeignKey("SenderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Assignment.Models.SupportTicket", "SupportTicket")
-                        .WithMany("ChatMessages")
-                        .HasForeignKey("TicketId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Sender");
-
-                    b.Navigation("SupportTicket");
-                });
-
-            modelBuilder.Entity("Assignment.Models.NotificationLog", b =>
-                {
-                    b.HasOne("Assignment.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Assignment.Models.PackageItem", b =>
                 {
                     b.HasOne("Assignment.Models.Package", "Package")
@@ -799,23 +866,39 @@ namespace Assignment.Migrations
                     b.Navigation("Service");
                 });
 
-            modelBuilder.Entity("Assignment.Models.Payment", b =>
+            modelBuilder.Entity("Assignment.Models.PromotionUsage", b =>
                 {
                     b.HasOne("Assignment.Models.Booking", "Booking")
-                        .WithOne("Payment")
-                        .HasForeignKey("Assignment.Models.Payment", "BookingId")
+                        .WithMany()
+                        .HasForeignKey("BookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Assignment.Models.Promotion", "Promotion")
+                        .WithMany("PromotionUsages")
+                        .HasForeignKey("PromotionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Assignment.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Booking");
+
+                    b.Navigation("Promotion");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Assignment.Models.Review", b =>
                 {
                     b.HasOne("Assignment.Models.Booking", "Booking")
-                        .WithOne("Review")
-                        .HasForeignKey("Assignment.Models.Review", "BookingId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .WithMany("Reviews")
+                        .HasForeignKey("BookingId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Assignment.Models.User", "User")
@@ -881,15 +964,13 @@ namespace Assignment.Migrations
                     b.Navigation("RoomType");
                 });
 
-            modelBuilder.Entity("Assignment.Models.SeasonalPricing", b =>
+            modelBuilder.Entity("Assignment.Models.SecurityLog", b =>
                 {
-                    b.HasOne("Assignment.Models.RoomType", "RoomType")
+                    b.HasOne("Assignment.Models.User", "User")
                         .WithMany()
-                        .HasForeignKey("RoomTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("UserId");
 
-                    b.Navigation("RoomType");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Assignment.Models.SecurityToken", b =>
@@ -903,28 +984,6 @@ namespace Assignment.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Assignment.Models.SupportTicket", b =>
-                {
-                    b.HasOne("Assignment.Models.User", "User")
-                        .WithMany("SupportTickets")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Assignment.Models.UserProfile", b =>
-                {
-                    b.HasOne("Assignment.Models.User", "User")
-                        .WithOne("UserProfile")
-                        .HasForeignKey("Assignment.Models.UserProfile", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Assignment.Models.Amenity", b =>
                 {
                     b.Navigation("RoomTypeAmenities");
@@ -932,16 +991,17 @@ namespace Assignment.Migrations
 
             modelBuilder.Entity("Assignment.Models.Booking", b =>
                 {
-                    b.Navigation("BookingCancellation");
-
-                    b.Navigation("Payment");
-
-                    b.Navigation("Review");
+                    b.Navigation("Reviews");
                 });
 
             modelBuilder.Entity("Assignment.Models.Package", b =>
                 {
                     b.Navigation("PackageItems");
+                });
+
+            modelBuilder.Entity("Assignment.Models.Promotion", b =>
+                {
+                    b.Navigation("PromotionUsages");
                 });
 
             modelBuilder.Entity("Assignment.Models.Room", b =>
@@ -958,20 +1018,11 @@ namespace Assignment.Migrations
                     b.Navigation("Rooms");
                 });
 
-            modelBuilder.Entity("Assignment.Models.SupportTicket", b =>
-                {
-                    b.Navigation("ChatMessages");
-                });
-
             modelBuilder.Entity("Assignment.Models.User", b =>
                 {
                     b.Navigation("Bookings");
 
                     b.Navigation("Reviews");
-
-                    b.Navigation("SupportTickets");
-
-                    b.Navigation("UserProfile");
                 });
 #pragma warning restore 612, 618
         }

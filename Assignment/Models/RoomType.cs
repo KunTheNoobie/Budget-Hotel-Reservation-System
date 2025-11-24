@@ -26,6 +26,10 @@ namespace Assignment.Models
         [ForeignKey("HotelId")]
         public virtual Hotel? Hotel { get; set; }
 
+        // Soft Delete
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
+
         public virtual ICollection<Room> Rooms { get; set; } = new List<Room>();
         public virtual ICollection<RoomImage> RoomImages { get; set; } = new List<RoomImage>();
         public virtual ICollection<RoomTypeAmenity> RoomTypeAmenities { get; set; } = new List<RoomTypeAmenity>();

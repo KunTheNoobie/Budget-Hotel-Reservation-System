@@ -41,6 +41,29 @@
         </div>
     </div>
 
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5>Bookings by Hotel</h5>
+                </div>
+                <div class="card-body" style="position: relative; height: 300px;">
+                    <canvas id="hotelChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5>Revenue Trend (Last 7 Days)</h5>
+                </div>
+                <div class="card-body" style="position: relative; height: 300px;">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-md-6">
             <div class="card">
@@ -55,13 +78,126 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Hotel Chart
+        var hotelCtx = document.getElementById('hotelChart').getContext('2d');
+        var hotelChart = new Chart(hotelCtx, {
+            type: 'doughnut',
+            data: {
+                labels: @Html.Raw(Json.Serialize(ViewBag.HotelLabels)),
+                datasets: [{
+                    label: 'Bookings',
+                    data: @Html.Raw(Json.Serialize(ViewBag.HotelData)),
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(153, 102, 255, 0.7)',
+                        'rgba(255, 159, 64, 0.7)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 8,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Revenue Chart
+        var revenueCtx = document.getElementById('revenueChart').getContext('2d');
+        var revenueChart = new Chart(revenueCtx, {
+            type: 'line',
+            data: {
+                labels: @Html.Raw(Json.Serialize(ViewBag.RevenueLabels)),
+                datasets: [{
+                    label: 'Revenue (RM)',
+                    data: @Html.Raw(Json.Serialize(ViewBag.RevenueData)),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+
     <div class="mt-4">
         <h4>Quick Links</h4>
-        <div class="list-group">
-            <a asp-action="Users" class="list-group-item list-group-item-action">Manage Users</a>
-            <a asp-action="Hotels" class="list-group-item list-group-item-action">Manage Hotels</a>
-            <a asp-action="Rooms" class="list-group-item list-group-item-action">Manage Rooms</a>
-            <a asp-action="Bookings" class="list-group-item list-group-item-action">Manage Bookings</a>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <a asp-action="Users" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-people"></i><br />Users
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Hotels" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-building"></i><br />Hotels
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="RoomTypes" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-door-open"></i><br />Room Types
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Rooms" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-house"></i><br />Rooms
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Bookings" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-calendar-check"></i><br />Bookings
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Reviews" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-star"></i><br />Reviews
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Amenities" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-list-check"></i><br />Amenities
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Packages" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-box-seam"></i><br />Packages
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Promotions" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-tag"></i><br />Promotions
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="ContactMessages" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-envelope"></i><br />Contact Messages
+                </a>
+            </div>
         </div>
     </div>
 </div>

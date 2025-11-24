@@ -17,6 +17,10 @@ namespace Assignment.Models
         [StringLength(150)]
         public string? Caption { get; set; }
 
+        // Soft Delete
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
+
         [ForeignKey("RoomTypeId")]
         public virtual RoomType? RoomType { get; set; }
     }

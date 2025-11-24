@@ -5,22 +5,27 @@ namespace Assignment.Models
 {
     public class Review
     {
-        [Key, ForeignKey("Booking")]
+        [Key]
+        public int ReviewId { get; set; }
+
         public int BookingId { get; set; }
+        [ForeignKey("BookingId")]
+        public virtual Booking Booking { get; set; }
 
-        [Required]
         public int UserId { get; set; }
+        [ForeignKey("UserId")]
+        public virtual User User { get; set; }
 
-        [Required, Range(1, 5)]
+        [Range(1, 5)]
         public int Rating { get; set; }
 
-        [StringLength(2000)]
+        [StringLength(500)]
         public string? Comment { get; set; }
 
         public DateTime ReviewDate { get; set; } = DateTime.Now;
 
-        [ForeignKey("UserId")]
-        public virtual User? User { get; set; }
-        public virtual Booking? Booking { get; set; }
+        // Soft Delete
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
     }
 }
