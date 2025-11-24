@@ -658,6 +658,18 @@
                 return year + '-' + month + '-' + day;
             }
 
+            // Helper function to parse date string (YYYY-MM-DD) in local timezone
+            // This ensures consistent parsing with how 'today' is created (local timezone)
+            function parseLocalDate(dateString) {
+                if (!dateString) return null;
+                var parts = dateString.split('-');
+                if (parts.length !== 3) return null;
+                var year = parseInt(parts[0], 10);
+                var month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+                var day = parseInt(parts[2], 10);
+                return new Date(year, month, day, 0, 0, 0, 0); // Creates date in local timezone
+            }
+
             var checkInInput = $('#checkIn');
             var checkOutInput = $('#checkOut');
             
@@ -673,13 +685,13 @@
             
             // Validate check-out is after check-in
             checkInInput.on('change', function() {
-                var checkInDate = new Date($(this).val() + 'T00:00:00');
+                var checkInDate = parseLocalDate($(this).val());
                 if (checkInDate && !isNaN(checkInDate.getTime())) {
                     var minCheckOut = new Date(checkInDate);
                     minCheckOut.setDate(minCheckOut.getDate() + 1);
                     checkOutInput.attr('min', formatLocalDate(minCheckOut));
                     
-                    var checkOutDate = new Date(checkOutInput.val() + 'T00:00:00');
+                    var checkOutDate = parseLocalDate(checkOutInput.val());
                     if (checkOutDate && !isNaN(checkOutDate.getTime()) && checkOutDate <= checkInDate) {
                         checkOutInput.val(formatLocalDate(minCheckOut));
                     }
@@ -687,8 +699,8 @@
             });
             
             checkOutInput.on('change', function() {
-                var checkInDate = new Date(checkInInput.val() + 'T00:00:00');
-                var checkOutDate = new Date($(this).val() + 'T00:00:00');
+                var checkInDate = parseLocalDate(checkInInput.val());
+                var checkOutDate = parseLocalDate($(this).val());
                 
                 if (checkInDate && checkOutDate && !isNaN(checkInDate.getTime()) && !isNaN(checkOutDate.getTime()) && checkOutDate <= checkInDate) {
                     alert('Check-out date must be after check-in date.');
@@ -700,12 +712,12 @@
             
             // Form validation
             $('#packageBookingForm').on('submit', function(e) {
-                var checkIn = new Date(checkInInput.val() + 'T00:00:00');
-                var checkOut = new Date(checkOutInput.val() + 'T00:00:00');
+                var checkIn = parseLocalDate(checkInInput.val());
+                var checkOut = parseLocalDate(checkOutInput.val());
                 var today = new Date();
                 today.setHours(0, 0, 0, 0);
                 
-                if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
+                if (!checkIn || !checkOut || isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
                     e.preventDefault();
                     alert('Please select valid dates.');
                     return false;
