@@ -4,7 +4,20 @@
     var booking = Model.Booking!;
     var nights = (booking.CheckOutDate - booking.CheckInDate).Days;
     var basePrice = booking.Room.RoomType.BasePrice * nights;
-    var discount = basePrice - booking.TotalPrice;
+    
+    // Check if this is a package booking (package price is usually higher than room price)
+    // If TotalPrice is significantly different from calculated basePrice, it's likely a package
+    var isPackageBooking = booking.TotalPrice != basePrice && 
+                          (booking.Promotion == null || booking.TotalPrice > basePrice);
+    
+    var discount = isPackageBooking ? 0 : (basePrice - booking.TotalPrice);
+    
+    // Ensure discount is not negative (which would indicate package booking)
+    if (discount < 0) discount = 0;
+    
+    // Get package information from ViewBag
+    var package = ViewBag.Package as Assignment.Models.Package;
+    var packageServices = ViewBag.PackageServices as List<Assignment.Models.PackageItem> ?? new List<Assignment.Models.PackageItem>();
 }
 
 <div class="container mt-4">
@@ -29,21 +42,63 @@
                             <h5>Price Breakdown</h5>
                             <div class="table-responsive">
                                 <table class="table table-sm">
-                                    <tr>
-                                        <td>Base Price (@nights nights × RM @booking.Room.RoomType.BasePrice.ToString("F2")):</td>
-                                        <td class="text-end">RM @basePrice.ToString("F2")</td>
-                                    </tr>
-                                    @if (booking.Promotion != null)
+                                    @if (isPackageBooking && package != null)
                                     {
+                                        var roomPrice = booking.Room.RoomType.BasePrice * nights;
+                                        var servicesTotal = packageServices.Sum(pi => pi.Service != null ? (pi.Service.Price * pi.Quantity) : 0);
+                                        
                                         <tr>
-                                            <td>Promotion (@booking.Promotion.Code):</td>
-                                            <td class="text-end text-danger">-RM @discount.ToString("F2")</td>
+                                            <td>Room (@nights night(s) × RM @booking.Room.RoomType.BasePrice.ToString("F2")):</td>
+                                            <td class="text-end">RM @roomPrice.ToString("F2")</td>
+                                        </tr>
+                                        @if (packageServices.Any())
+                                        {
+                                            @foreach (var serviceItem in packageServices)
+                                            {
+                                                if (serviceItem.Service != null)
+                                                {
+                                                    var serviceTotal = serviceItem.Service.Price * serviceItem.Quantity;
+                                                    <tr>
+                                                        <td class="ps-3">
+                                                            <small>• @serviceItem.Service.Name
+                                                            @if (serviceItem.Quantity > 1)
+                                                            {
+                                                                <text> (x@(serviceItem.Quantity))</text>
+                                                            }
+                                                            </small>
+                                                        </td>
+                                                        <td class="text-end"><small>RM @serviceTotal.ToString("F2")</small></td>
+                                                    </tr>
+                                                }
+                                            }
+                                            <tr>
+                                                <td><strong>Services Total:</strong></td>
+                                                <td class="text-end"><strong>RM @servicesTotal.ToString("F2")</strong></td>
+                                            </tr>
+                                        }
+                                        <tr class="table-active">
+                                            <td><strong>Package Total:</strong></td>
+                                            <td class="text-end"><strong class="text-primary">RM @booking.TotalPrice.ToString("F2")</strong></td>
                                         </tr>
                                     }
-                                    <tr class="table-active">
-                                        <td><strong>Total Amount:</strong></td>
-                                        <td class="text-end"><strong class="price-display">RM @booking.TotalPrice.ToString("F2")</strong></td>
-                                    </tr>
+                                    else
+                                    {
+                                        <tr>
+                                            <td>Base Price (@nights nights × RM @booking.Room.RoomType.BasePrice.ToString("F2")):</td>
+                                            <td class="text-end">RM @basePrice.ToString("F2")</td>
+                                        </tr>
+                                        @if (booking.Promotion != null && discount > 0)
+                                        {
+                                            <tr>
+                                                <td>Promotion (@booking.Promotion.Code):</td>
+                                                <td class="text-end text-danger">-RM @discount.ToString("F2")</td>
+                                            </tr>
+                                        }
+                                        <tr class="table-active">
+                                            <td><strong>Total Amount:</strong></td>
+                                            <td class="text-end"><strong class="price-display">RM @booking.TotalPrice.ToString("F2")</strong></td>
+                                        </tr>
+                                    }
                                 </table>
                             </div>
                         </div>
@@ -195,7 +250,13 @@
                         <strong>Total Amount:</strong>
                         <strong class="price-display">RM @booking.TotalPrice.ToString("F2")</strong>
                     </div>
-                    @if (booking.Promotion != null)
+                    @if (isPackageBooking)
+                    {
+                        <div class="alert alert-info mt-3 mb-0">
+                            <i class="bi bi-box-seam me-2"></i>Package Booking
+                        </div>
+                    }
+                    else if (booking.Promotion != null && discount > 0)
                     {
                         <div class="alert alert-success mt-3 mb-0">
                             <i class="bi bi-tag-fill me-2"></i>Promotion Applied: @booking.Promotion.Code

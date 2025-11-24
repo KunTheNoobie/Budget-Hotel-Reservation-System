@@ -125,19 +125,45 @@
                             @foreach (var review in paginatedReviews)
                             {
                                 <div class="review-item border-bottom pb-3 mb-3">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <h6 class="mb-1">@review.Booking.User.FullName</h6>
-                                            <div class="text-warning small mb-2">
-                                                @for (int i = 1; i <= 5; i++)
-                                                {
-                                                    <i class="bi bi-star@(i <= review.Rating ? "-fill" : "")"></i>
-                                                }
-                                            </div>
+                                    <div class="d-flex align-items-start mb-2">
+                                        <div class="me-3" style="position: relative; width: 45px; height: 45px;">
+                                            @{
+                                                // Ensure User is loaded - try both Review.User and Booking.User
+                                                var reviewUser = review.User ?? review.Booking?.User;
+                                                var hasProfilePicture = reviewUser != null && !string.IsNullOrWhiteSpace(reviewUser.ProfilePictureUrl);
+                                            }
+                                            @if (hasProfilePicture)
+                                            {
+                                                <img src="@Url.Content(reviewUser.ProfilePictureUrl)" alt="@reviewUser.FullName" 
+                                                     class="rounded-circle" style="width: 45px; height: 45px; object-fit: cover; position: absolute; top: 0; left: 0;" 
+                                                     onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="display: none; width: 45px; height: 45px; font-size: 0.9rem; position: absolute; top: 0; left: 0;">
+                                                    @(reviewUser.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 45px; height: 45px; font-size: 0.9rem;">
+                                                    @(reviewUser?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                </div>
+                                            }
                                         </div>
-                                        <small class="text-muted">@review.ReviewDate.ToString("MMM dd, yyyy")</small>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <h6 class="mb-1">@review.User?.FullName</h6>
+                                                    <div class="text-warning small mb-2">
+                                                        @for (int i = 1; i <= 5; i++)
+                                                        {
+                                                            <i class="bi bi-star@(i <= review.Rating ? "-fill" : "")"></i>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                <small class="text-muted">@review.ReviewDate.ToString("MMM dd, yyyy")</small>
+                                            </div>
+                                            <p class="mb-0 text-muted">@review.Comment</p>
+                                        </div>
                                     </div>
-                                    <p class="mb-0 text-muted">@review.Comment</p>
                                 </div>
                             }
                         </div>
@@ -209,7 +235,21 @@
                                 <label for="checkOut" class="form-label">Check-Out Date</label>
                                 <input type="date" id="checkOut" class="form-control" required />
                             </div>
-                            <div id="availabilityMessage" class="mb-3"></div>
+                            <div id="availabilityMessage" class="mb-3">
+                                @* Initial message - will be replaced when user checks availability *@
+                                @if (availableRooms > 0)
+                                {
+                                    <div class="alert alert-info" id="initialAvailabilityMessage">
+                                        <i class="bi bi-info-circle me-2"></i>@availableRooms room(s) currently available. Select dates to check specific availability.
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="alert alert-warning" id="initialAvailabilityMessage">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>No rooms currently available. Check specific dates for availability.
+                                    </div>
+                                }
+                            </div>
                             <button type="button" id="checkAvailabilityBtn" class="btn btn-primary w-100 mb-2">Check Availability</button>
                             <a id="bookNowBtn" asp-controller="Booking" asp-action="Create" asp-route-roomTypeId="@Model.RoomTypeId" class="btn btn-warning w-100 fw-bold" style="display: none;">Book Now</a>
                         </form>
@@ -234,10 +274,22 @@
             $('#checkIn').attr('min', today);
             $('#checkOut').attr('min', today);
 
+            // Store initial message HTML
+            var initialMessageHtml = $('#availabilityMessage').html();
+            
             $('#checkIn').on('change', function() {
                 var checkInDate = new Date($(this).val());
                 checkInDate.setDate(checkInDate.getDate() + 1);
                 $('#checkOut').attr('min', checkInDate.toISOString().split('T')[0]);
+                // Reset to initial message when dates change
+                $('#availabilityMessage').html(initialMessageHtml);
+                $('#bookNowBtn').hide();
+            });
+
+            $('#checkOut').on('change', function() {
+                // Reset to initial message when dates change
+                $('#availabilityMessage').html(initialMessageHtml);
+                $('#bookNowBtn').hide();
             });
 
             $('#checkAvailabilityBtn').on('click', function() {
@@ -245,30 +297,51 @@
                 var checkOut = $('#checkOut').val();
                 var roomTypeId = @Model.RoomTypeId;
 
+                // Clear any existing messages first
+                $('#availabilityMessage').empty();
+                $('#bookNowBtn').hide();
+
                 if (!checkIn || !checkOut) {
-                    $('#availabilityMessage').html('<div class="alert alert-warning">Please select both dates.</div>');
+                    $('#availabilityMessage').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Please select both check-in and check-out dates.</div>');
                     return;
                 }
+
+                // Show loading state
+                $('#availabilityMessage').html('<div class="alert alert-info"><i class="bi bi-hourglass-split me-2"></i>Checking availability...</div>');
 
                 $.ajax({
                     url: '@Url.Action("CheckAvailability", "Room")',
                     type: 'POST',
+                    cache: false,
                     data: {
                         roomTypeId: roomTypeId,
                         checkIn: checkIn,
                         checkOut: checkOut
                     },
                     success: function(response) {
-                        if (response.available) {
-                            $('#availabilityMessage').html('<div class="alert alert-success">Available! ' + response.count + ' room(s) available.</div>');
+                        // Clear the message container completely before adding new message
+                        $('#availabilityMessage').empty();
+                        
+                        if (response && response.available) {
+                            var message = response.message || ('Available! ' + response.count + ' room(s) available.');
+                            $('#availabilityMessage').html('<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>' + message + '</div>');
                             $('#bookNowBtn').show().attr('href', '/Booking/Create?roomTypeId=' + roomTypeId + '&checkIn=' + checkIn + '&checkOut=' + checkOut);
                         } else {
-                            $('#availabilityMessage').html('<div class="alert alert-danger">' + response.message + '</div>');
+                            var message = (response && response.message) ? response.message : 'No rooms available for the selected dates. Please try different dates.';
+                            $('#availabilityMessage').html('<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>' + message + '</div>');
                             $('#bookNowBtn').hide();
                         }
                     },
-                    error: function() {
-                        $('#availabilityMessage').html('<div class="alert alert-danger">Error checking availability.</div>');
+                    error: function(xhr, status, error) {
+                        // Clear the message container completely before adding error message
+                        $('#availabilityMessage').empty();
+                        
+                        var errorMessage = 'Error checking availability. Please try again.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                        }
+                        $('#availabilityMessage').html('<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>' + errorMessage + '</div>');
+                        $('#bookNowBtn').hide();
                     }
                 });
             });

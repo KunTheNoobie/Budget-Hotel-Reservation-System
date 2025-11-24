@@ -186,6 +186,19 @@ namespace Assignment.Controllers
                 }
             }
 
+            // Validate profile picture if provided
+            if (profilePicture != null && profilePicture.Length > 0)
+            {
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                var fileExtension = Path.GetExtension(profilePicture.FileName).ToLowerInvariant();
+                
+                // Validate file extension only (no size or dimension restrictions)
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    ModelState.AddModelError("ProfilePicture", "Invalid file type. Please upload JPG, PNG, GIF, or WebP images only.");
+                }
+            }
+
             if (ModelState.IsValid)
             {
                 // Handle profile picture FIRST before other updates
@@ -204,40 +217,37 @@ namespace Assignment.Controllers
                 }
                 else if (profilePicture != null && profilePicture.Length > 0)
                 {
-                    // Validate file type
-                    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                    // File validation already done above, so we can proceed with upload
                     var fileExtension = Path.GetExtension(profilePicture.FileName).ToLowerInvariant();
-                    if (allowedExtensions.Contains(fileExtension) && profilePicture.Length <= 5 * 1024 * 1024)
+                    
+                    // Ensure directory exists
+                    var uploadsFolder = Path.Combine(_environment.WebRootPath, "uploads", "profiles");
+                    if (!Directory.Exists(uploadsFolder))
                     {
-                        // Ensure directory exists
-                        var uploadsFolder = Path.Combine(_environment.WebRootPath, "uploads", "profiles");
-                        if (!Directory.Exists(uploadsFolder))
-                        {
-                            Directory.CreateDirectory(uploadsFolder);
-                        }
-
-                        // Delete old file if exists
-                        if (!string.IsNullOrEmpty(existingUser.ProfilePictureUrl) && existingUser.ProfilePictureUrl.StartsWith("/uploads/"))
-                        {
-                            var oldFilePath = Path.Combine(_environment.WebRootPath, existingUser.ProfilePictureUrl.TrimStart('/'));
-                            if (System.IO.File.Exists(oldFilePath))
-                            {
-                                System.IO.File.Delete(oldFilePath);
-                            }
-                        }
-
-                        // Generate unique filename and save file
-                        var uniqueFileName = Guid.NewGuid().ToString() + fileExtension;
-                        var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                        using (var fileStream = new FileStream(filePath, FileMode.Create))
-                        {
-                            await profilePicture.CopyToAsync(fileStream);
-                        }
-
-                        // Update profile picture URL - simple assignment like hotels do
-                        existingUser.ProfilePictureUrl = "/uploads/profiles/" + uniqueFileName;
+                        Directory.CreateDirectory(uploadsFolder);
                     }
+
+                    // Delete old file if exists
+                    if (!string.IsNullOrEmpty(existingUser.ProfilePictureUrl) && existingUser.ProfilePictureUrl.StartsWith("/uploads/"))
+                    {
+                        var oldFilePath = Path.Combine(_environment.WebRootPath, existingUser.ProfilePictureUrl.TrimStart('/'));
+                        if (System.IO.File.Exists(oldFilePath))
+                        {
+                            System.IO.File.Delete(oldFilePath);
+                        }
+                    }
+
+                    // Generate unique filename and save file
+                    var uniqueFileName = Guid.NewGuid().ToString() + fileExtension;
+                    var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                    using (var fileStream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await profilePicture.CopyToAsync(fileStream);
+                    }
+
+                    // Update profile picture URL - simple assignment like hotels do
+                    existingUser.ProfilePictureUrl = "/uploads/profiles/" + uniqueFileName;
                 }
                 
                 // Update other properties
@@ -296,19 +306,12 @@ namespace Assignment.Controllers
                     return RedirectToAction("Profile");
                 }
 
-                // Validate file type
+                // Validate file type only (no size or dimension restrictions)
                 var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
                 var fileExtension = Path.GetExtension(profilePicture.FileName).ToLowerInvariant();
                 if (!allowedExtensions.Contains(fileExtension))
                 {
                     TempData["Error"] = "Invalid file type. Please upload JPG, PNG, GIF, or WebP images only.";
-                    return RedirectToAction("Profile");
-                }
-
-                // Validate file size (max 5MB)
-                if (profilePicture.Length > 5 * 1024 * 1024)
-                {
-                    TempData["Error"] = "File size too large. Please upload an image smaller than 5MB.";
                     return RedirectToAction("Profile");
                 }
 

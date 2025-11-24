@@ -38,13 +38,13 @@
                                                 <strong>@serviceItem.Service.Name</strong>
                                                 @if (serviceItem.Quantity > 1)
                                                 {
-                                                    <span class="badge bg-info">x@serviceItem.Quantity</span>
+                                                    <span class="badge bg-info">x@(serviceItem.Quantity)</span>
                                                 }
                                                 <span class="text-muted">
                                                     (RM @serviceItem.Service.Price.ToString("F2")
                                                     @if (serviceItem.Quantity > 1)
                                                     {
-                                                        <text> × @serviceItem.Quantity = RM @((serviceItem.Service.Price * serviceItem.Quantity).ToString("F2"))</text>
+                                                        <text> × @(serviceItem.Quantity) = RM @((serviceItem.Service.Price * serviceItem.Quantity).ToString("F2"))</text>
                                                     })
                                                 </span>
                                             </li>
@@ -79,6 +79,9 @@
                             </div>
                         </div>
 
+                        @* Only show promotion code dropdown for non-package bookings *@
+                        @if (!isPackageBooking)
+                        {
                             <div class="mb-3">
                                 <label for="promotionId" class="form-label">Promotion Code (Optional)</label>
                                 <select id="promotionId" name="promotionId" class="form-select">
@@ -89,14 +92,24 @@
                                     {
                                         <option value="@promo.PromotionId">@promo.Code - @(promo.Description ?? promo.Code)</option>
                                     }
-                                    }
+                                }
                                 </select>
-                            <small class="form-text text-muted">Select a promotion code to apply a discount</small>
-                            @if (!promotions.Any())
-                            {
-                                <small class="form-text text-muted">No active promotions available at this time</small>
-                            }
+                                <small class="form-text text-muted">Select a promotion code to apply a discount</small>
+                                @if (!promotions.Any())
+                                {
+                                    <small class="form-text text-muted">No active promotions available at this time</small>
+                                }
                             </div>
+                        }
+                        else
+                        {
+                            @* Hidden field to ensure no promotion is submitted for package bookings *@
+                            <input type="hidden" name="promotionId" value="" />
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Package Booking:</strong> Promotions cannot be applied to package bookings as the package price already includes special discounts and bundled services.
+                            </div>
+                        }
 
                         <div id="availabilityCheck" class="mb-3"></div>
 
@@ -132,7 +145,36 @@
                         <p id="nights" class="mb-1">Nights: <span id="nightsValue">Calculating...</span></p>
                         @if (isPackageBooking && package != null)
                         {
-                            <p class="mb-1"><strong>Package Price:</strong> <span class="text-primary">RM @package.TotalPrice.ToString("F2")</span></p>
+                            var nights = (checkOut - checkIn).Days;
+                            var roomPrice = roomType.BasePrice * nights;
+                            var servicesTotal = packageServices.Sum(pi => pi.Service != null ? (pi.Service.Price * pi.Quantity) : 0);
+                            
+                            <div class="mb-2">
+                                <p class="mb-1"><strong>Room (@nights night(s)):</strong> <span class="text-end">RM @roomPrice.ToString("F2")</span></p>
+                                @if (packageServices.Any())
+                                {
+                                    <div class="ms-3 small">
+                                        @foreach (var serviceItem in packageServices)
+                                        {
+                                            if (serviceItem.Service != null)
+                                            {
+                                                var serviceTotal = serviceItem.Service.Price * serviceItem.Quantity;
+                                                <p class="mb-0 text-muted">
+                                                    • @serviceItem.Service.Name
+                                                    @if (serviceItem.Quantity > 1)
+                                                    {
+                                                        <text> (x@(serviceItem.Quantity))</text>
+                                                    }
+                                                    : RM @serviceTotal.ToString("F2")
+                                                </p>
+                                            }
+                                        }
+                                    </div>
+                                    <p class="mb-1 mt-1"><strong>Services Total:</strong> <span class="text-end">RM @servicesTotal.ToString("F2")</span></p>
+                                }
+                                <hr class="my-2" />
+                                <p class="mb-1"><strong>Package Price:</strong> <span class="text-primary">RM @package.TotalPrice.ToString("F2")</span></p>
+                            </div>
                         }
                         else
                         {
@@ -173,32 +215,13 @@
                 $('#nightsValue').text(nights);
                 
                 if (isPackageBooking && packagePrice > 0) {
-                    // For package bookings, use package price
+                    // For package bookings, use package price (promotions don't apply)
                     var total = packagePrice;
                     var discount = 0;
                     
-                    // Apply promotion if selected
-                    if (selectedPromoId) {
-                        var promo = promotions.find(p => p.promotionId == parseInt(selectedPromoId));
-                        if (promo) {
-                            $('#promotionInfo').show();
-                            $('#promotionName').text(promo.code);
-                            
-                            if (promo.type === 0) { // Percentage
-                                discount = total * (promo.value / 100);
-                            } else { // FixedAmount
-                                discount = promo.value;
-                            }
-                            
-                            // Ensure discount doesn't exceed total
-                            discount = Math.min(discount, total);
-                            total = total - discount;
-                        }
-                    } else {
-                        $('#promotionInfo').hide();
-                    }
-                    
-                    $('#discountValue').text('RM' + discount.toFixed(2));
+                    // Promotions don't apply to package bookings
+                    $('#promotionInfo').hide();
+                    $('#discountValue').text('RM0.00');
                     $('#totalPrice').text('RM' + total.toFixed(2));
                 } else {
                     // Regular room booking
@@ -238,7 +261,21 @@
             function checkAvailability() {
                 var checkIn = $('#checkIn').val();
                 var checkOut = $('#checkOut').val();
+                // Use the correct roomTypeId - for packages, this is the package's room type
                 var roomTypeId = @roomType.RoomTypeId;
+                
+                // Ensure we're using the correct room type for package bookings
+                @if (isPackageBooking && package != null)
+                {
+                    var packageRoomTypeId = package.PackageItems
+                        .Where(pi => pi.RoomTypeId.HasValue)
+                        .Select(pi => pi.RoomTypeId.Value)
+                        .FirstOrDefault();
+                    if (packageRoomTypeId > 0)
+                    {
+                        <text>roomTypeId = @packageRoomTypeId;</text>
+                    }
+                }
                 
                 if (!checkIn || !checkOut) {
                     $('#availabilityCheck').html('');
@@ -257,6 +294,7 @@
                 $.ajax({
                     url: '@Url.Action("CheckAvailability", "Room")',
                     type: 'POST',
+                    cache: false, // Always get fresh availability data
                     data: {
                         roomTypeId: roomTypeId,
                         checkIn: checkIn,

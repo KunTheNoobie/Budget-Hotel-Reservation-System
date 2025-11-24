@@ -124,22 +124,48 @@
                                         @foreach (var review in reviews.Take(3))
                                         {
                                             <div class="review-item border-bottom pb-2 mb-2">
-                                                <div class="d-flex justify-content-between align-items-start">
-                                                    <div>
-                                                        <h6 class="mb-1">@review.User.FullName</h6>
-                                                        <div class="text-warning small mb-1">
-                                                            @for (int i = 1; i <= 5; i++)
-                                                            {
-                                                                <i class="bi bi-star@(i <= review.Rating ? "-fill" : "")"></i>
-                                                            }
-                                                        </div>
+                                                <div class="d-flex align-items-start mb-2">
+                                                    <div class="me-3" style="position: relative; width: 40px; height: 40px;">
+                                                        @{
+                                                            // Ensure User is loaded
+                                                            var reviewUser = review.User;
+                                                            var hasProfilePicture = reviewUser != null && !string.IsNullOrWhiteSpace(reviewUser.ProfilePictureUrl);
+                                                        }
+                                                        @if (hasProfilePicture)
+                                                        {
+                                                            <img src="@Url.Content(reviewUser.ProfilePictureUrl)" alt="@reviewUser.FullName" 
+                                                                 class="rounded-circle" style="width: 40px; height: 40px; object-fit: cover; position: absolute; top: 0; left: 0;" 
+                                                                 onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                            <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="display: none; width: 40px; height: 40px; font-size: 0.85rem; position: absolute; top: 0; left: 0;">
+                                                                @(reviewUser.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                            </div>
+                                                        }
+                                                        else
+                                                        {
+                                                            <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 40px; height: 40px; font-size: 0.85rem;">
+                                                                @(reviewUser?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                            </div>
+                                                        }
                                                     </div>
-                                                    <small class="text-muted">@review.ReviewDate.ToString("MMM dd, yyyy")</small>
+                                                    <div class="flex-grow-1">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <div>
+                                                                <h6 class="mb-1">@review.User.FullName</h6>
+                                                                <div class="text-warning small mb-1">
+                                                                    @for (int i = 1; i <= 5; i++)
+                                                                    {
+                                                                        <i class="bi bi-star@(i <= review.Rating ? "-fill" : "")"></i>
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                            <small class="text-muted">@review.ReviewDate.ToString("MMM dd, yyyy")</small>
+                                                        </div>
+                                                        @if (!string.IsNullOrWhiteSpace(review.Comment))
+                                                        {
+                                                            <p class="mb-0 text-muted small">@review.Comment</p>
+                                                        }
+                                                    </div>
                                                 </div>
-                                                @if (!string.IsNullOrWhiteSpace(review.Comment))
-                                                {
-                                                    <p class="mb-0 text-muted small">@review.Comment</p>
-                                                }
                                             </div>
                                         }
                                     </div>

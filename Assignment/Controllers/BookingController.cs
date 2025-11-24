@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRCoder;
 using System.Drawing;
+using System.Data;
 
 namespace Assignment.Controllers
 {
@@ -43,8 +44,27 @@ namespace Assignment.Controllers
             }
 
             ViewBag.RoomType = roomType;
-            ViewBag.CheckIn = checkIn ?? DateTime.Today.AddDays(1);
-            ViewBag.CheckOut = checkOut ?? DateTime.Today.AddDays(2);
+            var actualCheckIn = checkIn ?? DateTime.Today.AddDays(1);
+            var actualCheckOut = checkOut ?? DateTime.Today.AddDays(2);
+            ViewBag.CheckIn = actualCheckIn;
+            ViewBag.CheckOut = actualCheckOut;
+            
+            // Calculate initial availability for the selected dates
+            // This ensures availability is shown correctly on page load
+            if (roomType != null)
+            {
+                var availableRoomsCount = await _context.Rooms
+                    .Where(r => r.RoomTypeId == roomType.RoomTypeId && r.Status == RoomStatus.Available)
+                    .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
+                        (b.Status == BookingStatus.Pending ||
+                         b.Status == BookingStatus.Confirmed ||
+                         b.Status == BookingStatus.CheckedIn) &&
+                        ((b.CheckInDate <= actualCheckIn && b.CheckOutDate > actualCheckIn) ||
+                         (b.CheckInDate < actualCheckOut && b.CheckOutDate >= actualCheckOut) ||
+                         (b.CheckInDate >= actualCheckIn && b.CheckOutDate <= actualCheckOut))))
+                    .CountAsync();
+                ViewBag.AvailableRoomsCount = availableRoomsCount;
+            }
             
             // Clean up invalid promotions before loading
             await _promotionValidation.DeactivateInvalidPromotionsAsync();
@@ -82,6 +102,19 @@ namespace Assignment.Controllers
                         {
                             roomType = packageRoomType;
                             ViewBag.RoomType = roomType;
+                            
+                            // Recalculate availability for package room type with the correct dates
+                            var packageAvailableRoomsCount = await _context.Rooms
+                                .Where(r => r.RoomTypeId == packageRoomType.RoomTypeId && r.Status == RoomStatus.Available)
+                                .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
+                                    (b.Status == BookingStatus.Pending ||
+                                     b.Status == BookingStatus.Confirmed ||
+                                     b.Status == BookingStatus.CheckedIn) &&
+                                    ((b.CheckInDate <= actualCheckIn && b.CheckOutDate > actualCheckIn) ||
+                                     (b.CheckInDate < actualCheckOut && b.CheckOutDate >= actualCheckOut) ||
+                                     (b.CheckInDate >= actualCheckIn && b.CheckOutDate <= actualCheckOut))))
+                                .CountAsync();
+                            ViewBag.AvailableRoomsCount = packageAvailableRoomsCount;
                         }
                     }
                     
@@ -94,6 +127,11 @@ namespace Assignment.Controllers
                         .Where(pi => pi.RoomTypeId.HasValue)
                         .ToList();
                 }
+            }
+            else
+            {
+                // Explicitly set to false for non-package bookings
+                ViewBag.IsPackageBooking = false;
             }
 
             return View();
@@ -157,13 +195,15 @@ namespace Assignment.Controllers
             }
 
             // Find available room using the correct room type
+            // Use explicit status check to match availability calculation logic
+            // This ensures rooms with Pending/Confirmed/CheckedIn bookings are excluded
             var actualRoomTypeId = roomType.RoomTypeId;
             var availableRoom = await _context.Rooms
                 .Where(r => r.RoomTypeId == actualRoomTypeId && r.Status == RoomStatus.Available)
                 .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
-                    b.Status != BookingStatus.Cancelled &&
-                    b.Status != BookingStatus.CheckedOut &&
-                    b.Status != BookingStatus.NoShow &&
+                    (b.Status == BookingStatus.Pending ||
+                     b.Status == BookingStatus.Confirmed ||
+                     b.Status == BookingStatus.CheckedIn) &&
                     ((b.CheckInDate <= checkIn && b.CheckOutDate > checkIn) ||
                      (b.CheckInDate < checkOut && b.CheckOutDate >= checkOut) ||
                      (b.CheckInDate >= checkIn && b.CheckOutDate <= checkOut))))
@@ -235,7 +275,8 @@ namespace Assignment.Controllers
             var basePrice = roomType.BasePrice * nights;
             decimal discount = 0;
 
-            if (promotionId.HasValue)
+            // If package is selected, promotions don't apply (package price is fixed)
+            if (promotionId.HasValue && !packageId.HasValue)
             {
                 // Get user info for validation
                 var user = await _context.Users.FindAsync(userId.Value);
@@ -279,6 +320,12 @@ namespace Assignment.Controllers
                     }
                 }
             }
+            else if (packageId.HasValue && promotionId.HasValue)
+            {
+                // Package and promotion both selected - silently remove promotion
+                // (UI should prevent this, but handle it gracefully if it happens)
+                promotionId = null;
+            }
 
             // Check ModelState again after promotion validation
             if (!ModelState.IsValid)
@@ -286,12 +333,6 @@ namespace Assignment.Controllers
                 ViewBag.RoomType = roomType;
                 ViewBag.CheckIn = checkIn;
                 ViewBag.CheckOut = checkOut;
-                // Clean up invalid promotions before loading
-                await _promotionValidation.DeactivateInvalidPromotionsAsync();
-                
-                ViewBag.Promotions = await _context.Promotions
-                    .Where(p => p.StartDate <= DateTime.Now && p.EndDate >= DateTime.Now && p.IsActive)
-                    .ToListAsync();
                 // Clean up invalid promotions before loading
                 await _promotionValidation.DeactivateInvalidPromotionsAsync();
                 
@@ -343,37 +384,142 @@ namespace Assignment.Controllers
                 return View();
             }
 
-            var totalPrice = basePrice - discount;
+            decimal totalPrice;
+            bool isPackageBooking = false;
 
             if (packageId.HasValue)
             {
                 var package = await _context.Packages.FindAsync(packageId.Value);
                 if (package != null)
                 {
-                    // Override price with package price
+                    // Use package price - promotions don't apply to packages
                     totalPrice = package.TotalPrice;
-                    // Note: We don't store the package ID in the booking because the schema doesn't support it
-                    // This is a price-only integration as per requirements
+                    isPackageBooking = true;
+                    promotionId = null; // Clear promotion for package bookings
+                }
+                else
+                {
+                    // Package not found, use regular pricing
+                    totalPrice = basePrice - discount;
                 }
             }
-
-            // Create booking
-            var booking = new Booking
+            else
             {
-                UserId = userId.Value,
-                RoomId = availableRoom.RoomId,
-                CheckInDate = checkIn,
-                CheckOutDate = checkOut,
-                TotalPrice = totalPrice,
-                Status = BookingStatus.Pending,
-                PromotionId = promotionId,
-                BookingDate = DateTime.Now
-            };
+                // Regular booking with optional promotion
+                totalPrice = basePrice - discount;
+            }
 
-            _context.Bookings.Add(booking);
-            await _context.SaveChangesAsync();
+            // Create booking with transaction and row-level locking to prevent double-booking
+            // Use SERIALIZABLE isolation level to prevent phantom reads and ensure atomicity
+            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            try
+            {
+                // Double-check availability with row-level lock to prevent race conditions
+                // Use SERIALIZABLE isolation level which prevents phantom reads
+                // Re-query the room within the transaction to ensure we have the latest state
+                var roomId = availableRoom.RoomId;
+                
+                // Re-fetch the room within the transaction to ensure we have the latest state
+                // The SERIALIZABLE isolation level will prevent other transactions from modifying this room
+                var lockedRoom = await _context.Rooms
+                    .FirstOrDefaultAsync(r => r.RoomId == roomId);
 
-            return RedirectToAction("Payment", new { bookingId = booking.BookingId });
+                if (lockedRoom == null || lockedRoom.Status != RoomStatus.Available)
+                {
+                    await transaction.RollbackAsync();
+                    ModelState.AddModelError("", "This room is no longer available. Please try a different room.");
+                    await ReloadBookingViewData(roomType, checkIn, checkOut, packageId);
+                    return View();
+                }
+
+                // Check for overlapping bookings with the locked room
+                // This query runs within the SERIALIZABLE transaction, so it sees all committed data
+                var hasOverlappingBooking = await _context.Bookings
+                    .AnyAsync(b => b.RoomId == roomId &&
+                        (b.Status == BookingStatus.Pending ||
+                         b.Status == BookingStatus.Confirmed ||
+                         b.Status == BookingStatus.CheckedIn) &&
+                        ((b.CheckInDate <= checkIn && b.CheckOutDate > checkIn) ||
+                         (b.CheckInDate < checkOut && b.CheckOutDate >= checkOut) ||
+                         (b.CheckInDate >= checkIn && b.CheckOutDate <= checkOut)));
+
+                if (hasOverlappingBooking)
+                {
+                    await transaction.RollbackAsync();
+                    ModelState.AddModelError("", "This room is no longer available for the selected dates. Please try different dates or another room.");
+                    await ReloadBookingViewData(roomType, checkIn, checkOut, packageId);
+                    return View();
+                }
+
+                var booking = new Booking
+                {
+                    UserId = userId.Value,
+                    RoomId = roomId,
+                    CheckInDate = checkIn,
+                    CheckOutDate = checkOut,
+                    TotalPrice = totalPrice,
+                    Status = BookingStatus.Pending,
+                    PromotionId = promotionId, // Will be null for package bookings
+                    BookingDate = DateTime.Now
+                };
+
+                _context.Bookings.Add(booking);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Booking created successfully: BookingId={BookingId}, UserId={UserId}, RoomId={RoomId}", 
+                    booking.BookingId, userId.Value, availableRoom.RoomId);
+                
+                return RedirectToAction("Payment", new { bookingId = booking.BookingId });
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    await transaction.RollbackAsync();
+                }
+                catch { }
+                
+                _logger.LogError(ex, "Error creating booking for UserId={UserId}, RoomId={RoomId}", userId.Value, availableRoom?.RoomId);
+                ModelState.AddModelError("", "An error occurred while creating your booking. Please try again.");
+                
+                await ReloadBookingViewData(roomType, checkIn, checkOut, packageId);
+                return View();
+            }
+        }
+
+        private async Task ReloadBookingViewData(RoomType roomType, DateTime checkIn, DateTime checkOut, int? packageId)
+        {
+            ViewBag.RoomType = roomType;
+            ViewBag.CheckIn = checkIn;
+            ViewBag.CheckOut = checkOut;
+            await _promotionValidation.DeactivateInvalidPromotionsAsync();
+            ViewBag.Promotions = await _context.Promotions
+                .Where(p => p.StartDate <= DateTime.Now && p.EndDate >= DateTime.Now && p.IsActive)
+                .ToListAsync();
+            
+            if (packageId.HasValue)
+            {
+                var package = await _context.Packages
+                    .Include(p => p.PackageItems)
+                        .ThenInclude(pi => pi.Service)
+                    .Include(p => p.PackageItems)
+                        .ThenInclude(pi => pi.RoomType)
+                    .FirstOrDefaultAsync(p => p.PackageId == packageId.Value);
+                
+                if (package != null)
+                {
+                    ViewBag.Package = package;
+                    ViewBag.IsPackageBooking = true;
+                    ViewBag.PackageServices = package.PackageItems
+                        .Where(pi => pi.Service != null && pi.ServiceId.HasValue)
+                        .ToList();
+                }
+            }
+            else
+            {
+                ViewBag.IsPackageBooking = false;
+            }
         }
 
         [HttpGet]
@@ -396,6 +542,32 @@ namespace Assignment.Controllers
             {
                 TempData["Error"] = "This booking has already been processed.";
                 return RedirectToAction("MyBookings");
+            }
+
+            // Detect if this is a package booking and load package information
+            var nights = (booking.CheckOutDate - booking.CheckInDate).Days;
+            var calculatedRoomPrice = booking.Room.RoomType.BasePrice * nights;
+            var isPackageBooking = booking.TotalPrice != calculatedRoomPrice && 
+                                  (booking.Promotion == null || booking.TotalPrice > calculatedRoomPrice);
+
+            if (isPackageBooking)
+            {
+                // Find the package that matches this booking
+                var package = await _context.Packages
+                    .Include(p => p.PackageItems)
+                        .ThenInclude(pi => pi.Service)
+                    .Include(p => p.PackageItems)
+                        .ThenInclude(pi => pi.RoomType)
+                    .FirstOrDefaultAsync(p => p.TotalPrice == booking.TotalPrice && 
+                                             p.PackageItems.Any(pi => pi.RoomTypeId == booking.Room.RoomTypeId));
+
+                if (package != null)
+                {
+                    ViewBag.Package = package;
+                    ViewBag.PackageServices = package.PackageItems
+                        .Where(pi => pi.Service != null && pi.ServiceId.HasValue)
+                        .ToList();
+                }
             }
 
             var viewModel = new ViewModels.Booking.PaymentViewModel
@@ -495,40 +667,56 @@ namespace Assignment.Controllers
                 return View("Payment", model);
             }
 
-            // Auto-generate transaction ID
-            var transactionId = GenerateTransactionId(model.PaymentMethod.Value);
-
-            // Update booking with payment information (Payment merged into Booking)
-            booking.PaymentAmount = booking.TotalPrice;
-            booking.PaymentMethod = model.PaymentMethod.Value;
-            booking.PaymentStatus = PaymentStatus.Completed;
-            booking.TransactionId = transactionId;
-            booking.PaymentDate = DateTime.Now;
-            booking.Status = BookingStatus.Confirmed;
-            await _context.SaveChangesAsync();
-
-            // Record promotion usage after successful payment
-            if (booking.PromotionId.HasValue)
+            try
             {
-                var user = await _context.Users.FindAsync(booking.UserId);
-                var phoneNumber = user?.DecryptedPhoneNumber;
-                var cardNumber = model.PaymentMethod.Value == PaymentMethod.CreditCard ? model.CardNumber : null;
-                var deviceFingerprint = GetDeviceFingerprint();
-                var ipAddress = GetClientIpAddress();
+                // Auto-generate transaction ID
+                var transactionId = GenerateTransactionId(model.PaymentMethod.Value);
 
-                await _promotionValidation.RecordPromotionUsageAsync(
-                    booking.PromotionId.Value,
-                    booking.BookingId,
-                    booking.UserId,
-                    phoneNumber,
-                    cardNumber,
-                    deviceFingerprint,
-                    ipAddress
-                );
+                // Update booking with payment information (Payment merged into Booking)
+                booking.PaymentAmount = booking.TotalPrice;
+                booking.PaymentMethod = model.PaymentMethod.Value;
+                booking.PaymentStatus = PaymentStatus.Completed;
+                booking.TransactionId = transactionId;
+                booking.PaymentDate = DateTime.Now;
+                booking.Status = BookingStatus.Confirmed;
+                await _context.SaveChangesAsync();
+
+                // Record promotion usage after successful payment
+                if (booking.PromotionId.HasValue)
+                {
+                    var user = await _context.Users.FindAsync(booking.UserId);
+                    var phoneNumber = user?.DecryptedPhoneNumber;
+                    var cardNumber = model.PaymentMethod.Value == PaymentMethod.CreditCard ? model.CardNumber : null;
+                    var deviceFingerprint = GetDeviceFingerprint();
+                    var ipAddress = GetClientIpAddress();
+
+                    await _promotionValidation.RecordPromotionUsageAsync(
+                        booking.PromotionId.Value,
+                        booking.BookingId,
+                        booking.UserId,
+                        phoneNumber,
+                        cardNumber,
+                        deviceFingerprint,
+                        ipAddress
+                    );
+                }
+
+                _logger.LogInformation("Payment processed successfully for booking {BookingId}", booking.BookingId);
+                TempData["Success"] = "Payment processed successfully!";
+                return RedirectToAction("BookingConfirmation", new { bookingId = booking.BookingId });
             }
-
-            TempData["Success"] = "Payment processed successfully!";
-            return RedirectToAction("BookingConfirmation", new { bookingId = booking.BookingId });
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing payment for booking {BookingId}", booking.BookingId);
+                TempData["Error"] = "An error occurred while processing your payment. Please try again or contact support.";
+                model.Booking = await _context.Bookings
+                    .Include(b => b.User)
+                    .Include(b => b.Room)
+                        .ThenInclude(r => r.RoomType)
+                    .Include(b => b.Promotion)
+                    .FirstOrDefaultAsync(b => b.BookingId == model.BookingId);
+                return View("Payment", model);
+            }
         }
 
         // Helper methods for device/IP tracking
@@ -659,11 +847,39 @@ namespace Assignment.Controllers
                     .ThenInclude(r => r.RoomType)
                 .Include(b => b.Promotion)
                 .Include(b => b.Reviews)
+                    .ThenInclude(r => r.User) // Load User for each review to get ProfilePictureUrl
+                .AsSplitQuery() // Use split query for performance
                 .FirstOrDefaultAsync(b => b.BookingId == id);
 
             if (booking == null || (booking.UserId != userId && AuthenticationHelper.GetUserRole(HttpContext) != UserRole.Admin))
             {
                 return NotFound();
+            }
+
+            // Detect if this is a package booking and load package information
+            var nights = (booking.CheckOutDate - booking.CheckInDate).Days;
+            var calculatedRoomPrice = booking.Room.RoomType.BasePrice * nights;
+            var isPackageBooking = booking.TotalPrice != calculatedRoomPrice && 
+                                  (booking.Promotion == null || booking.TotalPrice > calculatedRoomPrice);
+
+            if (isPackageBooking)
+            {
+                // Find the package that matches this booking
+                var package = await _context.Packages
+                    .Include(p => p.PackageItems)
+                        .ThenInclude(pi => pi.Service)
+                    .Include(p => p.PackageItems)
+                        .ThenInclude(pi => pi.RoomType)
+                    .FirstOrDefaultAsync(p => p.TotalPrice == booking.TotalPrice && 
+                                             p.PackageItems.Any(pi => pi.RoomTypeId == booking.Room.RoomTypeId));
+
+                if (package != null)
+                {
+                    ViewBag.Package = package;
+                    ViewBag.PackageServices = package.PackageItems
+                        .Where(pi => pi.Service != null && pi.ServiceId.HasValue)
+                        .ToList();
+                }
             }
 
             // Check if user can leave a review
@@ -686,6 +902,7 @@ namespace Assignment.Controllers
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);
             var booking = await _context.Bookings
+                .Include(b => b.Reviews)
                 .FirstOrDefaultAsync(b => b.BookingId == id);
 
             if (booking == null || booking.UserId != userId)
@@ -693,15 +910,26 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            if (booking.Status == BookingStatus.Cancelled)
+            // Only Pending bookings can be cancelled
+            if (booking.Status != BookingStatus.Pending)
             {
-                TempData["Error"] = "This booking is already cancelled.";
+                string errorMessage = booking.Status switch
+                {
+                    BookingStatus.Cancelled => "This booking is already cancelled.",
+                    BookingStatus.Confirmed => "Cannot cancel a confirmed booking. Please contact support for assistance.",
+                    BookingStatus.CheckedIn => "Cannot cancel a booking that has already been checked in.",
+                    BookingStatus.CheckedOut => "Cannot cancel a booking that has already been checked out.",
+                    BookingStatus.NoShow => "Cannot cancel a no-show booking.",
+                    _ => "This booking cannot be cancelled."
+                };
+                TempData["Error"] = errorMessage;
                 return RedirectToAction("MyBookings");
             }
 
-            if (booking.Status == BookingStatus.CheckedIn || booking.Status == BookingStatus.CheckedOut)
+            // Check if booking has a review - if reviewed, cannot cancel
+            if (booking.Reviews != null && booking.Reviews.Any(r => r.UserId == userId))
             {
-                TempData["Error"] = "Cannot cancel a booking that has already been checked in or checked out.";
+                TempData["Error"] = "Cannot cancel a booking that has been reviewed.";
                 return RedirectToAction("MyBookings");
             }
 
@@ -711,17 +939,27 @@ namespace Assignment.Controllers
                 return RedirectToAction("MyBookings");
             }
 
-            booking.Status = BookingStatus.Cancelled;
-            
-            // Update cancellation details directly on Booking
-            booking.CancellationDate = DateTime.Now;
-            booking.RefundAmount = booking.PaymentStatus == PaymentStatus.Completed ? booking.TotalPrice * 0.8m : 0; // 80% refund
-            booking.CancellationReason = "Cancelled by customer";
+            try
+            {
+                booking.Status = BookingStatus.Cancelled;
+                
+                // Update cancellation details directly on Booking
+                booking.CancellationDate = DateTime.Now;
+                booking.RefundAmount = booking.PaymentStatus == PaymentStatus.Completed ? booking.TotalPrice * 0.8m : 0; // 80% refund
+                booking.CancellationReason = "Cancelled by customer";
 
-            await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync();
 
-            TempData["Success"] = "Booking cancelled successfully.";
-            return RedirectToAction("MyBookings");
+                _logger.LogInformation("Booking cancelled successfully: BookingId={BookingId}, UserId={UserId}", id, userId);
+                TempData["Success"] = "Booking cancelled successfully.";
+                return RedirectToAction("MyBookings");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cancelling booking: BookingId={BookingId}, UserId={UserId}", id, userId);
+                TempData["Error"] = "An error occurred while cancelling your booking. Please try again or contact support.";
+                return RedirectToAction("MyBookings");
+            }
         }
 
         [HttpGet]
@@ -738,6 +976,32 @@ namespace Assignment.Controllers
             if (booking == null || booking.UserId != userId)
             {
                 return NotFound();
+            }
+
+            // Detect if this is a package booking and load package information
+            var nights = (booking.CheckOutDate - booking.CheckInDate).Days;
+            var calculatedRoomPrice = booking.Room.RoomType.BasePrice * nights;
+            var isPackageBooking = booking.TotalPrice != calculatedRoomPrice && 
+                                  (booking.Promotion == null || booking.TotalPrice > calculatedRoomPrice);
+
+            if (isPackageBooking)
+            {
+                // Find the package that matches this booking
+                var package = await _context.Packages
+                    .Include(p => p.PackageItems)
+                        .ThenInclude(pi => pi.Service)
+                    .Include(p => p.PackageItems)
+                        .ThenInclude(pi => pi.RoomType)
+                    .FirstOrDefaultAsync(p => p.TotalPrice == booking.TotalPrice && 
+                                             p.PackageItems.Any(pi => pi.RoomTypeId == booking.Room.RoomTypeId));
+
+                if (package != null)
+                {
+                    ViewBag.Package = package;
+                    ViewBag.PackageServices = package.PackageItems
+                        .Where(pi => pi.Service != null && pi.ServiceId.HasValue)
+                        .ToList();
+                }
             }
 
             return View(booking);

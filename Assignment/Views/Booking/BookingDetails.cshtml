@@ -31,10 +31,66 @@
             <div class="row">
                 <div class="col-md-6">
                     <h5>Pricing</h5>
-                    <p><strong>Total Price:</strong> RM @Model.TotalPrice.ToString("F2")</p>
-                    @if (Model.Promotion != null)
+                    @{
+                        var nights = (Model.CheckOutDate - Model.CheckInDate).Days;
+                        var basePrice = Model.Room.RoomType.BasePrice * nights;
+                        var isPackageBooking = Model.TotalPrice != basePrice && 
+                                              (Model.Promotion == null || Model.TotalPrice > basePrice);
+                        var package = ViewBag.Package as Assignment.Models.Package;
+                        var packageServices = ViewBag.PackageServices as List<Assignment.Models.PackageItem> ?? new List<Assignment.Models.PackageItem>();
+                    }
+                    
+                    @if (isPackageBooking && package != null)
                     {
-                        <p><strong>Promotion Applied:</strong> @Model.Promotion.Code</p>
+                        var roomPrice = Model.Room.RoomType.BasePrice * nights;
+                        var servicesTotal = packageServices.Sum(pi => pi.Service != null ? (pi.Service.Price * pi.Quantity) : 0);
+                        
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <tr>
+                                    <td>Room (@nights night(s) × RM @Model.Room.RoomType.BasePrice.ToString("F2")):</td>
+                                    <td class="text-end">RM @roomPrice.ToString("F2")</td>
+                                </tr>
+                                @if (packageServices.Any())
+                                {
+                                    @foreach (var serviceItem in packageServices)
+                                    {
+                                        if (serviceItem.Service != null)
+                                        {
+                                            var serviceTotal = serviceItem.Service.Price * serviceItem.Quantity;
+                                            <tr>
+                                                <td class="ps-3">
+                                                    <small>• @serviceItem.Service.Name
+                                                    @if (serviceItem.Quantity > 1)
+                                                    {
+                                                        <text> (x@(serviceItem.Quantity))</text>
+                                                    }
+                                                    </small>
+                                                </td>
+                                                <td class="text-end"><small>RM @serviceTotal.ToString("F2")</small></td>
+                                            </tr>
+                                        }
+                                    }
+                                    <tr>
+                                        <td><strong>Services Total:</strong></td>
+                                        <td class="text-end"><strong>RM @servicesTotal.ToString("F2")</strong></td>
+                                    </tr>
+                                }
+                                <tr class="table-active">
+                                    <td><strong>Package Total:</strong></td>
+                                    <td class="text-end"><strong class="text-primary">RM @Model.TotalPrice.ToString("F2")</strong></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <p class="mt-2"><small class="text-muted"><i class="bi bi-box-seam me-1"></i>Package: @package.Name</small></p>
+                    }
+                    else
+                    {
+                        <p><strong>Total Price:</strong> RM @Model.TotalPrice.ToString("F2")</p>
+                        @if (Model.Promotion != null)
+                        {
+                            <p><strong>Promotion Applied:</strong> @Model.Promotion.Code</p>
+                        }
                     }
                 </div>
                 <div class="col-md-6">
@@ -76,17 +132,41 @@
                                 <h5 class="mb-0"><i class="bi bi-star-fill me-2"></i>Your Review</h5>
                             </div>
                             <div class="card-body">
-                                <div class="mb-2">
-                                    @for (int i = 1; i <= 5; i++)
-                                    {
-                                        <i class="bi bi-star@(i <= existingReview.Rating ? "-fill text-warning" : "")"></i>
-                                    }
-                                    <span class="ms-2 text-muted">@existingReview.ReviewDate.ToString("MMM dd, yyyy")</span>
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="me-3" style="position: relative; width: 50px; height: 50px;">
+                                        @{
+                                            var currentUser = Model.User;
+                                        }
+                                        @if (!string.IsNullOrEmpty(currentUser?.ProfilePictureUrl))
+                                        {
+                                            <img src="@Url.Content(currentUser.ProfilePictureUrl)" alt="@currentUser.FullName" 
+                                                 class="rounded-circle" style="width: 50px; height: 50px; object-fit: cover; position: absolute; top: 0; left: 0;" 
+                                                 onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                            <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="display: none; width: 50px; height: 50px; font-weight: bold; font-size: 1.2rem; position: absolute; top: 0; left: 0;">
+                                                @(currentUser.FullName?.Substring(0, 1).ToUpper() ?? "U")
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 50px; height: 50px; font-weight: bold; font-size: 1.2rem;">
+                                                @(currentUser?.FullName?.Substring(0, 1).ToUpper() ?? "U")
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="mb-2">
+                                            @for (int i = 1; i <= 5; i++)
+                                            {
+                                                <i class="bi bi-star@(i <= existingReview.Rating ? "-fill text-warning" : "")"></i>
+                                            }
+                                            <span class="ms-2 text-muted">@existingReview.ReviewDate.ToString("MMM dd, yyyy")</span>
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(existingReview.Comment))
+                                        {
+                                            <p class="mb-0">@existingReview.Comment</p>
+                                        }
+                                    </div>
                                 </div>
-                                @if (!string.IsNullOrWhiteSpace(existingReview.Comment))
-                                {
-                                    <p class="mb-0">@existingReview.Comment</p>
-                                }
                             </div>
                         </div>
                     </div>
@@ -144,9 +224,12 @@
                 <a asp-action="MyBookings" class="btn btn-secondary">Back to My Bookings</a>
                 </div>
                 <div class="col-md-6 text-end">
-                @if (Model.Status != Assignment.Models.BookingStatus.Cancelled && 
-                     Model.Status != Assignment.Models.BookingStatus.CheckedIn && 
-                     Model.Status != Assignment.Models.BookingStatus.CheckedOut &&
+                @* Only show Cancel button for Pending bookings without reviews *@
+                @{
+                    var hasReviewForDetails = Model.Reviews != null && Model.Reviews.Any(r => r.UserId == Model.UserId);
+                }
+                @if (Model.Status == Assignment.Models.BookingStatus.Pending && 
+                     !hasReviewForDetails &&
                      Model.CheckInDate >= DateTime.Today)
                 {
                     <form asp-action="CancelBooking" asp-route-id="@Model.BookingId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to cancel this booking?');">

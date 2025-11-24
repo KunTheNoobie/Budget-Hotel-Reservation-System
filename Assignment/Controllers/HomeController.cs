@@ -126,14 +126,29 @@ namespace Assignment.Controllers
 
             // Get customer reviews for testimonials section - show only 3 random reviews
             // Include reviews with comments, or if no comments exist, show reviews with ratings
+            // Explicitly load User to ensure ProfilePictureUrl is available
             var allReviews = await _context.Reviews
-                .Include(r => r.User)
+                .Include(r => r.User) // Explicitly include User for profile pictures
+                .Include(r => r.Booking)
+                    .ThenInclude(b => b.User) // Also include Booking.User as fallback
                 .Include(r => r.Booking)
                     .ThenInclude(b => b.Room)
                         .ThenInclude(rm => rm.RoomType)
-                .Where(r => r.User != null) // Ensure user exists
+                .Where(r => r.User != null && !r.IsDeleted) // Ensure user exists and review is not deleted
                 .OrderByDescending(r => r.ReviewDate) // Get most recent first
+                .AsSplitQuery() // Use split query to avoid cartesian explosion
                 .ToListAsync();
+            
+            // Ensure User is loaded for each review (explicitly load if missing)
+            foreach (var review in allReviews)
+            {
+                if (review.User == null && review.UserId > 0)
+                {
+                    await _context.Entry(review)
+                        .Reference(r => r.User)
+                        .LoadAsync();
+                }
+            }
             
             // Filter to reviews with comments, or if none exist, show any reviews
             var reviewsWithComments = allReviews.Where(r => !string.IsNullOrWhiteSpace(r.Comment)).ToList();
@@ -363,19 +378,34 @@ namespace Assignment.Controllers
                     .ToListAsync();
                 ViewBag.RoomImages = roomImages;
 
-                // Get reviews for this room type
+                // Get reviews for this room type with User data loaded
                 var reviews = await _context.Reviews
                     .Include(r => r.User)
                     .Include(r => r.Booking)
+                        .ThenInclude(b => b.User) // Include Booking.User for profile pictures
+                    .Include(r => r.Booking)
                         .ThenInclude(b => b.Room)
                             .ThenInclude(rm => rm.RoomType)
-                    .Where(r => r.Booking.Room.RoomTypeId == roomType.RoomTypeId)
+                    .Where(r => r.Booking.Room.RoomTypeId == roomType.RoomTypeId && !r.IsDeleted)
                     .OrderByDescending(r => r.ReviewDate)
                     .Take(5)
+                    .AsSplitQuery() // Use split query to avoid cartesian explosion
                     .ToListAsync();
                 ViewBag.Reviews = reviews;
                 ViewBag.AverageRating = reviews.Any() ? reviews.Average(r => r.Rating) : 0;
                 ViewBag.ReviewCount = reviews.Count;
+
+                // Calculate available rooms count (excluding booked rooms)
+                // Use same logic as Room/Details for consistency
+                var availableRooms = await _context.Rooms
+                    .Where(r => r.RoomTypeId == roomType.RoomTypeId && r.Status == RoomStatus.Available)
+                    .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
+                        (b.Status == BookingStatus.Pending ||
+                         b.Status == BookingStatus.Confirmed ||
+                         b.Status == BookingStatus.CheckedIn) &&
+                        b.CheckOutDate > DateTime.Today))
+                    .CountAsync();
+                ViewBag.AvailableRooms = availableRooms;
             }
 
             return View(packageSummary);

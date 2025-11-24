@@ -160,13 +160,14 @@ namespace Assignment.Controllers
                 if (checkIn.HasValue)
                 {
                     // If check-in date is provided, check for date conflicts
+                    // Use explicit status check for consistency
                     var checkOutDate = checkIn.Value.AddDays(1); // Default to 1 night if no check-out specified
                     availableCount = await _context.Rooms
                         .Where(r => r.RoomTypeId == rt.RoomTypeId && r.Status == RoomStatus.Available)
                         .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
-                            b.Status != BookingStatus.Cancelled &&
-                            b.Status != BookingStatus.CheckedOut &&
-                            b.Status != BookingStatus.NoShow &&
+                            (b.Status == BookingStatus.Pending ||
+                             b.Status == BookingStatus.Confirmed ||
+                             b.Status == BookingStatus.CheckedIn) &&
                             ((b.CheckInDate <= checkIn.Value && b.CheckOutDate > checkIn.Value) ||
                              (b.CheckInDate < checkOutDate && b.CheckOutDate >= checkOutDate) ||
                              (b.CheckInDate >= checkIn.Value && b.CheckOutDate <= checkOutDate))))
@@ -175,13 +176,13 @@ namespace Assignment.Controllers
                 else
                 {
                     // If no check-in date, count all available rooms without active bookings
-                    // Exclude: Cancelled, CheckedOut bookings, and bookings that have already ended
+                    // Exclude rooms with active bookings (Pending, Confirmed, CheckedIn) that haven't ended
                     availableCount = await _context.Rooms
                         .Where(r => r.RoomTypeId == rt.RoomTypeId && r.Status == RoomStatus.Available)
                         .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
-                            b.Status != BookingStatus.Cancelled &&
-                            b.Status != BookingStatus.CheckedOut &&
-                            b.Status != BookingStatus.NoShow &&
+                            (b.Status == BookingStatus.Pending ||
+                             b.Status == BookingStatus.Confirmed ||
+                             b.Status == BookingStatus.CheckedIn) &&
                             b.CheckOutDate > DateTime.Today))
                         .CountAsync();
                 }
@@ -229,22 +230,31 @@ namespace Assignment.Controllers
             }
 
             // Get available rooms count (excluding booked rooms)
+            // Exclude rooms with any active bookings (Pending, Confirmed, CheckedIn) that haven't ended
+            // This ensures real-time sync after bookings are made
             var availableRooms = await _context.Rooms
                 .Where(r => r.RoomTypeId == id && r.Status == RoomStatus.Available)
                 .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
-                    b.Status != BookingStatus.Cancelled &&
-                    b.Status != BookingStatus.CheckedOut &&
-                    b.Status != BookingStatus.NoShow &&
+                    (b.Status == BookingStatus.Pending ||
+                     b.Status == BookingStatus.Confirmed ||
+                     b.Status == BookingStatus.CheckedIn) &&
                     b.CheckOutDate > DateTime.Today))
                 .CountAsync();
             ViewBag.AvailableRooms = availableRooms;
 
-            // Get all reviews for this room type
-            var allReviews = roomType.Rooms
-                .SelectMany(r => r.Bookings)
-                .SelectMany(b => b.Reviews)
+            // Get all reviews for this room type with User data loaded
+            // Explicitly load User to ensure ProfilePictureUrl is available
+            var allReviews = await _context.Reviews
+                .Include(r => r.User)
+                .Include(r => r.Booking)
+                    .ThenInclude(b => b.User) // Include Booking.User for profile pictures
+                .Include(r => r.Booking)
+                    .ThenInclude(b => b.Room)
+                        .ThenInclude(rm => rm.RoomType)
+                .Where(r => r.Booking.Room.RoomTypeId == id && !r.IsDeleted)
                 .OrderByDescending(r => r.ReviewDate)
-                .ToList();
+                .AsSplitQuery() // Use split query to avoid cartesian explosion
+                .ToListAsync();
 
             // Paginate reviews
             var totalReviews = allReviews.Count;
@@ -402,18 +412,27 @@ namespace Assignment.Controllers
                 return Json(new { available = false, message = "Check-in date cannot be in the past." });
             }
 
+            // Get fresh availability count from database, excluding all conflicting bookings
+            // Use explicit status check for consistency with other availability calculations
             var availableRooms = await _context.Rooms
                 .Where(r => r.RoomTypeId == roomTypeId && r.Status == RoomStatus.Available)
                 .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
-                    b.Status != BookingStatus.Cancelled &&
-                    b.Status != BookingStatus.CheckedOut &&
-                    b.Status != BookingStatus.NoShow &&
+                    (b.Status == BookingStatus.Pending ||
+                     b.Status == BookingStatus.Confirmed ||
+                     b.Status == BookingStatus.CheckedIn) &&
                     ((b.CheckInDate <= checkIn && b.CheckOutDate > checkIn) ||
                      (b.CheckInDate < checkOut && b.CheckOutDate >= checkOut) ||
                      (b.CheckInDate >= checkIn && b.CheckOutDate <= checkOut))))
                 .CountAsync();
 
-            return Json(new { available = availableRooms > 0, count = availableRooms });
+            if (availableRooms > 0)
+            {
+                return Json(new { available = true, count = availableRooms, message = $"Available! {availableRooms} room(s) available for the selected dates." });
+            }
+            else
+            {
+                return Json(new { available = false, count = 0, message = "No rooms available for the selected dates. Please try different dates." });
+            }
         }
     }
 }

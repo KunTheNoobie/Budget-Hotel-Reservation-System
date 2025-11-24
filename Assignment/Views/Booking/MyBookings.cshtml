@@ -150,9 +150,9 @@
                             </td>
                             <td>
                                 <a asp-action="BookingDetails" asp-route-id="@booking.BookingId" class="btn btn-sm btn-info">Details</a>
-                                @if (booking.Status != Assignment.Models.BookingStatus.Cancelled && 
-                                     booking.Status != Assignment.Models.BookingStatus.CheckedIn && 
-                                     booking.Status != Assignment.Models.BookingStatus.CheckedOut &&
+                                @* Only show Cancel button for Pending bookings without reviews *@
+                                @if (booking.Status == Assignment.Models.BookingStatus.Pending && 
+                                     !hasReview &&
                                      booking.CheckInDate >= DateTime.Today)
                                 {
                                     <form asp-action="CancelBooking" asp-route-id="@booking.BookingId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to cancel this booking?');">

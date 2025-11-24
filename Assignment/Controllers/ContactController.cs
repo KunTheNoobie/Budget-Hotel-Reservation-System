@@ -8,10 +8,12 @@ namespace Assignment.Controllers
     public class ContactController : Controller
     {
         private readonly HotelDbContext _context;
+        private readonly ILogger<ContactController> _logger;
 
-        public ContactController(HotelDbContext context)
+        public ContactController(HotelDbContext context, ILogger<ContactController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         public IActionResult Index()
@@ -49,8 +51,10 @@ namespace Assignment.Controllers
 
                 return RedirectToAction("Contact", "Home");
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "Error sending contact message from {Email}", model?.Email ?? "unknown");
+                
                 if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 {
                     return Json(new { success = false, message = "An error occurred while sending your message. Please try again later." });
