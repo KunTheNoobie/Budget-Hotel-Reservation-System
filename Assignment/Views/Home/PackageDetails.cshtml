@@ -650,52 +650,66 @@
                 $(this).siblings('.review-avatar-fallback').hide();
             });
 
+            // Helper function to format date in local timezone as YYYY-MM-DD (consistent with server-side)
+            function formatLocalDate(date) {
+                var year = date.getFullYear();
+                var month = String(date.getMonth() + 1).padStart(2, '0');
+                var day = String(date.getDate()).padStart(2, '0');
+                return year + '-' + month + '-' + day;
+            }
+
             var checkInInput = $('#checkIn');
             var checkOutInput = $('#checkOut');
             
-            // Set minimum dates
+            // Set minimum dates using local timezone (consistent with server-side DateTime.Today)
             var today = new Date();
             today.setHours(0, 0, 0, 0);
             var tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             tomorrow.setHours(0, 0, 0, 0);
             
-            checkInInput.attr('min', today.toISOString().split('T')[0]);
-            checkOutInput.attr('min', tomorrow.toISOString().split('T')[0]);
+            checkInInput.attr('min', formatLocalDate(today));
+            checkOutInput.attr('min', formatLocalDate(tomorrow));
             
             // Validate check-out is after check-in
             checkInInput.on('change', function() {
-                var checkInDate = new Date($(this).val());
-                if (checkInDate) {
+                var checkInDate = new Date($(this).val() + 'T00:00:00');
+                if (checkInDate && !isNaN(checkInDate.getTime())) {
                     var minCheckOut = new Date(checkInDate);
                     minCheckOut.setDate(minCheckOut.getDate() + 1);
-                    checkOutInput.attr('min', minCheckOut.toISOString().split('T')[0]);
+                    checkOutInput.attr('min', formatLocalDate(minCheckOut));
                     
-                    var checkOutDate = new Date(checkOutInput.val());
-                    if (checkOutDate <= checkInDate) {
-                        checkOutInput.val(minCheckOut.toISOString().split('T')[0]);
+                    var checkOutDate = new Date(checkOutInput.val() + 'T00:00:00');
+                    if (checkOutDate && !isNaN(checkOutDate.getTime()) && checkOutDate <= checkInDate) {
+                        checkOutInput.val(formatLocalDate(minCheckOut));
                     }
                 }
             });
             
             checkOutInput.on('change', function() {
-                var checkInDate = new Date(checkInInput.val());
-                var checkOutDate = new Date($(this).val());
+                var checkInDate = new Date(checkInInput.val() + 'T00:00:00');
+                var checkOutDate = new Date($(this).val() + 'T00:00:00');
                 
-                if (checkOutDate <= checkInDate) {
+                if (checkInDate && checkOutDate && !isNaN(checkInDate.getTime()) && !isNaN(checkOutDate.getTime()) && checkOutDate <= checkInDate) {
                     alert('Check-out date must be after check-in date.');
                     var minCheckOut = new Date(checkInDate);
                     minCheckOut.setDate(minCheckOut.getDate() + 1);
-                    $(this).val(minCheckOut.toISOString().split('T')[0]);
+                    $(this).val(formatLocalDate(minCheckOut));
                 }
             });
             
             // Form validation
             $('#packageBookingForm').on('submit', function(e) {
-                var checkIn = new Date(checkInInput.val());
-                var checkOut = new Date(checkOutInput.val());
+                var checkIn = new Date(checkInInput.val() + 'T00:00:00');
+                var checkOut = new Date(checkOutInput.val() + 'T00:00:00');
                 var today = new Date();
                 today.setHours(0, 0, 0, 0);
+                
+                if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
+                    e.preventDefault();
+                    alert('Please select valid dates.');
+                    return false;
+                }
                 
                 if (checkIn < today) {
                     e.preventDefault();
