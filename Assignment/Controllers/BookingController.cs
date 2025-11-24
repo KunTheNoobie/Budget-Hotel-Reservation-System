@@ -163,6 +163,7 @@ namespace Assignment.Controllers
                 .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
                     b.Status != BookingStatus.Cancelled &&
                     b.Status != BookingStatus.CheckedOut &&
+                    b.Status != BookingStatus.NoShow &&
                     ((b.CheckInDate <= checkIn && b.CheckOutDate > checkIn) ||
                      (b.CheckInDate < checkOut && b.CheckOutDate >= checkOut) ||
                      (b.CheckInDate >= checkIn && b.CheckOutDate <= checkOut))))

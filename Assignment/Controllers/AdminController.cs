@@ -2413,6 +2413,160 @@ namespace Assignment.Controllers
         }
 
         #endregion
+
+        #region Service Management
+
+        public async Task<IActionResult> Services(string searchTerm = "", int page = 1, int pageSize = 10)
+        {
+            ValidateSearchParameters(ref searchTerm, ref page, ref pageSize);
+
+            var query = _context.Services.AsQueryable();
+
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                query = query.Where(s => s.Name.Contains(searchTerm) || (s.Description != null && s.Description.Contains(searchTerm)));
+            }
+
+            var totalCount = await query.CountAsync();
+            var services = await query
+                .OrderBy(s => s.ServiceId)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            ViewBag.SearchTerm = searchTerm;
+            ViewBag.CurrentPage = page;
+            ViewBag.TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+            ViewBag.PageSize = pageSize;
+
+            return View(services);
+        }
+
+        [HttpGet]
+        public IActionResult CreateService()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateService(Service service)
+        {
+            // Validate service name
+            if (string.IsNullOrWhiteSpace(service.Name))
+            {
+                ModelState.AddModelError("Name", "Service name is required.");
+            }
+            else if (await _context.Services.AnyAsync(s => s.Name == service.Name))
+            {
+                ModelState.AddModelError("Name", "A service with this name already exists.");
+            }
+
+            // Validate price
+            if (service.Price <= 0)
+            {
+                ModelState.AddModelError("Price", "Price must be greater than 0.");
+            }
+
+            if (ModelState.IsValid)
+            {
+                _context.Services.Add(service);
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Service created successfully.";
+                return RedirectToAction("Services");
+            }
+
+            return View(service);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> EditService(int id)
+        {
+            var service = await _context.Services.FindAsync(id);
+            if (service == null)
+            {
+                return NotFound();
+            }
+
+            return View(service);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditService(int id, Service service)
+        {
+            if (id != service.ServiceId)
+            {
+                return NotFound();
+            }
+
+            // Validate service name
+            if (string.IsNullOrWhiteSpace(service.Name))
+            {
+                ModelState.AddModelError("Name", "Service name is required.");
+            }
+            else if (await _context.Services.AnyAsync(s => s.Name == service.Name && s.ServiceId != id))
+            {
+                ModelState.AddModelError("Name", "A service with this name already exists.");
+            }
+
+            // Validate price
+            if (service.Price <= 0)
+            {
+                ModelState.AddModelError("Price", "Price must be greater than 0.");
+            }
+
+            if (ModelState.IsValid)
+            {
+                var existingService = await _context.Services.FindAsync(id);
+                if (existingService == null)
+                {
+                    return NotFound();
+                }
+
+                existingService.Name = service.Name;
+                existingService.Description = service.Description;
+                existingService.Price = service.Price;
+
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Service updated successfully.";
+                return RedirectToAction("Services");
+            }
+
+            return View(service);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteService(int id)
+        {
+            var service = await _context.Services.FindAsync(id);
+
+            if (service == null)
+            {
+                return NotFound();
+            }
+
+            // Check if service is used in any packages
+            var packageItemsUsingService = await _context.PackageItems
+                .Where(pi => pi.ServiceId == id && !pi.IsDeleted)
+                .AnyAsync();
+
+            if (packageItemsUsingService)
+            {
+                TempData["Error"] = "Cannot delete a service that is used in packages. Please remove it from all packages first.";
+                return RedirectToAction("Services");
+            }
+
+            // Soft delete service
+            service.IsDeleted = true;
+            service.DeletedAt = DateTime.Now;
+            await _context.SaveChangesAsync();
+            TempData["Success"] = "Service deleted successfully.";
+            return RedirectToAction("Services");
+        }
+
+        #endregion
     }
 }
 

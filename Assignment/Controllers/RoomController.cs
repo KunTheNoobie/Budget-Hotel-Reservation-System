@@ -151,24 +151,41 @@ namespace Assignment.Controllers
                 .Take(pageSize)
                 .ToListAsync();
 
-            // Calculate available rooms for each room type based on check-in date if provided
+            // Calculate available rooms for each room type
+            // Always calculate from database to ensure accuracy
             var availableRoomsDict = new Dictionary<int, int>();
-            if (checkIn.HasValue)
+            foreach (var rt in roomTypes)
             {
-                var checkOutDate = checkIn.Value.AddDays(1); // Default to 1 night if no check-out specified
-                foreach (var rt in roomTypes)
+                int availableCount;
+                if (checkIn.HasValue)
                 {
-                    var availableCount = await _context.Rooms
+                    // If check-in date is provided, check for date conflicts
+                    var checkOutDate = checkIn.Value.AddDays(1); // Default to 1 night if no check-out specified
+                    availableCount = await _context.Rooms
                         .Where(r => r.RoomTypeId == rt.RoomTypeId && r.Status == RoomStatus.Available)
                         .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
                             b.Status != BookingStatus.Cancelled &&
                             b.Status != BookingStatus.CheckedOut &&
+                            b.Status != BookingStatus.NoShow &&
                             ((b.CheckInDate <= checkIn.Value && b.CheckOutDate > checkIn.Value) ||
                              (b.CheckInDate < checkOutDate && b.CheckOutDate >= checkOutDate) ||
                              (b.CheckInDate >= checkIn.Value && b.CheckOutDate <= checkOutDate))))
                         .CountAsync();
-                    availableRoomsDict[rt.RoomTypeId] = availableCount;
                 }
+                else
+                {
+                    // If no check-in date, count all available rooms without active bookings
+                    // Exclude: Cancelled, CheckedOut bookings, and bookings that have already ended
+                    availableCount = await _context.Rooms
+                        .Where(r => r.RoomTypeId == rt.RoomTypeId && r.Status == RoomStatus.Available)
+                        .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
+                            b.Status != BookingStatus.Cancelled &&
+                            b.Status != BookingStatus.CheckedOut &&
+                            b.Status != BookingStatus.NoShow &&
+                            b.CheckOutDate > DateTime.Today))
+                        .CountAsync();
+                }
+                availableRoomsDict[rt.RoomTypeId] = availableCount;
             }
             ViewBag.AvailableRoomsDict = availableRoomsDict;
 
@@ -216,7 +233,9 @@ namespace Assignment.Controllers
                 .Where(r => r.RoomTypeId == id && r.Status == RoomStatus.Available)
                 .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
                     b.Status != BookingStatus.Cancelled &&
-                    b.Status != BookingStatus.CheckedOut))
+                    b.Status != BookingStatus.CheckedOut &&
+                    b.Status != BookingStatus.NoShow &&
+                    b.CheckOutDate > DateTime.Today))
                 .CountAsync();
             ViewBag.AvailableRooms = availableRooms;
 
@@ -346,6 +365,7 @@ namespace Assignment.Controllers
                 var availableRooms = rt.Rooms.Count(r => r.Status == RoomStatus.Available &&
                     !r.Bookings.Any(b => b.Status != BookingStatus.Cancelled && 
                                         b.Status != BookingStatus.CheckedOut &&
+                                        b.Status != BookingStatus.NoShow &&
                                         b.CheckOutDate > DateTime.Today));
                 
                 return new
@@ -387,6 +407,7 @@ namespace Assignment.Controllers
                 .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
                     b.Status != BookingStatus.Cancelled &&
                     b.Status != BookingStatus.CheckedOut &&
+                    b.Status != BookingStatus.NoShow &&
                     ((b.CheckInDate <= checkIn && b.CheckOutDate > checkIn) ||
                      (b.CheckInDate < checkOut && b.CheckOutDate >= checkOut) ||
                      (b.CheckInDate >= checkIn && b.CheckOutDate <= checkOut))))

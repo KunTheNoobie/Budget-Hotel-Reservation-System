@@ -69,21 +69,33 @@
             @if (amenities.Any())
             {
                 <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
-                    @foreach (var amenity in amenities)
-                    {
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="checkbox" name="selectedAmenities" value="@amenity.AmenityId" id="amenity_@amenity.AmenityId" />
-                            <label class="form-check-label" for="amenity_@amenity.AmenityId">
-                                @if (!string.IsNullOrEmpty(amenity.ImageUrl))
-                                {
-                                    <img src="@amenity.ImageUrl" alt="@amenity.Name" class="me-2" style="width: 20px; height: 20px; object-fit: cover;" onerror="this.style.display='none';">
-                                }
-                                @amenity.Name
-                            </label>
-                        </div>
-                    }
+                    <div class="row g-2">
+                        @foreach (var amenity in amenities)
+                        {
+                            <div class="col-md-3 col-sm-4 col-6">
+                                <div class="amenity-item position-relative" style="cursor: pointer; border: 2px solid #dee2e6; border-radius: 8px; padding: 10px; text-align: center; transition: all 0.3s;" 
+                                     onclick="toggleAmenity(@amenity.AmenityId)">
+                                    <input type="checkbox" name="selectedAmenities" value="@amenity.AmenityId" id="amenity_@amenity.AmenityId" style="display: none;" />
+                                    @if (!string.IsNullOrEmpty(amenity.ImageUrl))
+                                    {
+                                        <img src="@amenity.ImageUrl" alt="@amenity.Name" class="mb-2" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;" onerror="this.style.display='none';">
+                                    }
+                                    else
+                                    {
+                                        <div class="mb-2 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background-color: #f8f9fa; border-radius: 4px; margin: 0 auto;">
+                                            <i class="bi bi-image text-muted"></i>
+                                        </div>
+                                    }
+                                    <div class="small">@amenity.Name</div>
+                                    <div class="check-icon" style="position: absolute; top: 5px; right: 5px; display: none;">
+                                        <i class="bi bi-check-circle-fill text-success" style="font-size: 20px;"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
                 </div>
-                <small class="form-text text-muted">Select amenities available in this room type</small>
+                <small class="form-text text-muted">Click on amenities to select them for this room type</small>
             }
             else
             {
@@ -100,5 +112,37 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        function toggleAmenity(amenityId) {
+            var checkbox = document.getElementById('amenity_' + amenityId);
+            var item = checkbox.closest('.amenity-item');
+            var checkIcon = item.querySelector('.check-icon');
+            
+            checkbox.checked = !checkbox.checked;
+            
+            if (checkbox.checked) {
+                item.style.borderColor = '#0d6efd';
+                item.style.backgroundColor = '#e7f1ff';
+                checkIcon.style.display = 'block';
+            } else {
+                item.style.borderColor = '#dee2e6';
+                item.style.backgroundColor = 'transparent';
+                checkIcon.style.display = 'none';
+            }
+        }
+        
+        // Initialize selected amenities on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('input[name="selectedAmenities"]').forEach(function(checkbox) {
+                if (checkbox.checked) {
+                    var item = checkbox.closest('.amenity-item');
+                    var checkIcon = item.querySelector('.check-icon');
+                    item.style.borderColor = '#0d6efd';
+                    item.style.backgroundColor = '#e7f1ff';
+                    checkIcon.style.display = 'block';
+                }
+            });
+        });
+    </script>
 }
 

@@ -45,30 +45,42 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var hotel in Model)
+                    @if (Model != null && Model.Any())
+                    {
+                        @foreach (var hotel in Model)
+                        {
+                            <tr>
+                                <td>@hotel.HotelId</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(hotel.ImageUrl))
+                                    {
+                                        <img src="@hotel.ImageUrl" alt="@hotel.Name" style="width: 50px; height: 50px; object-fit: cover;" onerror="this.src='https://via.placeholder.com/50?text=No+Image'">
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No Image</span>
+                                    }
+                                </td>
+                                <td>@hotel.Name</td>
+                                <td>@hotel.Address</td>
+                                <td>@hotel.City</td>
+                                <td>@hotel.Country</td>
+                                <td>@(hotel.ContactNumber ?? hotel.ContactEmail ?? "-")</td>
+                                <td>
+                                    <a asp-action="EditHotel" asp-route-id="@hotel.HotelId" class="btn btn-sm btn-primary">Edit</a>
+                                    <form asp-action="DeleteHotel" asp-route-id="@hotel.HotelId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this hotel?');">
+                                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
                     {
                         <tr>
-                            <td>@hotel.HotelId</td>
-                            <td>
-                                @if (!string.IsNullOrEmpty(hotel.ImageUrl))
-                                {
-                                    <img src="@hotel.ImageUrl" alt="@hotel.Name" style="width: 50px; height: 50px; object-fit: cover;" onerror="this.src='https://via.placeholder.com/50?text=No+Image'">
-                                }
-                                else
-                                {
-                                    <span class="text-muted">No Image</span>
-                                }
-                            </td>
-                            <td>@hotel.Name</td>
-                            <td>@hotel.Address</td>
-                            <td>@hotel.City</td>
-                            <td>@hotel.Country</td>
-                            <td>@(hotel.ContactNumber ?? hotel.ContactEmail ?? "-")</td>
-                            <td>
-                                <a asp-action="EditHotel" asp-route-id="@hotel.HotelId" class="btn btn-sm btn-primary">Edit</a>
-                                <form asp-action="DeleteHotel" asp-route-id="@hotel.HotelId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this hotel?');">
-                                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                                </form>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                No hotels found. <a asp-action="CreateHotel">Create your first hotel</a> to get started.
                             </td>
                         </tr>
                     }

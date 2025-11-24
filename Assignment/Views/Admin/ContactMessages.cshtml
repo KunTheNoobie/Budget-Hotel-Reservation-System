@@ -4,13 +4,13 @@
 }
 
 <div class="container-fluid">
-    <h2 class="mb-4">
-        Contact Messages 
+    <div class="mb-4">
+        <h2 class="mb-0 d-inline-block me-3">Contact Messages</h2>
         @if (ViewBag.UnreadCount > 0)
         {
-            <span class="badge bg-danger">@ViewBag.UnreadCount Unread</span>
+            <span class="badge bg-danger align-middle" style="font-size: 1rem; padding: 0.6rem 1rem; font-weight: 600;">@ViewBag.UnreadCount Unread</span>
         }
-    </h2>
+    </div>
 
     @if (TempData["Success"] != null)
     {

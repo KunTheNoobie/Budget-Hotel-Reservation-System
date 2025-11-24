@@ -43,44 +43,56 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var review in Model)
+                    @if (Model != null && Model.Any())
+                    {
+                        @foreach (var review in Model)
+                        {
+                            <tr>
+                                <td>@review.ReviewId</td>
+                                <td>
+                                    @review.User.FullName<br />
+                                    <small class="text-muted">@review.User.Email</small>
+                                </td>
+                                <td>
+                                    @review.Booking?.Room?.RoomType?.Name<br />
+                                    <small class="text-muted">Room @review.Booking?.Room?.RoomNumber</small>
+                                </td>
+                                <td>
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        <i class="bi @(i <= review.Rating ? "bi-star-fill text-warning" : "bi-star")"></i>
+                                    }
+                                    <span class="ms-1">(@review.Rating)</span>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(review.Comment))
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-primary view-comment-btn" 
+                                                data-comment="@review.Comment"
+                                                data-user="@review.User.FullName">
+                                            @(review.Comment.Length > 50 ? review.Comment.Substring(0, 50) + "..." : review.Comment)
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No comment</span>
+                                    }
+                                </td>
+                                <td>@review.ReviewDate.ToString("MM/dd/yyyy")</td>
+                                <td>
+                                    <form asp-action="DeleteReview" asp-route-id="@review.ReviewId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this review?');">
+                                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
                     {
                         <tr>
-                            <td>@review.ReviewId</td>
-                            <td>
-                                @review.User.FullName<br />
-                                <small class="text-muted">@review.User.Email</small>
-                            </td>
-                            <td>
-                                @review.Booking?.Room?.RoomType?.Name<br />
-                                <small class="text-muted">Room @review.Booking?.Room?.RoomNumber</small>
-                            </td>
-                            <td>
-                                @for (int i = 1; i <= 5; i++)
-                                {
-                                    <i class="bi @(i <= review.Rating ? "bi-star-fill text-warning" : "bi-star")"></i>
-                                }
-                                <span class="ms-1">(@review.Rating)</span>
-                            </td>
-                            <td>
-                                @if (!string.IsNullOrEmpty(review.Comment))
-                                {
-                                    <button type="button" class="btn btn-sm btn-outline-primary view-comment-btn" 
-                                            data-comment="@review.Comment"
-                                            data-user="@review.User.FullName">
-                                        @(review.Comment.Length > 50 ? review.Comment.Substring(0, 50) + "..." : review.Comment)
-                                    </button>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">No comment</span>
-                                }
-                            </td>
-                            <td>@review.ReviewDate.ToString("MM/dd/yyyy")</td>
-                            <td>
-                                <form asp-action="DeleteReview" asp-route-id="@review.ReviewId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this review?');">
-                                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                                </form>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                No reviews found.
                             </td>
                         </tr>
                     }

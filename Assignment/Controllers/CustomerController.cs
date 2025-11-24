@@ -33,6 +33,7 @@ namespace Assignment.Controllers
             }
 
             var user = await _context.Users
+                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.UserId == userId.Value);
 
             if (user == null)
@@ -56,6 +57,7 @@ namespace Assignment.Controllers
             }
 
             var user = await _context.Users
+                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.UserId == userId.Value);
 
             if (user == null)
@@ -76,12 +78,15 @@ namespace Assignment.Controllers
                 user.Theme = "Default";
             }
 
+            // Log for debugging
+            _logger.LogInformation("EditProfile GET - User {UserId}, ProfilePictureUrl: {Url}", userId, user.ProfilePictureUrl ?? "NULL");
+
             return View(user);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditProfile(User user, string? newPassword)
+        public async Task<IActionResult> EditProfile(User user, string? newPassword, IFormFile? profilePicture, string? deleteImage)
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);
             if (userId == null)
@@ -183,15 +188,61 @@ namespace Assignment.Controllers
 
             if (ModelState.IsValid)
             {
-                existingUser.FullName = user.FullName;
-                // Don't update email - it cannot be changed
-                // existingUser.Email = user.Email; // Removed - email is read-only
-                // Encrypt phone number
-                existingUser.PhoneNumber = EncryptionService.Encrypt(user.PhoneNumber ?? "");
+                // Handle profile picture FIRST before other updates
+                if (deleteImage == "true")
+                {
+                    // Delete old file if exists
+                    if (!string.IsNullOrEmpty(existingUser.ProfilePictureUrl) && existingUser.ProfilePictureUrl.StartsWith("/uploads/"))
+                    {
+                        var oldFilePath = Path.Combine(_environment.WebRootPath, existingUser.ProfilePictureUrl.TrimStart('/'));
+                        if (System.IO.File.Exists(oldFilePath))
+                        {
+                            System.IO.File.Delete(oldFilePath);
+                        }
+                    }
+                    existingUser.ProfilePictureUrl = null;
+                }
+                else if (profilePicture != null && profilePicture.Length > 0)
+                {
+                    // Validate file type
+                    var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                    var fileExtension = Path.GetExtension(profilePicture.FileName).ToLowerInvariant();
+                    if (allowedExtensions.Contains(fileExtension) && profilePicture.Length <= 5 * 1024 * 1024)
+                    {
+                        // Ensure directory exists
+                        var uploadsFolder = Path.Combine(_environment.WebRootPath, "uploads", "profiles");
+                        if (!Directory.Exists(uploadsFolder))
+                        {
+                            Directory.CreateDirectory(uploadsFolder);
+                        }
+
+                        // Delete old file if exists
+                        if (!string.IsNullOrEmpty(existingUser.ProfilePictureUrl) && existingUser.ProfilePictureUrl.StartsWith("/uploads/"))
+                        {
+                            var oldFilePath = Path.Combine(_environment.WebRootPath, existingUser.ProfilePictureUrl.TrimStart('/'));
+                            if (System.IO.File.Exists(oldFilePath))
+                            {
+                                System.IO.File.Delete(oldFilePath);
+                            }
+                        }
+
+                        // Generate unique filename and save file
+                        var uniqueFileName = Guid.NewGuid().ToString() + fileExtension;
+                        var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                        using (var fileStream = new FileStream(filePath, FileMode.Create))
+                        {
+                            await profilePicture.CopyToAsync(fileStream);
+                        }
+
+                        // Update profile picture URL - simple assignment like hotels do
+                        existingUser.ProfilePictureUrl = "/uploads/profiles/" + uniqueFileName;
+                    }
+                }
                 
-                // Update new properties merged from UserProfile
-                // Don't update ProfilePictureUrl here - it's managed separately via UploadProfilePicture action
-                // existingUser.ProfilePictureUrl = user.ProfilePictureUrl; // Removed to prevent overwriting
+                // Update other properties
+                existingUser.FullName = user.FullName;
+                existingUser.PhoneNumber = EncryptionService.Encrypt(user.PhoneNumber ?? "");
                 existingUser.Bio = user.Bio;
                 existingUser.PreferredLanguage = user.PreferredLanguage;
                 existingUser.Theme = user.Theme;
@@ -201,7 +252,9 @@ namespace Assignment.Controllers
                     existingUser.PasswordHash = PasswordService.HashPassword(newPassword);
                 }
 
+                // Save all changes
                 await _context.SaveChangesAsync();
+                
                 TempData["Success"] = "Profile updated successfully.";
                 return RedirectToAction("Profile");
             }
@@ -235,22 +288,73 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UploadProfilePicture(IFormFile profilePicture)
         {
-            if (profilePicture != null && profilePicture.Length > 0)
+            try
             {
-                var userId = AuthenticationHelper.GetUserId(HttpContext);
-                var user = await _context.Users.FindAsync(userId);
+                if (profilePicture == null || profilePicture.Length == 0)
+                {
+                    TempData["Error"] = "Please select a valid image file.";
+                    return RedirectToAction("Profile");
+                }
 
-                if (user == null) return NotFound();
+                // Validate file type
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                var fileExtension = Path.GetExtension(profilePicture.FileName).ToLowerInvariant();
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    TempData["Error"] = "Invalid file type. Please upload JPG, PNG, GIF, or WebP images only.";
+                    return RedirectToAction("Profile");
+                }
+
+                // Validate file size (max 5MB)
+                if (profilePicture.Length > 5 * 1024 * 1024)
+                {
+                    TempData["Error"] = "File size too large. Please upload an image smaller than 5MB.";
+                    return RedirectToAction("Profile");
+                }
+
+                var userId = AuthenticationHelper.GetUserId(HttpContext);
+                if (userId == null)
+                {
+                    return RedirectToAction("Login", "Security");
+                }
+
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound();
+                }
+
+                // Store old URL before updating
+                var oldProfilePictureUrl = user.ProfilePictureUrl;
 
                 // Ensure directory exists
-                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profiles");
+                var uploadsFolder = Path.Combine(_environment.WebRootPath, "uploads", "profiles");
                 if (!Directory.Exists(uploadsFolder))
                 {
                     Directory.CreateDirectory(uploadsFolder);
                 }
 
+                // Delete old profile picture if it exists and is local
+                if (!string.IsNullOrEmpty(oldProfilePictureUrl) && oldProfilePictureUrl.StartsWith("/uploads/"))
+                {
+                    try
+                    {
+                        var oldFilePath = Path.Combine(_environment.WebRootPath, oldProfilePictureUrl.TrimStart('/'));
+                        if (System.IO.File.Exists(oldFilePath))
+                        {
+                            System.IO.File.Delete(oldFilePath);
+                            _logger.LogInformation("Deleted old profile picture file: {Path}", oldFilePath);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to delete old profile picture: {Path}", oldProfilePictureUrl);
+                        // Continue with upload even if old file deletion fails
+                    }
+                }
+
                 // Generate unique filename
-                var uniqueFileName = Guid.NewGuid().ToString() + "_" + profilePicture.FileName;
+                var uniqueFileName = Guid.NewGuid().ToString() + fileExtension;
                 var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
                 using (var fileStream = new FileStream(filePath, FileMode.Create))
@@ -258,50 +362,103 @@ namespace Assignment.Controllers
                     await profilePicture.CopyToAsync(fileStream);
                 }
 
-                user.ProfilePictureUrl = "/uploads/profiles/" + uniqueFileName;
-                _context.Update(user);
-                await _context.SaveChangesAsync();
+                // Verify file was created
+                if (!System.IO.File.Exists(filePath))
+                {
+                    _logger.LogError("Profile picture file was not created at: {Path}", filePath);
+                    TempData["Error"] = "Failed to save profile picture file. Please try again.";
+                    return RedirectToAction("EditProfile");
+                }
 
-                TempData["Success"] = "Profile picture updated successfully!";
+                // Update profile picture URL - explicitly mark property as modified
+                var newProfilePictureUrl = "/uploads/profiles/" + uniqueFileName;
+                user.ProfilePictureUrl = newProfilePictureUrl;
+                
+                // Explicitly mark the property as modified
+                _context.Entry(user).Property(u => u.ProfilePictureUrl).IsModified = true;
+                
+                var result = await _context.SaveChangesAsync();
+                
+                if (result > 0)
+                {
+                    _logger.LogInformation("Profile picture updated successfully for user {UserId}. URL: {Url}", userId, newProfilePictureUrl);
+                    TempData["Success"] = "Profile picture updated successfully!";
+                }
+                else
+                {
+                    _logger.LogWarning("No changes saved for user {UserId} profile picture. Attempted URL: {Url}", userId, newProfilePictureUrl);
+                    TempData["Error"] = "Failed to update profile picture in database. Please try again.";
+                }
             }
-            else
+            catch (Exception ex)
             {
-                TempData["Error"] = "Please select a valid image file.";
+                _logger.LogError(ex, "Error uploading profile picture");
+                TempData["Error"] = "An error occurred while uploading your profile picture. Please try again.";
             }
 
-            return RedirectToAction("Profile");
+            return RedirectToAction("EditProfile");
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteProfilePicture()
         {
-            var userId = AuthenticationHelper.GetUserId(HttpContext);
-            if (userId == null)
+            try
             {
-                return RedirectToAction("Login", "Security");
-            }
-
-            var user = await _context.Users.FindAsync(userId);
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            // Delete physical file if it exists and is local
-            if (!string.IsNullOrEmpty(user.ProfilePictureUrl) && user.ProfilePictureUrl.StartsWith("/uploads/"))
-            {
-                var filePath = Path.Combine(_environment.WebRootPath, user.ProfilePictureUrl.TrimStart('/'));
-                if (System.IO.File.Exists(filePath))
+                var userId = AuthenticationHelper.GetUserId(HttpContext);
+                if (userId == null)
                 {
-                    System.IO.File.Delete(filePath);
+                    return RedirectToAction("Login", "Security");
+                }
+
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound();
+                }
+
+                // Delete physical file if it exists and is local
+                if (!string.IsNullOrEmpty(user.ProfilePictureUrl) && user.ProfilePictureUrl.StartsWith("/uploads/"))
+                {
+                    try
+                    {
+                        var filePath = Path.Combine(_environment.WebRootPath, user.ProfilePictureUrl.TrimStart('/'));
+                        if (System.IO.File.Exists(filePath))
+                        {
+                            System.IO.File.Delete(filePath);
+                            _logger.LogInformation("Deleted profile picture file: {Path}", filePath);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to delete profile picture file: {Path}", user.ProfilePictureUrl);
+                        // Continue with database update even if file deletion fails
+                    }
+                }
+
+                // Remove from database
+                user.ProfilePictureUrl = null;
+                _context.Users.Update(user);
+                var result = await _context.SaveChangesAsync();
+                
+                if (result > 0)
+                {
+                    _logger.LogInformation("Profile picture removed from database for user {UserId}", userId);
+                    TempData["Success"] = "Profile picture deleted successfully.";
+                }
+                else
+                {
+                    _logger.LogWarning("No changes saved when deleting profile picture for user {UserId}", userId);
+                    TempData["Error"] = "Failed to delete profile picture. Please try again.";
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting profile picture");
+                TempData["Error"] = "An error occurred while deleting your profile picture. Please try again.";
+            }
 
-            user.ProfilePictureUrl = null;
-            await _context.SaveChangesAsync();
-            TempData["Success"] = "Profile picture deleted successfully.";
-            return RedirectToAction("Profile");
+            return RedirectToAction("EditProfile");
         }
     }
 }

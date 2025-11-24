@@ -14,7 +14,7 @@
         </div>
     }
 
-    <form asp-action="EditProfile" method="post">
+    <form asp-action="EditProfile" method="post" enctype="multipart/form-data">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="UserId" />
 
@@ -24,33 +24,28 @@
                     <div class="col-md-4 text-center">
                         <div class="mb-3">
                             <label class="form-label">Profile Picture</label>
-                            <div class="mb-2">
-                                @if (!string.IsNullOrEmpty(Model.ProfilePictureUrl))
-                                {
-                                    <div class="position-relative d-inline-block">
-                                        <img src="@Model.ProfilePictureUrl" alt="Profile Picture" class="rounded-circle img-thumbnail" style="width: 150px; height: 150px; object-fit: cover;">
-                                        <form asp-action="DeleteProfilePicture" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete your profile picture?');" style="position: absolute; top: 0; right: 0;">
-                                            @Html.AntiForgeryToken()
-                                            <button type="submit" class="btn btn-sm btn-danger rounded-circle" style="width: 30px; height: 30px; padding: 0;" title="Delete profile picture">
-                                                <i class="bi bi-x"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto" style="width: 150px; height: 150px;">
-                                        <i class="bi bi-person fs-1 text-muted"></i>
-                                    </div>
-                                }
+                            <div id="imagePreview" class="mb-3" style="display: none;">
+                                <img id="previewImg" src="" alt="Preview" class="rounded-circle img-thumbnail" style="width: 150px; height: 150px; object-fit: cover;">
                             </div>
-                            <form asp-action="UploadProfilePicture" method="post" enctype="multipart/form-data">
-                                <div class="input-group input-group-sm">
-                                    <input type="file" name="profilePicture" class="form-control" accept="image/*" required>
-                                    <button class="btn btn-outline-primary" type="submit">Upload</button>
+                            <div id="currentImageContainer" class="mb-3" style="display: @(string.IsNullOrEmpty(Model.ProfilePictureUrl) ? "none" : "block");">
+                                <div class="position-relative d-inline-block">
+                                    <img src="@Model.ProfilePictureUrl" alt="Profile Picture" class="rounded-circle img-thumbnail" id="currentImage" style="width: 150px; height: 150px; object-fit: cover;" onerror="this.onerror=null; this.src=''; this.style.display='none';">
+                                    <button type="button" class="btn btn-sm btn-danger rounded-circle" style="position: absolute; top: 0; right: 0; width: 30px; height: 30px; padding: 0; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="Remove profile picture" onclick="removeProfilePicture()">
+                                        <i class="bi bi-x"></i>
+                                    </button>
                                 </div>
-                                <small class="form-text text-muted">JPG, PNG, GIF, WebP</small>
-                            </form>
+                            </div>
+                            <div id="placeholderContainer" class="mb-3" style="display: @(string.IsNullOrEmpty(Model.ProfilePictureUrl) ? "block" : "none");">
+                                <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto" style="width: 150px; height: 150px;">
+                                    <i class="bi bi-person fs-1 text-muted"></i>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label">Upload New Image File</label>
+                                <input type="file" name="profilePicture" id="profilePictureFile" class="form-control" accept="image/*" onchange="previewImage(this)" />
+                                <small class="form-text text-muted">Supported formats: JPG, PNG, GIF, WebP</small>
+                            </div>
+                            <input type="hidden" id="deleteImage" name="deleteImage" value="false" />
                         </div>
                     </div>
                     <div class="col-md-8">
@@ -170,6 +165,37 @@
                 passwordInput.type = 'password';
                 passwordIcon.classList.remove('bi-eye-slash');
                 passwordIcon.classList.add('bi-eye');
+            }
+        }
+
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('previewImg').src = e.target.result;
+                    document.getElementById('imagePreview').style.display = 'block';
+                    // Hide current image and placeholder, show preview above upload section
+                    document.getElementById('currentImageContainer').style.display = 'none';
+                    document.getElementById('placeholderContainer').style.display = 'none';
+                    // Clear delete flag if uploading new image
+                    document.getElementById('deleteImage').value = 'false';
+                };
+                reader.readAsDataURL(input.files[0]);
+            } else {
+                // If no file selected, hide preview
+                document.getElementById('imagePreview').style.display = 'none';
+            }
+        }
+
+        function removeProfilePicture() {
+            if (confirm('Are you sure you want to remove your profile picture?')) {
+                document.getElementById('deleteImage').value = 'true';
+                // Hide current image, show placeholder
+                document.getElementById('currentImageContainer').style.display = 'none';
+                document.getElementById('placeholderContainer').style.display = 'block';
+                // Clear file input and preview
+                document.getElementById('profilePictureFile').value = '';
+                document.getElementById('imagePreview').style.display = 'none';
             }
         }
     </script>

@@ -95,22 +95,12 @@
                             var avgRating = reviews.Any() ? reviews.Average(r => r.Rating) : 0;
                             var reviewCount = reviews.Count;
                             
-                            // Calculate available rooms - use pre-calculated value from ViewBag if check-in date was provided
+                            // Get available rooms from pre-calculated dictionary (always calculated in controller from database)
                             var availableRoomsDict = ViewBag.AvailableRoomsDict as Dictionary<int, int>;
-                            int availableRooms;
+                            int availableRooms = 0;
                             if (availableRoomsDict != null && availableRoomsDict.ContainsKey(roomType.RoomTypeId))
                             {
                                 availableRooms = availableRoomsDict[roomType.RoomTypeId];
-                            }
-                            else
-                            {
-                                // Fallback: count rooms with Available status that don't have active bookings
-                                availableRooms = roomType.Rooms.Count(r => 
-                                    r.Status == Assignment.Models.RoomStatus.Available &&
-                                    !r.Bookings.Any(b => 
-                                        b.Status != Assignment.Models.BookingStatus.Cancelled &&
-                                        b.Status != Assignment.Models.BookingStatus.CheckedOut &&
-                                        b.CheckOutDate > DateTime.Today));
                             }
                             
                             <div class="col-md-4 mb-4">
@@ -174,8 +164,12 @@
                                                 <div class="d-flex flex-wrap gap-1">
                                                     @foreach (var amenity in roomType.RoomTypeAmenities.Take(4).Select(rta => rta.Amenity))
                                                     {
-                                                        <span class="badge bg-light text-dark border">
-                                                            <i class="bi bi-check-circle text-success"></i> @amenity.Name
+                                                        <span class="badge bg-light text-dark border d-inline-flex align-items-center">
+                                                            @if (!string.IsNullOrEmpty(amenity.ImageUrl))
+                                                            {
+                                                                <img src="@amenity.ImageUrl" alt="@amenity.Name" class="me-2" style="width: 20px; height: 20px; object-fit: cover; border-radius: 4px;" onerror="this.style.display='none';">
+                                                            }
+                                                            @amenity.Name
                                                         </span>
                                                     }
                                                     @if (roomType.RoomTypeAmenities.Count > 4)
@@ -460,9 +454,9 @@
                             var amenityImage = typeof amenity === 'object' && amenity ? (amenity.imageUrl || amenity.ImageUrl || '') : '';
                             html += '<span class="badge bg-light text-dark border d-inline-flex align-items-center">';
                             if (amenityImage) {
-                                html += '<img src="' + amenityImage + '" alt="' + amenityName + '" class="me-1" style="width: 16px; height: 16px; object-fit: cover;" onerror="this.style.display=\'none\';">';
+                                html += '<img src="' + amenityImage + '" alt="' + amenityName + '" class="me-2" style="width: 20px; height: 20px; object-fit: cover; border-radius: 4px;" onerror="this.style.display=\'none\';">';
                             }
-                            html += '<i class="bi bi-check-circle text-success"></i> ' + amenityName + '</span>';
+                            html += amenityName + '</span>';
                         });
                         if (room.amenities.length > 4) {
                             html += '<span class="badge bg-secondary">+' + (room.amenities.length - 4) + ' more</span>';

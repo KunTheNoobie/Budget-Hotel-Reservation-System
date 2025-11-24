@@ -268,9 +268,9 @@
                                         <span class="badge bg-light text-dark p-2 d-inline-flex align-items-center">
                                             @if (!string.IsNullOrEmpty(amenity.ImageUrl))
                                             {
-                                                <img src="@amenity.ImageUrl" alt="@amenity.Name" class="me-1" style="width: 20px; height: 20px; object-fit: cover;" onerror="this.style.display='none';">
+                                                <img src="@amenity.ImageUrl" alt="@amenity.Name" class="me-2" style="width: 24px; height: 24px; object-fit: cover; border-radius: 4px;" onerror="this.style.display='none';">
                                             }
-                                            <i class="bi bi-check-circle text-success me-1"></i>@amenity.Name
+                                            @amenity.Name
                                         </span>
                                     </div>
                                 }
