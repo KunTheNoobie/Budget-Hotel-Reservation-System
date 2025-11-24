@@ -278,34 +278,20 @@
                         <div class="card h-100 shadow-sm">
                             <div class="card-body">
                                 <div class="d-flex align-items-center mb-3">
-                                    <div class="me-3" style="position: relative; width: 50px; height: 50px;">
-                                        @{
-                                            // Ensure User is loaded - try Review.User first, then Booking.User as fallback
-                                            var reviewUser = review.User ?? review.Booking?.User;
-                                            var hasProfilePicture = reviewUser != null && !string.IsNullOrWhiteSpace(reviewUser.ProfilePictureUrl);
-                                            
-                                            // Debug: Log if user exists but no profile picture
-                                            // This helps identify if the issue is missing data or path resolution
-                                        }
-                                        @if (hasProfilePicture)
+                                    <div class="me-3 position-relative" style="width: 50px; height: 50px; flex-shrink: 0;">
+                                        @if (!string.IsNullOrEmpty(review.User?.ProfilePictureUrl))
                                         {
-                                            var imagePath = reviewUser.ProfilePictureUrl;
-                                            // Ensure path starts with / for proper resolution
-                                            if (!imagePath.StartsWith("/") && !imagePath.StartsWith("http"))
-                                            {
-                                                imagePath = "/" + imagePath.TrimStart('/');
-                                            }
-                                            <img src="@Url.Content(imagePath)" alt="@(reviewUser?.FullName ?? "Guest")" 
-                                                 class="rounded-circle" style="width: 50px; height: 50px; object-fit: cover; position: absolute; top: 0; left: 0;" 
-                                                 onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                            <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="display: none; width: 50px; height: 50px; font-weight: bold; font-size: 1.2rem; position: absolute; top: 0; left: 0;">
-                                                @(reviewUser?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                            <img src="@review.User.ProfilePictureUrl" alt="@(review.User?.FullName ?? "Guest")" 
+                                                 class="rounded-circle review-avatar-img" style="width: 50px; height: 50px; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1;" 
+                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                            <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle review-avatar-fallback" style="display: none; width: 50px; height: 50px; font-weight: bold; font-size: 1.2rem; position: absolute; top: 0; left: 0; z-index: 0;">
+                                                @(review.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
                                             </div>
                                         }
                                         else
                                         {
                                             <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 50px; height: 50px; font-weight: bold; font-size: 1.2rem;">
-                                                @(reviewUser?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                @(review.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
                                             </div>
                                         }
                                     </div>
@@ -382,6 +368,15 @@
 @section Scripts {
     <script>
         $(document).ready(function() {
+            // Handle avatar image loading errors
+            $('.review-avatar-img').on('error', function() {
+                $(this).hide();
+                $(this).siblings('.review-avatar-fallback').show();
+            }).on('load', function() {
+                // Ensure fallback is hidden when image loads successfully
+                $(this).siblings('.review-avatar-fallback').hide();
+            });
+
             $('#searchForm').on('submit', function(e) {
                 var isValid = true;
                 var searchTerm = $('#searchTerm').val().trim();

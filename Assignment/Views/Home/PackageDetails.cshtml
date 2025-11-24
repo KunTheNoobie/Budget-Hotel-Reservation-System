@@ -125,25 +125,20 @@
                                         {
                                             <div class="review-item border-bottom pb-2 mb-2">
                                                 <div class="d-flex align-items-start mb-2">
-                                                    <div class="me-3" style="position: relative; width: 40px; height: 40px;">
-                                                        @{
-                                                            // Ensure User is loaded
-                                                            var reviewUser = review.User;
-                                                            var hasProfilePicture = reviewUser != null && !string.IsNullOrWhiteSpace(reviewUser.ProfilePictureUrl);
-                                                        }
-                                                        @if (hasProfilePicture)
+                                                    <div class="me-3 position-relative" style="width: 40px; height: 40px; flex-shrink: 0;">
+                                                        @if (!string.IsNullOrEmpty(review.User?.ProfilePictureUrl))
                                                         {
-                                                            <img src="@Url.Content(reviewUser.ProfilePictureUrl)" alt="@reviewUser.FullName" 
-                                                                 class="rounded-circle" style="width: 40px; height: 40px; object-fit: cover; position: absolute; top: 0; left: 0;" 
-                                                                 onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                                            <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="display: none; width: 40px; height: 40px; font-size: 0.85rem; position: absolute; top: 0; left: 0;">
-                                                                @(reviewUser.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                            <img src="@review.User.ProfilePictureUrl" alt="@review.User.FullName" 
+                                                                 class="rounded-circle review-avatar-img" style="width: 40px; height: 40px; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1;" 
+                                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                            <div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center rounded-circle review-avatar-fallback" style="display: none; width: 40px; height: 40px; font-size: 0.85rem; position: absolute; top: 0; left: 0; z-index: 0;">
+                                                                @(review.User.FullName?.Substring(0, 1).ToUpper() ?? "G")
                                                             </div>
                                                         }
                                                         else
                                                         {
-                                                            <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 40px; height: 40px; font-size: 0.85rem;">
-                                                                @(reviewUser?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                            <div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 40px; height: 40px; font-size: 0.85rem;">
+                                                                @(review.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
                                                             </div>
                                                         }
                                                     </div>
@@ -646,6 +641,15 @@
 @section Scripts {
     <script>
         $(document).ready(function() {
+            // Handle avatar image loading errors
+            $('.review-avatar-img').on('error', function() {
+                $(this).hide();
+                $(this).siblings('.review-avatar-fallback').show();
+            }).on('load', function() {
+                // Ensure fallback is hidden when image loads successfully
+                $(this).siblings('.review-avatar-fallback').hide();
+            });
+
             var checkInInput = $('#checkIn');
             var checkOutInput = $('#checkOut');
             

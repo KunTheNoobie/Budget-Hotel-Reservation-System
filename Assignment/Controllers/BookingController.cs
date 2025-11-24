@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRCoder;
 using System.Drawing;
-using System.Data;
 
 namespace Assignment.Controllers
 {
@@ -44,27 +43,8 @@ namespace Assignment.Controllers
             }
 
             ViewBag.RoomType = roomType;
-            var actualCheckIn = checkIn ?? DateTime.Today.AddDays(1);
-            var actualCheckOut = checkOut ?? DateTime.Today.AddDays(2);
-            ViewBag.CheckIn = actualCheckIn;
-            ViewBag.CheckOut = actualCheckOut;
-            
-            // Calculate initial availability for the selected dates
-            // This ensures availability is shown correctly on page load
-            if (roomType != null)
-            {
-                var availableRoomsCount = await _context.Rooms
-                    .Where(r => r.RoomTypeId == roomType.RoomTypeId && r.Status == RoomStatus.Available)
-                    .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
-                        (b.Status == BookingStatus.Pending ||
-                         b.Status == BookingStatus.Confirmed ||
-                         b.Status == BookingStatus.CheckedIn) &&
-                        ((b.CheckInDate <= actualCheckIn && b.CheckOutDate > actualCheckIn) ||
-                         (b.CheckInDate < actualCheckOut && b.CheckOutDate >= actualCheckOut) ||
-                         (b.CheckInDate >= actualCheckIn && b.CheckOutDate <= actualCheckOut))))
-                    .CountAsync();
-                ViewBag.AvailableRoomsCount = availableRoomsCount;
-            }
+            ViewBag.CheckIn = checkIn ?? DateTime.Today.AddDays(1);
+            ViewBag.CheckOut = checkOut ?? DateTime.Today.AddDays(2);
             
             // Clean up invalid promotions before loading
             await _promotionValidation.DeactivateInvalidPromotionsAsync();
@@ -102,19 +82,6 @@ namespace Assignment.Controllers
                         {
                             roomType = packageRoomType;
                             ViewBag.RoomType = roomType;
-                            
-                            // Recalculate availability for package room type with the correct dates
-                            var packageAvailableRoomsCount = await _context.Rooms
-                                .Where(r => r.RoomTypeId == packageRoomType.RoomTypeId && r.Status == RoomStatus.Available)
-                                .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
-                                    (b.Status == BookingStatus.Pending ||
-                                     b.Status == BookingStatus.Confirmed ||
-                                     b.Status == BookingStatus.CheckedIn) &&
-                                    ((b.CheckInDate <= actualCheckIn && b.CheckOutDate > actualCheckIn) ||
-                                     (b.CheckInDate < actualCheckOut && b.CheckOutDate >= actualCheckOut) ||
-                                     (b.CheckInDate >= actualCheckIn && b.CheckOutDate <= actualCheckOut))))
-                                .CountAsync();
-                            ViewBag.AvailableRoomsCount = packageAvailableRoomsCount;
                         }
                     }
                     
@@ -195,15 +162,13 @@ namespace Assignment.Controllers
             }
 
             // Find available room using the correct room type
-            // Use explicit status check to match availability calculation logic
-            // This ensures rooms with Pending/Confirmed/CheckedIn bookings are excluded
             var actualRoomTypeId = roomType.RoomTypeId;
             var availableRoom = await _context.Rooms
                 .Where(r => r.RoomTypeId == actualRoomTypeId && r.Status == RoomStatus.Available)
                 .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
-                    (b.Status == BookingStatus.Pending ||
-                     b.Status == BookingStatus.Confirmed ||
-                     b.Status == BookingStatus.CheckedIn) &&
+                    b.Status != BookingStatus.Cancelled &&
+                    b.Status != BookingStatus.CheckedOut &&
+                    b.Status != BookingStatus.NoShow &&
                     ((b.CheckInDate <= checkIn && b.CheckOutDate > checkIn) ||
                      (b.CheckInDate < checkOut && b.CheckOutDate >= checkOut) ||
                      (b.CheckInDate >= checkIn && b.CheckOutDate <= checkOut))))
@@ -409,52 +374,13 @@ namespace Assignment.Controllers
                 totalPrice = basePrice - discount;
             }
 
-            // Create booking with transaction and row-level locking to prevent double-booking
-            // Use SERIALIZABLE isolation level to prevent phantom reads and ensure atomicity
-            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            // Create booking
             try
             {
-                // Double-check availability with row-level lock to prevent race conditions
-                // Use SERIALIZABLE isolation level which prevents phantom reads
-                // Re-query the room within the transaction to ensure we have the latest state
-                var roomId = availableRoom.RoomId;
-                
-                // Re-fetch the room within the transaction to ensure we have the latest state
-                // The SERIALIZABLE isolation level will prevent other transactions from modifying this room
-                var lockedRoom = await _context.Rooms
-                    .FirstOrDefaultAsync(r => r.RoomId == roomId);
-
-                if (lockedRoom == null || lockedRoom.Status != RoomStatus.Available)
-                {
-                    await transaction.RollbackAsync();
-                    ModelState.AddModelError("", "This room is no longer available. Please try a different room.");
-                    await ReloadBookingViewData(roomType, checkIn, checkOut, packageId);
-                    return View();
-                }
-
-                // Check for overlapping bookings with the locked room
-                // This query runs within the SERIALIZABLE transaction, so it sees all committed data
-                var hasOverlappingBooking = await _context.Bookings
-                    .AnyAsync(b => b.RoomId == roomId &&
-                        (b.Status == BookingStatus.Pending ||
-                         b.Status == BookingStatus.Confirmed ||
-                         b.Status == BookingStatus.CheckedIn) &&
-                        ((b.CheckInDate <= checkIn && b.CheckOutDate > checkIn) ||
-                         (b.CheckInDate < checkOut && b.CheckOutDate >= checkOut) ||
-                         (b.CheckInDate >= checkIn && b.CheckOutDate <= checkOut)));
-
-                if (hasOverlappingBooking)
-                {
-                    await transaction.RollbackAsync();
-                    ModelState.AddModelError("", "This room is no longer available for the selected dates. Please try different dates or another room.");
-                    await ReloadBookingViewData(roomType, checkIn, checkOut, packageId);
-                    return View();
-                }
-
                 var booking = new Booking
                 {
                     UserId = userId.Value,
-                    RoomId = roomId,
+                    RoomId = availableRoom.RoomId,
                     CheckInDate = checkIn,
                     CheckOutDate = checkOut,
                     TotalPrice = totalPrice,
@@ -465,7 +391,6 @@ namespace Assignment.Controllers
 
                 _context.Bookings.Add(booking);
                 await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
 
                 _logger.LogInformation("Booking created successfully: BookingId={BookingId}, UserId={UserId}, RoomId={RoomId}", 
                     booking.BookingId, userId.Value, availableRoom.RoomId);
@@ -474,51 +399,34 @@ namespace Assignment.Controllers
             }
             catch (Exception ex)
             {
-                try
-                {
-                    await transaction.RollbackAsync();
-                }
-                catch { }
-                
-                _logger.LogError(ex, "Error creating booking for UserId={UserId}, RoomId={RoomId}", userId.Value, availableRoom?.RoomId);
+                _logger.LogError(ex, "Error creating booking for UserId={UserId}, RoomId={RoomId}", userId.Value, availableRoom.RoomId);
                 ModelState.AddModelError("", "An error occurred while creating your booking. Please try again.");
                 
-                await ReloadBookingViewData(roomType, checkIn, checkOut, packageId);
-                return View();
-            }
-        }
-
-        private async Task ReloadBookingViewData(RoomType roomType, DateTime checkIn, DateTime checkOut, int? packageId)
-        {
-            ViewBag.RoomType = roomType;
-            ViewBag.CheckIn = checkIn;
-            ViewBag.CheckOut = checkOut;
-            await _promotionValidation.DeactivateInvalidPromotionsAsync();
-            ViewBag.Promotions = await _context.Promotions
-                .Where(p => p.StartDate <= DateTime.Now && p.EndDate >= DateTime.Now && p.IsActive)
-                .ToListAsync();
-            
-            if (packageId.HasValue)
-            {
-                var package = await _context.Packages
-                    .Include(p => p.PackageItems)
-                        .ThenInclude(pi => pi.Service)
-                    .Include(p => p.PackageItems)
-                        .ThenInclude(pi => pi.RoomType)
-                    .FirstOrDefaultAsync(p => p.PackageId == packageId.Value);
+                ViewBag.RoomType = roomType;
+                ViewBag.CheckIn = checkIn;
+                ViewBag.CheckOut = checkOut;
+                await _promotionValidation.DeactivateInvalidPromotionsAsync();
+                ViewBag.Promotions = await _context.Promotions
+                    .Where(p => p.StartDate <= DateTime.Now && p.EndDate >= DateTime.Now && p.IsActive)
+                    .ToListAsync();
                 
-                if (package != null)
+                if (packageId.HasValue)
                 {
-                    ViewBag.Package = package;
-                    ViewBag.IsPackageBooking = true;
-                    ViewBag.PackageServices = package.PackageItems
-                        .Where(pi => pi.Service != null && pi.ServiceId.HasValue)
-                        .ToList();
+                    var package = await _context.Packages
+                        .Include(p => p.PackageItems)
+                            .ThenInclude(pi => pi.Service)
+                        .Include(p => p.PackageItems)
+                            .ThenInclude(pi => pi.RoomType)
+                        .FirstOrDefaultAsync(p => p.PackageId == packageId.Value);
+                    
+                    if (package != null)
+                    {
+                        ViewBag.Package = package;
+                        ViewBag.IsPackageBooking = true;
+                    }
                 }
-            }
-            else
-            {
-                ViewBag.IsPackageBooking = false;
+                
+                return View();
             }
         }
 
@@ -847,8 +755,6 @@ namespace Assignment.Controllers
                     .ThenInclude(r => r.RoomType)
                 .Include(b => b.Promotion)
                 .Include(b => b.Reviews)
-                    .ThenInclude(r => r.User) // Load User for each review to get ProfilePictureUrl
-                .AsSplitQuery() // Use split query for performance
                 .FirstOrDefaultAsync(b => b.BookingId == id);
 
             if (booking == null || (booking.UserId != userId && AuthenticationHelper.GetUserRole(HttpContext) != UserRole.Admin))

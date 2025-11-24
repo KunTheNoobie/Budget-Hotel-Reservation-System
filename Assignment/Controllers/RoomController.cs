@@ -160,14 +160,13 @@ namespace Assignment.Controllers
                 if (checkIn.HasValue)
                 {
                     // If check-in date is provided, check for date conflicts
-                    // Use explicit status check for consistency
                     var checkOutDate = checkIn.Value.AddDays(1); // Default to 1 night if no check-out specified
                     availableCount = await _context.Rooms
                         .Where(r => r.RoomTypeId == rt.RoomTypeId && r.Status == RoomStatus.Available)
                         .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
-                            (b.Status == BookingStatus.Pending ||
-                             b.Status == BookingStatus.Confirmed ||
-                             b.Status == BookingStatus.CheckedIn) &&
+                            b.Status != BookingStatus.Cancelled &&
+                            b.Status != BookingStatus.CheckedOut &&
+                            b.Status != BookingStatus.NoShow &&
                             ((b.CheckInDate <= checkIn.Value && b.CheckOutDate > checkIn.Value) ||
                              (b.CheckInDate < checkOutDate && b.CheckOutDate >= checkOutDate) ||
                              (b.CheckInDate >= checkIn.Value && b.CheckOutDate <= checkOutDate))))
@@ -242,19 +241,12 @@ namespace Assignment.Controllers
                 .CountAsync();
             ViewBag.AvailableRooms = availableRooms;
 
-            // Get all reviews for this room type with User data loaded
-            // Explicitly load User to ensure ProfilePictureUrl is available
-            var allReviews = await _context.Reviews
-                .Include(r => r.User)
-                .Include(r => r.Booking)
-                    .ThenInclude(b => b.User) // Include Booking.User for profile pictures
-                .Include(r => r.Booking)
-                    .ThenInclude(b => b.Room)
-                        .ThenInclude(rm => rm.RoomType)
-                .Where(r => r.Booking.Room.RoomTypeId == id && !r.IsDeleted)
+            // Get all reviews for this room type
+            var allReviews = roomType.Rooms
+                .SelectMany(r => r.Bookings)
+                .SelectMany(b => b.Reviews)
                 .OrderByDescending(r => r.ReviewDate)
-                .AsSplitQuery() // Use split query to avoid cartesian explosion
-                .ToListAsync();
+                .ToList();
 
             // Paginate reviews
             var totalReviews = allReviews.Count;
@@ -413,26 +405,18 @@ namespace Assignment.Controllers
             }
 
             // Get fresh availability count from database, excluding all conflicting bookings
-            // Use explicit status check for consistency with other availability calculations
             var availableRooms = await _context.Rooms
                 .Where(r => r.RoomTypeId == roomTypeId && r.Status == RoomStatus.Available)
                 .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
-                    (b.Status == BookingStatus.Pending ||
-                     b.Status == BookingStatus.Confirmed ||
-                     b.Status == BookingStatus.CheckedIn) &&
+                    b.Status != BookingStatus.Cancelled &&
+                    b.Status != BookingStatus.CheckedOut &&
+                    b.Status != BookingStatus.NoShow &&
                     ((b.CheckInDate <= checkIn && b.CheckOutDate > checkIn) ||
                      (b.CheckInDate < checkOut && b.CheckOutDate >= checkOut) ||
                      (b.CheckInDate >= checkIn && b.CheckOutDate <= checkOut))))
                 .CountAsync();
 
-            if (availableRooms > 0)
-            {
-                return Json(new { available = true, count = availableRooms, message = $"Available! {availableRooms} room(s) available for the selected dates." });
-            }
-            else
-            {
-                return Json(new { available = false, count = 0, message = "No rooms available for the selected dates. Please try different dates." });
-            }
+            return Json(new { available = availableRooms > 0, count = availableRooms });
         }
     }
 }
