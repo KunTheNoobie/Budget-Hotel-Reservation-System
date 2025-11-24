@@ -611,15 +611,15 @@
                                 <div class="mb-3">
                                     <label for="checkIn" class="form-label"><strong>Check-In Date</strong></label>
                                     <input type="date" class="form-control" id="checkIn" name="checkIn" 
-                                           min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" 
-                                           value="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" required />
+                                           min="@DateTime.Today.ToString("yyyy-MM-dd")" 
+                                           value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
                                 </div>
                                 
                                 <div class="mb-3">
                                     <label for="checkOut" class="form-label"><strong>Check-Out Date</strong></label>
                                     <input type="date" class="form-control" id="checkOut" name="checkOut" 
-                                           min="@DateTime.Today.AddDays(2).ToString("yyyy-MM-dd")" 
-                                           value="@DateTime.Today.AddDays(2).ToString("yyyy-MM-dd")" required />
+                                           min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" 
+                                           value="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" required />
                                 </div>
                                 
                                 <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
@@ -654,13 +654,14 @@
             var checkOutInput = $('#checkOut');
             
             // Set minimum dates
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
             var tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
-            var dayAfter = new Date();
-            dayAfter.setDate(dayAfter.getDate() + 2);
+            tomorrow.setHours(0, 0, 0, 0);
             
-            checkInInput.attr('min', tomorrow.toISOString().split('T')[0]);
-            checkOutInput.attr('min', dayAfter.toISOString().split('T')[0]);
+            checkInInput.attr('min', today.toISOString().split('T')[0]);
+            checkOutInput.attr('min', tomorrow.toISOString().split('T')[0]);
             
             // Validate check-out is after check-in
             checkInInput.on('change', function() {
