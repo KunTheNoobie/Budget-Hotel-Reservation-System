@@ -132,6 +132,13 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
+else
+{
+    app.UseDeveloperExceptionPage();
+}
+
+// Custom error pages for status codes
+app.UseStatusCodePagesWithReExecute("/Home/Error/{0}");
 
 app.UseMiddleware<Assignment.Middleware.SecurityHeadersMiddleware>();
 

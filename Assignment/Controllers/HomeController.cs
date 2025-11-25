@@ -476,8 +476,15 @@ namespace Assignment.Controllers
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
+        public IActionResult Error(int? statusCode = null)
         {
+            if (statusCode == 404)
+                return View("NotFound");
+            if (statusCode == 403)
+                return View("Forbidden");
+            if (statusCode == 400)
+                return View("BadRequest");
+            
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
     }

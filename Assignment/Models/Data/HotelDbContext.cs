@@ -29,6 +29,7 @@ namespace Assignment.Models.Data
         public DbSet<Promotion> Promotions { get; set; }
         public DbSet<PromotionUsage> PromotionUsages { get; set; }
         public DbSet<Newsletter> Newsletters { get; set; }
+        public DbSet<FavoriteRoomType> FavoriteRoomTypes { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -65,6 +66,7 @@ namespace Assignment.Models.Data
             modelBuilder.Entity<Service>().HasQueryFilter(s => !s.IsDeleted);
             modelBuilder.Entity<Newsletter>().HasQueryFilter(n => !n.IsDeleted);
             modelBuilder.Entity<SecurityLog>().HasQueryFilter(sl => !sl.IsDeleted);
+            modelBuilder.Entity<FavoriteRoomType>().HasQueryFilter(f => !f.IsDeleted);
         }
     }
 }

@@ -27,11 +27,39 @@ namespace Assignment.Controllers
         {
             try
             {
+                // Rate limiting: Check for too many contact form submissions from same IP
+                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+                var recentAttempts = _context.SecurityLogs
+                    .Count(s => s.IPAddress == ipAddress && 
+                                s.Action == "ContactForm" && 
+                                s.Timestamp > DateTime.Now.AddMinutes(5));
+                
+                if (recentAttempts >= 5)
+                {
+                    if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                    {
+                        return Json(new { success = false, message = "Too many contact form submissions. Please try again after 5 minutes." });
+                    }
+                    TempData["Error"] = "Too many contact form submissions. Please try again after 5 minutes.";
+                    return RedirectToAction("Contact", "Home");
+                }
+
                 if (ModelState.IsValid)
                 {
                     model.SentAt = DateTime.Now;
                     model.IsRead = false;
                     _context.ContactMessages.Add(model);
+                    await _context.SaveChangesAsync();
+
+                    // Log contact form submission
+                    _context.SecurityLogs.Add(new SecurityLog
+                    {
+                        Action = "ContactForm",
+                        UserId = null,
+                        IPAddress = ipAddress,
+                        Details = $"Contact form submitted from {model.Email}",
+                        Timestamp = DateTime.Now
+                    });
                     await _context.SaveChangesAsync();
 
                     if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")

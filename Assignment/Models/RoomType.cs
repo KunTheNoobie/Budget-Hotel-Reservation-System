@@ -33,5 +33,6 @@ namespace Assignment.Models
         public virtual ICollection<Room> Rooms { get; set; } = new List<Room>();
         public virtual ICollection<RoomImage> RoomImages { get; set; } = new List<RoomImage>();
         public virtual ICollection<RoomTypeAmenity> RoomTypeAmenities { get; set; } = new List<RoomTypeAmenity>();
+        public virtual ICollection<FavoriteRoomType> FavoriteRoomTypes { get; set; } = new List<FavoriteRoomType>();
     }
 }

@@ -463,5 +463,106 @@ namespace Assignment.Controllers
 
             return RedirectToAction("EditProfile");
         }
+
+        [HttpGet]
+        public async Task<IActionResult> Favorites()
+        {
+            var userId = AuthenticationHelper.GetUserId(HttpContext);
+            if (userId == null)
+            {
+                return RedirectToAction("Login", "Security");
+            }
+
+            var favorites = await _context.FavoriteRoomTypes
+                .Include(f => f.RoomType)
+                    .ThenInclude(rt => rt.Hotel)
+                .Include(f => f.RoomType)
+                    .ThenInclude(rt => rt.RoomImages)
+                .Where(f => f.UserId == userId.Value && !f.IsDeleted)
+                .OrderByDescending(f => f.AddedAt)
+                .ToListAsync();
+
+            return View(favorites);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddToFavorites(int roomTypeId)
+        {
+            var userId = AuthenticationHelper.GetUserId(HttpContext);
+            if (userId == null)
+            {
+                return Json(new { success = false, message = "Please login to add favorites." });
+            }
+
+            // Check if already favorited
+            var existing = await _context.FavoriteRoomTypes
+                .FirstOrDefaultAsync(f => f.UserId == userId.Value && f.RoomTypeId == roomTypeId && !f.IsDeleted);
+
+            if (existing != null)
+            {
+                return Json(new { success = false, message = "This room is already in your favorites." });
+            }
+
+            // Check if room type exists
+            var roomType = await _context.RoomTypes.FindAsync(roomTypeId);
+            if (roomType == null)
+            {
+                return Json(new { success = false, message = "Room type not found." });
+            }
+
+            var favorite = new FavoriteRoomType
+            {
+                UserId = userId.Value,
+                RoomTypeId = roomTypeId,
+                AddedAt = DateTime.Now
+            };
+
+            _context.FavoriteRoomTypes.Add(favorite);
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, message = "Added to favorites!" });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemoveFromFavorites(int roomTypeId)
+        {
+            var userId = AuthenticationHelper.GetUserId(HttpContext);
+            if (userId == null)
+            {
+                return Json(new { success = false, message = "Please login." });
+            }
+
+            var favorite = await _context.FavoriteRoomTypes
+                .FirstOrDefaultAsync(f => f.UserId == userId.Value && f.RoomTypeId == roomTypeId && !f.IsDeleted);
+
+            if (favorite == null)
+            {
+                return Json(new { success = false, message = "Favorite not found." });
+            }
+
+            favorite.IsDeleted = true;
+            favorite.DeletedAt = DateTime.Now;
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, message = "Removed from favorites." });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CheckFavorite(int roomTypeId)
+        {
+            var userId = AuthenticationHelper.GetUserId(HttpContext);
+            if (userId == null)
+            {
+                return Json(new { isFavorite = false });
+            }
+
+            var isFavorite = await _context.FavoriteRoomTypes
+                .AnyAsync(f => f.UserId == userId.Value && f.RoomTypeId == roomTypeId && !f.IsDeleted);
+
+            return Json(new { isFavorite });
+        }
     }
 }

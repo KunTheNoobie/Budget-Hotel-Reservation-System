@@ -350,7 +350,6 @@ namespace Assignment.Controllers
             }
 
             decimal totalPrice;
-            bool isPackageBooking = false;
 
             if (packageId.HasValue)
             {
@@ -359,7 +358,6 @@ namespace Assignment.Controllers
                 {
                     // Use package price - promotions don't apply to packages
                     totalPrice = package.TotalPrice;
-                    isPackageBooking = true;
                     promotionId = null; // Clear promotion for package bookings
                 }
                 else
@@ -592,8 +590,8 @@ namespace Assignment.Controllers
                 // Record promotion usage after successful payment
                 if (booking.PromotionId.HasValue)
                 {
-                    var user = await _context.Users.FindAsync(booking.UserId);
-                    var phoneNumber = user?.DecryptedPhoneNumber;
+                    var bookingUser = await _context.Users.FindAsync(booking.UserId);
+                    var phoneNumber = bookingUser?.DecryptedPhoneNumber;
                     var cardNumber = model.PaymentMethod.Value == PaymentMethod.CreditCard ? model.CardNumber : null;
                     var deviceFingerprint = GetDeviceFingerprint();
                     var ipAddress = GetClientIpAddress();
@@ -607,6 +605,15 @@ namespace Assignment.Controllers
                         deviceFingerprint,
                         ipAddress
                     );
+                }
+
+                // Simulate email sending
+                var user = await _context.Users.FindAsync(booking.UserId);
+                if (user != null)
+                {
+                    _logger.LogInformation("Email sent to {Email} for booking confirmation {BookingId}. Subject: Booking Confirmation - Booking #{BookingId}", 
+                        user.Email, booking.BookingId, booking.BookingId);
+                    TempData["EmailSent"] = $"A confirmation email has been sent to {user.Email}";
                 }
 
                 _logger.LogInformation("Payment processed successfully for booking {BookingId}", booking.BookingId);

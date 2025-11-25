@@ -9,6 +9,13 @@
             <h3><i class="bi bi-check-circle"></i> Booking Confirmed!</h3>
         </div>
         <div class="card-body">
+            @if (TempData["EmailSent"] != null)
+            {
+                <div class="alert alert-info alert-dismissible fade show">
+                    <i class="bi bi-envelope-check me-2"></i>@TempData["EmailSent"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
             <h4>Booking #@Model.BookingId</h4>
             
             <div class="row mt-4">

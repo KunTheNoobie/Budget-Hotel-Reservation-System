@@ -79,6 +79,11 @@
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Booking" asp-action="MyBookings">My Bookings</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Customer" asp-action="Favorites">
+                                    <i class="bi bi-heart me-1"></i>Favorites
+                                </a>
+                            </li>
                             <li class="nav-item dropdown">
                                 @{
                                     var userId = AuthenticationHelper.GetUserId(Context);
@@ -143,6 +148,19 @@
         </nav>
     </header>
     
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="position-fixed top-50 start-50 translate-middle" style="display: none; z-index: 9999; pointer-events: none;">
+        <div class="bg-white rounded shadow-lg p-4 d-flex flex-column align-items-center">
+            <div class="spinner-border text-primary mb-2" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <small class="text-muted">Loading...</small>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9998;"></div>
+
     <main role="main" class="pb-3 flex-grow-1">
         @RenderBody()
     </main>

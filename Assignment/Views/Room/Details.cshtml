@@ -220,6 +220,12 @@
                     @if (Assignment.Helpers.AuthenticationHelper.IsAuthenticated(Context))
                     {
                         <hr class="my-4" />
+                        <div class="mb-3">
+                            <button type="button" id="favoriteBtn" class="btn btn-outline-danger w-100" data-room-type-id="@Model.RoomTypeId">
+                                <i class="bi bi-heart" id="favoriteIcon"></i> <span id="favoriteText">Add to Favorites</span>
+                            </button>
+                        </div>
+                        <hr class="my-4" />
                         <h5 class="mb-3">Book This Room</h5>
                         <form id="availabilityForm">
                             <div class="mb-3">
@@ -258,6 +264,49 @@
             }).on('load', function() {
                 // Ensure fallback is hidden when image loads successfully
                 $(this).siblings('.review-avatar-fallback').hide();
+            });
+
+            // Favorites functionality
+            var roomTypeId = @Model.RoomTypeId;
+            
+            // Check if already favorited
+            $.get('/Customer/CheckFavorite', { roomTypeId: roomTypeId }, function(data) {
+                if (data.isFavorite) {
+                    $('#favoriteBtn').removeClass('btn-outline-danger').addClass('btn-danger');
+                    $('#favoriteIcon').removeClass('bi-heart').addClass('bi-heart-fill');
+                    $('#favoriteText').text('Remove from Favorites');
+                }
+            });
+
+            // Toggle favorite
+            $('#favoriteBtn').on('click', function() {
+                var isFavorite = $('#favoriteIcon').hasClass('bi-heart-fill');
+                var url = isFavorite ? '/Customer/RemoveFromFavorites' : '/Customer/AddToFavorites';
+                
+                $.post(url, { roomTypeId: roomTypeId }, function(data) {
+                    if (data.success) {
+                        if (isFavorite) {
+                            $('#favoriteBtn').removeClass('btn-danger').addClass('btn-outline-danger');
+                            $('#favoriteIcon').removeClass('bi-heart-fill').addClass('bi-heart');
+                            $('#favoriteText').text('Add to Favorites');
+                        } else {
+                            $('#favoriteBtn').removeClass('btn-outline-danger').addClass('btn-danger');
+                            $('#favoriteIcon').removeClass('bi-heart').addClass('bi-heart-fill');
+                            $('#favoriteText').text('Remove from Favorites');
+                        }
+                        if (typeof showToast === 'function') {
+                            showToast(data.message, 'success');
+                        }
+                    } else {
+                        if (typeof showToast === 'function') {
+                            showToast(data.message, 'error');
+                        }
+                    }
+                }).fail(function() {
+                    if (typeof showToast === 'function') {
+                        showToast('An error occurred. Please try again.', 'error');
+                    }
+                });
             });
 
             var today = new Date().toISOString().split('T')[0];

@@ -83,15 +83,30 @@ The Budget Hotel Reservation System is a full-featured web application designed 
 
 ### Additional Features
 
-- Responsive Bootstrap UI design
-- AJAX-powered room search and filtering
-- QR code generation for booking confirmations
-- Price breakdown display (base price, discount, final price)
-- Soft delete functionality for all entities
-- Professional payment forms with validation
-- Newsletter subscription
-- Contact form
-- Review system
+#### UI/UX Enhancements
+- ✅ **Responsive Bootstrap UI design** - Modern, mobile-friendly interface
+- ✅ **Loading indicators** - AJAX loading spinners for better UX
+- ✅ **Toast notifications** - Beautiful notification system for user feedback
+- ✅ **Image preview** - Preview images before upload
+- ✅ **Print-optimized CSS** - Professional print styles for receipts
+- ✅ **Custom error pages** - User-friendly 404, 403, 400 error pages
+
+#### Functional Features
+- ✅ **AJAX-powered room search and filtering** - Real-time search without page refresh
+- ✅ **QR code generation** - Booking confirmations with QR codes (QRCoder library)
+- ✅ **Favorites/Wishlist** - Save favorite rooms for later
+- ✅ **Price breakdown display** - Detailed pricing (base price, discount, final price)
+- ✅ **Soft delete functionality** - All entities support soft delete
+- ✅ **Professional payment forms** - Comprehensive validation
+- ✅ **Newsletter subscription** - Email subscription system
+- ✅ **Contact form** - With rate limiting protection
+- ✅ **Review system** - Complete review and rating system
+- ✅ **Email confirmation simulation** - Booking confirmation emails (logged)
+- ✅ **Rate limiting** - Protection against spam on registration and contact forms
+- ✅ **Admin dashboard charts** - Visual statistics with Chart.js
+- ✅ **Export to CSV** - Export bookings data
+- ✅ **Package system** - Bundle deals with services
+- ✅ **Promotion system** - Discount codes with validation
 
 ## 🚀 Installation & Setup
 
@@ -290,15 +305,99 @@ Key configuration settings:
 
 ## 🔑 Key Modules
 
-### 1. Security Module
+### Module Assignments (Team of 4)
+
+Each team member is responsible for **at least 2 core modules** as per assignment requirements:
+
+#### **Team Member 1 (PIC)**
+1. **Security Module**
+   - User registration with email verification
+   - Login/logout with cookie-based authentication
+   - Password reset with secure tokens
+   - Login attempt tracking and blocking (3 attempts, 15-minute lockout)
+   - Role-based authorization
+   - Rate limiting on registration form
+   - Math captcha for registration
+   - Security logging
+
+2. **Customer Module**
+   - Profile management (view and edit)
+   - Profile picture upload with preview
+   - Change password
+   - View booking history
+   - Cancel bookings
+   - Favorites/Wishlist feature
+   - User preferences (language, theme)
+
+#### **Team Member 2 (PIC)**
+1. **Admin Module - User & Hotel Management**
+   - Admin dashboard with statistics and charts
+   - User management (CRUD operations)
+   - Hotel management (CRUD operations)
+   - Admin account protection
+   - Export bookings to CSV
+
+2. **Review Module**
+   - Submit reviews for bookings
+   - View reviews on room details
+   - Review moderation (admin)
+   - Review pagination
+   - Average rating calculation
+
+#### **Team Member 3 (PIC)**
+1. **Admin Module - Room & Amenity Management**
+   - Room type management (CRUD operations)
+   - Room management (CRUD operations)
+   - Amenity management
+   - Room-amenity relationship management
+   - Multiple images per room type
+   - Service management
+   - Package management
+
+2. **Room Catalog Module**
+   - Browse available rooms
+   - AJAX-enabled search and filtering
+   - View room details with amenities
+   - Check room availability
+   - Room image carousel
+   - Pagination
+
+#### **Team Member 4 (PIC)**
+1. **Booking Module**
+   - Create bookings with date selection
+   - Apply promotion codes
+   - Multiple payment methods (Credit Card, PayPal, Bank Transfer)
+   - Booking confirmation with QR code
+   - View booking history
+   - Download/view e-receipts
+   - Cancel bookings
+   - Booking status management
+   - Email confirmation simulation
+   - Package bookings
+
+2. **Contact & Home Module**
+   - Contact form with rate limiting
+   - Newsletter subscription
+   - Home page with featured rooms
+   - Package browsing
+   - Public pages (About, Blog, Help Center, etc.)
+
+---
+
+### Detailed Module Breakdown
+
+#### 1. Security Module (Team Member 1)
 - User registration with email verification
 - Login/logout with cookie-based authentication
 - Password reset with secure tokens
 - Login attempt tracking and blocking
 - Role-based authorization
+- Rate limiting on registration form
+- Math captcha for registration
+- Security logging
 
-### 2. Admin Module
-- **Dashboard**: Statistics and overview
+#### 2. Admin Module (Team Members 2 & 3)
+- **Dashboard**: Statistics and overview with Chart.js
 - **User Management**: Create, read, update, delete users
 - **Hotel Management**: Manage hotel information
 - **Room Management**: Manage rooms and room types
@@ -306,28 +405,73 @@ Key configuration settings:
 - **Promotion Management**: Create and manage discount codes
 - **Review Management**: Moderate customer reviews
 - **Contact Messages**: View and respond to inquiries
+- **Service & Package Management**: Manage services and packages
+- **Amenity Management**: Manage amenities and relationships
+- **Export Functionality**: Export bookings to CSV
 
-### 3. Customer Module
+#### 3. Customer Module (Team Member 1)
 - Profile management
 - View and edit personal information
 - Change password
 - View booking history
 - Cancel bookings
+- **Favorites/Wishlist**: Save favorite rooms
+- User preferences (language, theme)
 
-### 4. Room Catalog Module
+#### 4. Room Catalog Module (Team Member 3)
 - Browse available rooms
 - AJAX-enabled search and filtering
 - View room details with amenities
 - Check room availability
 - Multiple images per room type
+- Room reviews display
+- Pagination
 
-### 5. Booking Module
+#### 5. Booking Module (Team Member 4)
 - Create bookings with date selection
 - Apply promotion codes
 - Multiple payment methods
 - Booking confirmation with QR code
 - View booking history
 - Download/view e-receipts
+- Cancel bookings
+- **Email confirmation simulation**
+- Package bookings
+
+#### 6. Review Module (Team Member 2)
+- Submit reviews for bookings
+- View reviews on room details
+- Review moderation (admin)
+- Review pagination
+- Average rating calculation
+
+#### 7. Contact & Home Module (Team Member 4)
+- Contact form with rate limiting
+- Newsletter subscription
+- Home page with featured rooms
+- Package browsing
+- Public pages (About, Blog, Help Center, Terms, Privacy)
+
+## 🆕 Recent Improvements
+
+### UI/UX Enhancements
+- ✅ **Custom Error Pages** - User-friendly 404, 403, and 400 error pages
+- ✅ **Loading Indicators** - Global AJAX loading spinners for better user experience
+- ✅ **Toast Notifications** - Modern notification system replacing basic alerts
+- ✅ **Image Preview** - Preview images before upload (profile pictures)
+- ✅ **Print-Optimized CSS** - Professional print styles for booking receipts
+
+### New Features
+- ✅ **Favorites/Wishlist** - Users can save favorite rooms for later viewing
+- ✅ **Email Confirmation Simulation** - Booking confirmation emails are logged
+- ✅ **Rate Limiting** - Protection against spam on registration and contact forms
+- ✅ **Enhanced Error Handling** - Consistent error handling across all controllers
+
+### Technical Improvements
+- ✅ **Timezone Fixes** - Fixed date handling to prevent timezone mismatches
+- ✅ **Avatar Display Fixes** - Fixed duplicate avatar display in reviews
+- ✅ **Date Validation** - Improved date validation for package bookings
+- ✅ **Database Migration** - Added FavoriteRoomTypes table
 
 ## 🧪 Testing Recommendations
 
@@ -345,6 +489,12 @@ Key configuration settings:
 4. ✅ Test receipt view/download
 5. ✅ Test promotion code application
 6. ✅ Test booking cancellation
+7. ✅ Test favorites/wishlist feature
+8. ✅ Test image preview on profile upload
+9. ✅ Test toast notifications
+10. ✅ Test loading indicators during AJAX calls
+11. ✅ Test rate limiting (try 3+ registrations quickly)
+12. ✅ Test error pages (404, 403)
 
 ### Admin Testing
 1. ✅ Test user management (CRUD operations)
@@ -357,11 +507,13 @@ Key configuration settings:
 
 - **Authentication**: Uses custom cookie-based authentication (NOT ASP.NET Core Identity)
 - **Password Storage**: All passwords are hashed using BCrypt
-- **Email Functionality**: Email sending is not implemented - tokens are shown in UI for testing
+- **Email Functionality**: Email sending is simulated - confirmation emails are logged for demonstration purposes
 - **Database**: Uses file-based SQL Server Express (LocalDB)
 - **Currency**: Displayed in RM (Malaysian Ringgit)
 - **Soft Delete**: All entities support soft delete functionality
 - **Admin Protection**: Main admin account (`admin@hotel.com`) cannot be deleted
+- **Favorites Feature**: Requires database migration - run `dotnet ef migrations add AddFavoriteRoomTypes` then `dotnet ef database update`
+- **Module Assignments**: Each of 4 team members is responsible for at least 2 core modules (see Key Modules section above)
 
 ## 🐛 Troubleshooting
 

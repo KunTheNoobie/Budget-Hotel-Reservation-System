@@ -154,7 +154,7 @@ namespace Assignment.Controllers
             // Rate limiting: Check for too many registration attempts from same IP
             var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
             var recentAttempts = _context.SecurityLogs
-                .Count(s => s.IpAddress == ipAddress && 
+                .Count(s => s.IPAddress == ipAddress && 
                             s.Action == "Register" && 
                             s.Timestamp > DateTime.Now.AddMinutes(5));
             
