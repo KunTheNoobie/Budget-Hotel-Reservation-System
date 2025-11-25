@@ -151,6 +151,26 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(RegisterViewModel model)
         {
+            // Rate limiting: Check for too many registration attempts from same IP
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var recentAttempts = _context.SecurityLogs
+                .Count(s => s.IpAddress == ipAddress && 
+                            s.Action == "Register" && 
+                            s.Timestamp > DateTime.Now.AddMinutes(5));
+            
+            if (recentAttempts >= 3)
+            {
+                await _securityLogger.LogAsync("Register", null, ipAddress, "Rate limit exceeded");
+                ModelState.AddModelError("", "Too many registration attempts. Please try again after 5 minutes.");
+                var random = new Random();
+                int num1 = random.Next(1, 10);
+                int num2 = random.Next(1, 10);
+                TempData["CaptchaSum"] = num1 + num2;
+                ViewBag.Num1 = num1;
+                ViewBag.Num2 = num2;
+                return View(model);
+            }
+
             // Validate Captcha
             if (TempData["CaptchaSum"] is int expectedSum)
             {
@@ -226,6 +246,9 @@ namespace Assignment.Controllers
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
+
+            // Log successful registration
+            await _securityLogger.LogAsync("Register", user.UserId, ipAddress, $"New user registered: {user.Email}");
 
             // Generate email verification token
             var token = GenerateSecureToken();
