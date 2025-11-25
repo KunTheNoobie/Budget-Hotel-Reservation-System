@@ -476,13 +476,16 @@ namespace Assignment.Controllers
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error(int? statusCode = null)
+        public IActionResult Error(int? id = null)
         {
-            if (statusCode == 404)
+            // Use 'id' parameter to match default route pattern {controller}/{action}/{id}
+            // When UseStatusCodePagesWithReExecute("/Home/Error/{0}") is called,
+            // the status code is passed as the 'id' parameter
+            if (id == 404)
                 return View("NotFound");
-            if (statusCode == 403)
+            if (id == 403)
                 return View("Forbidden");
-            if (statusCode == 400)
+            if (id == 400)
                 return View("BadRequest");
             
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });

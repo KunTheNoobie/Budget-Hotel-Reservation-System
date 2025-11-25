@@ -156,7 +156,7 @@ namespace Assignment.Controllers
             var recentAttempts = _context.SecurityLogs
                 .Count(s => s.IPAddress == ipAddress && 
                             s.Action == "Register" && 
-                            s.Timestamp > DateTime.Now.AddMinutes(5));
+                            s.Timestamp > DateTime.Now.AddMinutes(-5));
             
             if (recentAttempts >= 3)
             {
