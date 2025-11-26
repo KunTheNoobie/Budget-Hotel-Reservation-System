@@ -38,6 +38,7 @@ PROJECT SETUP
 3. Open Package Manager Console.
 4. Run "Update-Database" to create the database and seed initial data.
 5. Run the application (F5).
+   - The system will also seed sample favorites/wishlist data for demo customers.
 
 ===========================================================================
 MODULE ASSIGNMENTS (Team of 4)

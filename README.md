@@ -170,6 +170,7 @@ The application automatically creates the database and seeds initial data on fir
    - 10 Amenities
    - 3 Active Promotions
    - 2 Sample Bookings
+   - Sample Favorites/Wishlist entries for demo customers (so **My Favorites** is not empty)
 
 ### Option 2: SQL Scripts (Comprehensive Sample Data)
 

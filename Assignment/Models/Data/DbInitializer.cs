@@ -1200,6 +1200,45 @@ namespace Assignment.Models.Data
             };
             context.Reviews.AddRange(moreReviews);
             context.SaveChanges();
+
+            // Seed sample favorites/wishlist data
+            if (!context.FavoriteRoomTypes.Any())
+            {
+                var demoCustomer = context.Users.FirstOrDefault(u => u.Email == "customer@example.com");
+                var demoCustomer2 = context.Users.FirstOrDefault(u => u.Email == "sarah@example.com");
+
+                var popularRoomTypes = context.RoomTypes
+                    .OrderBy(rt => rt.RoomTypeId)
+                    .Take(4)
+                    .ToList();
+
+                if (demoCustomer != null && popularRoomTypes.Any())
+                {
+                    int offset = 1;
+                    foreach (var rt in popularRoomTypes.Take(3))
+                    {
+                        context.FavoriteRoomTypes.Add(new FavoriteRoomType
+                        {
+                            UserId = demoCustomer.UserId,
+                            RoomTypeId = rt.RoomTypeId,
+                            AddedAt = DateTime.Now.AddDays(-offset * 2)
+                        });
+                        offset++;
+                    }
+                }
+
+                if (demoCustomer2 != null && popularRoomTypes.Count > 1)
+                {
+                    context.FavoriteRoomTypes.Add(new FavoriteRoomType
+                    {
+                        UserId = demoCustomer2.UserId,
+                        RoomTypeId = popularRoomTypes[1].RoomTypeId,
+                        AddedAt = DateTime.Now.AddDays(-3)
+                    });
+                }
+
+                context.SaveChanges();
+            }
             } // End of main seeding block
             
             // Ensure reviews exist - if reviews are missing but bookings exist, create reviews for checked-out bookings

@@ -221,7 +221,7 @@
                     {
                         <hr class="my-4" />
                         <div class="mb-3">
-                            <button type="button" id="favoriteBtn" class="btn btn-outline-danger w-100" data-room-type-id="@Model.RoomTypeId">
+                            <button type="button" id="favoriteBtn" class="btn btn-danger w-100" data-room-type-id="@Model.RoomTypeId">
                                 <i class="bi bi-heart" id="favoriteIcon"></i> <span id="favoriteText">Add to Favorites</span>
                             </button>
                         </div>
@@ -272,7 +272,6 @@
             // Check if already favorited
             $.get('/Customer/CheckFavorite', { roomTypeId: roomTypeId }, function(data) {
                 if (data.isFavorite) {
-                    $('#favoriteBtn').removeClass('btn-outline-danger').addClass('btn-danger');
                     $('#favoriteIcon').removeClass('bi-heart').addClass('bi-heart-fill');
                     $('#favoriteText').text('Remove from Favorites');
                 }
@@ -286,11 +285,9 @@
                 $.post(url, { roomTypeId: roomTypeId }, function(data) {
                     if (data.success) {
                         if (isFavorite) {
-                            $('#favoriteBtn').removeClass('btn-danger').addClass('btn-outline-danger');
                             $('#favoriteIcon').removeClass('bi-heart-fill').addClass('bi-heart');
                             $('#favoriteText').text('Add to Favorites');
                         } else {
-                            $('#favoriteBtn').removeClass('btn-outline-danger').addClass('btn-danger');
                             $('#favoriteIcon').removeClass('bi-heart').addClass('bi-heart-fill');
                             $('#favoriteText').text('Remove from Favorites');
                         }

@@ -486,7 +486,6 @@ namespace Assignment.Controllers
         }
 
         [HttpPost]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddToFavorites(int roomTypeId)
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);
@@ -501,7 +500,7 @@ namespace Assignment.Controllers
 
             if (existing != null)
             {
-                return Json(new { success = false, message = "This room is already in your favorites." });
+                return Json(new { success = false, message = "This room is already in your favorites list." });
             }
 
             // Check if room type exists
@@ -525,7 +524,6 @@ namespace Assignment.Controllers
         }
 
         [HttpPost]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> RemoveFromFavorites(int roomTypeId)
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);
@@ -549,8 +547,6 @@ namespace Assignment.Controllers
             return Json(new { success = true, message = "Removed from favorites." });
         }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> CheckFavorite(int roomTypeId)
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);
