@@ -486,6 +486,7 @@ namespace Assignment.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddToFavorites(int roomTypeId)
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);
@@ -524,6 +525,7 @@ namespace Assignment.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> RemoveFromFavorites(int roomTypeId)
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);

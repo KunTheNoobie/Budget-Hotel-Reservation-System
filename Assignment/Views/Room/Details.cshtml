@@ -221,10 +221,14 @@
                     {
                         <hr class="my-4" />
                         <div class="mb-3">
-                            <button type="button" id="favoriteBtn" class="btn btn-danger w-100" data-room-type-id="@Model.RoomTypeId">
+                            <button type="button" id="favoriteBtn" class="btn btn-outline-danger w-100" data-room-type-id="@Model.RoomTypeId">
                                 <i class="bi bi-heart" id="favoriteIcon"></i> <span id="favoriteText">Add to Favorites</span>
                             </button>
                         </div>
+                        <!-- Anti-forgery token for favorites AJAX requests -->
+                        <form id="favoriteAntiForgeryForm" method="post" class="d-none">
+                            @Html.AntiForgeryToken()
+                        </form>
                         <hr class="my-4" />
                         <h5 class="mb-3">Book This Room</h5>
                         <form id="availabilityForm">
@@ -268,12 +272,18 @@
 
             // Favorites functionality
             var roomTypeId = @Model.RoomTypeId;
+            var antiForgeryToken = $('input[name="__RequestVerificationToken"]').first().val();
             
             // Check if already favorited
             $.get('/Customer/CheckFavorite', { roomTypeId: roomTypeId }, function(data) {
                 if (data.isFavorite) {
+                    $('#favoriteBtn').removeClass('btn-outline-danger').addClass('btn-danger');
                     $('#favoriteIcon').removeClass('bi-heart').addClass('bi-heart-fill');
                     $('#favoriteText').text('Remove from Favorites');
+                } else {
+                    $('#favoriteBtn').removeClass('btn-danger').addClass('btn-outline-danger');
+                    $('#favoriteIcon').removeClass('bi-heart-fill').addClass('bi-heart');
+                    $('#favoriteText').text('Add to Favorites');
                 }
             });
 
@@ -282,12 +292,17 @@
                 var isFavorite = $('#favoriteIcon').hasClass('bi-heart-fill');
                 var url = isFavorite ? '/Customer/RemoveFromFavorites' : '/Customer/AddToFavorites';
                 
-                $.post(url, { roomTypeId: roomTypeId }, function(data) {
+                $.post(url, { 
+                        roomTypeId: roomTypeId,
+                        __RequestVerificationToken: antiForgeryToken
+                    }, function(data) {
                     if (data.success) {
                         if (isFavorite) {
+                            $('#favoriteBtn').removeClass('btn-danger').addClass('btn-outline-danger');
                             $('#favoriteIcon').removeClass('bi-heart-fill').addClass('bi-heart');
                             $('#favoriteText').text('Add to Favorites');
                         } else {
+                            $('#favoriteBtn').removeClass('btn-outline-danger').addClass('btn-danger');
                             $('#favoriteIcon').removeClass('bi-heart').addClass('bi-heart-fill');
                             $('#favoriteText').text('Remove from Favorites');
                         }
