@@ -215,23 +215,38 @@ namespace Assignment.Services
 
         /// <summary>
         /// Creates a secure identifier for a payment card number.
-        /// Stores only the last 4 digits and a hash of the full number for security.
-        /// Never stores the full card number in plain text.
+        /// Always encrypts the card identifier to prevent storing any card information in plaintext.
+        /// For cards with 4+ digits: stores last 4 digits and encrypted hash.
+        /// For cards with less than 4 digits: stores only encrypted hash (no plaintext digits).
         /// </summary>
         /// <param name="cardNumber">The full payment card number.</param>
-        /// <returns>A card identifier in the format "XXXX-HASH" where XXXX is last 4 digits.</returns>
+        /// <returns>
+        /// For cards with 4+ digits: "XXXX-HASH" where XXXX is last 4 digits and HASH is encrypted identifier.
+        /// For cards with less than 4 digits: "HASH" (fully encrypted, no plaintext digits).
+        /// </returns>
         private string GetCardIdentifier(string cardNumber)
         {
             // Remove spaces and dashes from card number
             var cleaned = cardNumber.Replace(" ", "").Replace("-", "");
-            if (cleaned.Length < 4) return cleaned;
             
-            // Get last 4 digits (commonly shown on receipts)
-            var last4 = cleaned.Substring(cleaned.Length - 4);
-            // Create a hash of the full card number (for security, we don't store full number)
+            // Always encrypt the full card number for security
             var hash = EncryptionService.Encrypt(cleaned);
-            // Return format: "XXXX-HASH" where XXXX is last 4 digits and HASH is encrypted identifier
-            return $"{last4}-{hash.Substring(0, 8)}";
+            
+            // For cards with 4+ digits, include last 4 digits for display purposes
+            // For shorter cards, return only the encrypted hash (no plaintext)
+            if (cleaned.Length >= 4)
+            {
+                // Get last 4 digits (commonly shown on receipts)
+                var last4 = cleaned.Substring(cleaned.Length - 4);
+                // Return format: "XXXX-HASH" where XXXX is last 4 digits and HASH is encrypted identifier
+                return $"{last4}-{hash.Substring(0, 8)}";
+            }
+            else
+            {
+                // For short card numbers, return only encrypted hash (no plaintext digits)
+                // This ensures no card information is stored in plaintext, regardless of input length
+                return hash.Substring(0, Math.Min(16, hash.Length));
+            }
         }
 
         /// <summary>
