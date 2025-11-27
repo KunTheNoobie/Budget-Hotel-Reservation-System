@@ -9,13 +9,35 @@ using Microsoft.AspNetCore.Hosting;
 
 namespace Assignment.Controllers
 {
+    /// <summary>
+    /// Controller for customer profile management and personal features.
+    /// Handles profile viewing/editing, password changes, booking history, favorites/wishlist,
+    /// and profile picture uploads. Requires authentication (Customer, Admin, Manager, or Staff roles).
+    /// </summary>
     [AuthorizeRole(UserRole.Customer, UserRole.Admin, UserRole.Manager, UserRole.Staff)]
     public class CustomerController : Controller
     {
+        /// <summary>
+        /// Database context for accessing user and booking data.
+        /// </summary>
         private readonly HotelDbContext _context;
+
+        /// <summary>
+        /// Logger for recording customer operations and errors.
+        /// </summary>
         private readonly ILogger<CustomerController> _logger;
+
+        /// <summary>
+        /// Web host environment for file operations (profile picture uploads).
+        /// </summary>
         private readonly IWebHostEnvironment _environment;
 
+        /// <summary>
+        /// Initializes a new instance of the CustomerController.
+        /// </summary>
+        /// <param name="context">Database context for data access.</param>
+        /// <param name="logger">Logger instance for logging.</param>
+        /// <param name="environment">Web host environment for file operations.</param>
         public CustomerController(HotelDbContext context, ILogger<CustomerController> logger, IWebHostEnvironment environment)
         {
             _context = context;
@@ -23,6 +45,10 @@ namespace Assignment.Controllers
             _environment = environment;
         }
 
+        /// <summary>
+        /// Displays the user's profile page with personal information and booking history.
+        /// </summary>
+        /// <returns>The profile view for the authenticated user.</returns>
         [HttpGet]
         public async Task<IActionResult> Profile()
         {

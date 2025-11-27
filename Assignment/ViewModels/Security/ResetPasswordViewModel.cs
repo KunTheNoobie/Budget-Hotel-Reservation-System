@@ -2,6 +2,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Assignment.ViewModels.Security
 {
+    /// <summary>
+    /// View model for the password reset form.
+    /// Used when a user resets their password using a security token received via email.
+    /// Contains token validation and password strength requirements.
+    /// </summary>
     public class ResetPasswordViewModel
     {
         [Required]

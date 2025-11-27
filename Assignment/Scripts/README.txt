@@ -45,21 +45,25 @@ Default Test Passwords (after application initializes):
 
 SAMPLE DATA INCLUDED:
 --------------------
-- 15 Hotels (various locations in Malaysia)
-- 15 Users (1 Admin, 1 Manager, 1 Staff, 12 Customers)
-- 15 Amenities (with images)
-- 20 Room Types (various categories)
-- 25 Rooms (across different room types)
-- 30 Room Images
-- 50 Room Type-Amenity relationships
-- 15 Services
-- 15 Packages
-- 30 Package Items
-- 12 Promotions
-- 15 Bookings (various statuses)
-- 12 Reviews
-- 12 Contact Messages
-- 12 Newsletter Subscriptions
+This script provides comprehensive sample data for testing and demonstration:
+
+- 15 Hotels (various locations across Malaysia including KL, Penang, Malacca, Johor Bahru, Langkawi, Ipoh, Kota Kinabalu, Kuching, Cameron Highlands, Kuantan, Terengganu, and more)
+- 15 Users (1 Admin, 1 Manager, 1 Staff, 12 Customers with different verification statuses)
+- 15 Amenities (Free Wi-Fi, Air Conditioning, Flat-Screen TV, Mini Fridge, Coffee Maker, Private Bathroom, Room Service, Safe, Balcony, City View, and more)
+- 20 Room Types (Standard Single, Deluxe Double, Executive Suite, Family Room, Premier Twin, Studio Apartment, Ocean View Suite, Heritage Double, Sabah View, Riverside Deluxe, Highland Cozy, and more)
+- 25 Rooms (across different room types with various statuses: Available, Occupied, UnderMaintenance, Cleaning)
+- 30 Room Images (multiple images per room type for showcasing)
+- 50 Room Type-Amenity relationships (linking amenities to room types)
+- 15 Services (Airport Transfer, Breakfast Buffet, Late Checkout, Island Hopping Tour, Spa Treatment, Candlelight Dinner, City Tour, Car Rental, Laundry Service, Room Upgrade, Wi-Fi Premium, Pet Care, Concierge, Gym Access, Pool Access)
+- 15 Packages (Kuala Lumpur City Explorer, Malacca Family Fun Package, Langkawi Beach Escape, Honeymoon Bliss, Business Traveler, Adventure Seeker, Ipoh Heritage Experience, Sabah Adventure Package, Sarawak Cultural Journey, Cameron Highlands Retreat, Weekend Getaway Special, Extended Stay Value, and more)
+- 30 Package Items (linking room types and services to packages with quantities)
+- 12 Promotions (various discount codes with different types: Percentage and FixedAmount, with different validation rules)
+- 15 Bookings (various statuses: Pending, Confirmed, Cancelled, CheckedIn, CheckedOut, NoShow)
+- 12 Reviews (ratings and comments from customers for completed bookings)
+- 12 Contact Messages (customer inquiries with read/unread status)
+- 12 Newsletter Subscriptions (email subscriptions with active/inactive status)
+
+All data is designed to provide a realistic testing environment with diverse scenarios.
 
 TROUBLESHOOTING:
 ---------------

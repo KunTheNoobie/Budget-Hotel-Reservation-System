@@ -5,8 +5,17 @@ using System.Reflection.Emit;
 
 namespace Assignment.Models.Data
 {
+    /// <summary>
+    /// Entity Framework Core database context for the Budget Hotel Reservation System.
+    /// Manages database connections, entity configurations, relationships, and query filters.
+    /// Implements soft delete pattern with global query filters that automatically exclude deleted records.
+    /// </summary>
     public class HotelDbContext : DbContext
     {
+        /// <summary>
+        /// Initializes a new instance of the HotelDbContext.
+        /// </summary>
+        /// <param name="options">Database context options (connection string, provider, etc.).</param>
         public HotelDbContext(DbContextOptions<HotelDbContext> options) : base(options) { }
 
         public DbSet<User> Users { get; set; }
@@ -25,18 +34,24 @@ namespace Assignment.Models.Data
         public DbSet<Package> Packages { get; set; }
         public DbSet<PackageItem> PackageItems { get; set; }
         public DbSet<Booking> Bookings { get; set; }
-        // Payment merged into Booking - no longer needed as separate table
+        // Note: Payment information is merged into Booking entity - no separate Payment table
         public DbSet<Promotion> Promotions { get; set; }
         public DbSet<PromotionUsage> PromotionUsages { get; set; }
         public DbSet<Newsletter> Newsletters { get; set; }
         public DbSet<FavoriteRoomType> FavoriteRoomTypes { get; set; }
 
 
+        /// <summary>
+        /// Configures entity relationships, constraints, and global query filters.
+        /// Called by Entity Framework when building the model.
+        /// </summary>
+        /// <param name="modelBuilder">Model builder for configuring entities.</param>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
             // Configure Review relationships - prevent circular dependencies
+            // Uses Restrict delete behavior to prevent cascade deletes that could cause issues
             modelBuilder.Entity<Review>()
                 .HasOne(r => r.User)
                 .WithMany(u => u.Reviews)
@@ -50,6 +65,8 @@ namespace Assignment.Models.Data
                 .OnDelete(DeleteBehavior.Restrict); // Prevent cascade delete to avoid circular dependency
 
             // Global query filters for soft delete - automatically filter out deleted records
+            // These filters ensure that IsDeleted=true records are excluded from all queries
+            // unless explicitly overridden using IgnoreQueryFilters()
             modelBuilder.Entity<User>().HasQueryFilter(u => !u.IsDeleted);
             modelBuilder.Entity<Hotel>().HasQueryFilter(h => !h.IsDeleted);
             modelBuilder.Entity<Room>().HasQueryFilter(r => !r.IsDeleted);

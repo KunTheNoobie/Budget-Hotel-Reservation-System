@@ -3,6 +3,10 @@ using System.Collections.Generic;
 
 namespace Assignment.ViewModels.Home
 {
+    /// <summary>
+    /// View model for the home page, containing all data needed to display
+    /// featured rooms, packages, statistics, reviews, and other home page content.
+    /// </summary>
     public class HomeViewModel
     {
         public List<RoomType> FeaturedRooms { get; set; } = new();

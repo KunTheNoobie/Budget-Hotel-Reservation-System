@@ -2,6 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Assignment.ViewModels.Home
 {
+    /// <summary>
+    /// View model for displaying statistics on the home page.
+    /// Contains counts and averages for hotels, guests, bookings, and ratings.
+    /// </summary>
     public class HomeStatsViewModel
     {
         [Display(Name = "Budget Hotels")]

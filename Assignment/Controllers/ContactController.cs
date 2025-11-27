@@ -5,22 +5,48 @@ using System.Linq;
 
 namespace Assignment.Controllers
 {
+    /// <summary>
+    /// Controller for handling contact form submissions and newsletter subscriptions.
+    /// Implements rate limiting to prevent spam and abuse. Public access (no authentication required).
+    /// </summary>
     public class ContactController : Controller
     {
+        /// <summary>
+        /// Database context for accessing contact messages and newsletter data.
+        /// </summary>
         private readonly HotelDbContext _context;
+
+        /// <summary>
+        /// Logger for recording contact form submissions and errors.
+        /// </summary>
         private readonly ILogger<ContactController> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the ContactController.
+        /// </summary>
+        /// <param name="context">Database context for data access.</param>
+        /// <param name="logger">Logger instance for logging.</param>
         public ContactController(HotelDbContext context, ILogger<ContactController> logger)
         {
             _context = context;
             _logger = logger;
         }
 
+        /// <summary>
+        /// Displays the contact form page.
+        /// </summary>
+        /// <returns>The contact form view.</returns>
         public IActionResult Index()
         {
             return View();
         }
 
+        /// <summary>
+        /// Processes contact form submissions with rate limiting protection.
+        /// Prevents spam by limiting submissions from the same IP address.
+        /// </summary>
+        /// <param name="model">The contact message data submitted by the user.</param>
+        /// <returns>Redirects to contact page with success message or returns view with errors.</returns>
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Send(ContactMessage model)

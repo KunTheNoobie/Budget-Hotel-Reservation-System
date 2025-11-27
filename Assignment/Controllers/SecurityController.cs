@@ -10,15 +10,51 @@ using System.Text;
 
 namespace Assignment.Controllers
 {
+    /// <summary>
+    /// Controller for handling user authentication and security-related operations.
+    /// Manages user registration, login, logout, password reset, email verification,
+    /// and implements security features like login attempt tracking and account lockout.
+    /// </summary>
     public class SecurityController : Controller
     {
+        /// <summary>
+        /// Database context for accessing user and security data.
+        /// </summary>
         private readonly HotelDbContext _context;
+
+        /// <summary>
+        /// Logger for recording security events and errors.
+        /// </summary>
         private readonly ILogger<SecurityController> _logger;
+
+        /// <summary>
+        /// Service for logging security events to the database.
+        /// </summary>
         private readonly SecurityLogger _securityLogger;
+
+        /// <summary>
+        /// Configuration for accessing application settings.
+        /// </summary>
         private readonly IConfiguration _configuration;
+
+        /// <summary>
+        /// Maximum number of failed login attempts before account lockout.
+        /// Defaults to 3 if not configured.
+        /// </summary>
         private int MaxLoginAttempts => _configuration.GetValue<int>("SecuritySettings:MaxLoginAttempts", 3);
+
+        /// <summary>
+        /// Number of minutes an account remains locked after exceeding max login attempts.
+        /// Defaults to 15 minutes if not configured.
+        /// </summary>
         private int LockoutMinutes => _configuration.GetValue<int>("SecuritySettings:LockoutMinutes", 15);
 
+        /// <summary>
+        /// Initializes a new instance of the SecurityController.
+        /// </summary>
+        /// <param name="context">Database context for data access.</param>
+        /// <param name="logger">Logger instance for logging.</param>
+        /// <param name="configuration">Configuration for accessing settings.</param>
         public SecurityController(HotelDbContext context, ILogger<SecurityController> logger, IConfiguration configuration)
         {
             _context = context;
@@ -27,6 +63,12 @@ namespace Assignment.Controllers
             _configuration = configuration;
         }
 
+        /// <summary>
+        /// Displays the login page.
+        /// Redirects to home if user is already authenticated.
+        /// </summary>
+        /// <param name="returnUrl">Optional URL to redirect to after successful login.</param>
+        /// <returns>The login page view.</returns>
         [HttpGet]
         public IActionResult Login(string? returnUrl)
         {

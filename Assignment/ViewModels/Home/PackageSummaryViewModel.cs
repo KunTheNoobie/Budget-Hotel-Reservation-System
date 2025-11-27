@@ -1,5 +1,9 @@
 namespace Assignment.ViewModels.Home
 {
+    /// <summary>
+    /// View model for displaying package summaries on the home page.
+    /// Contains package information, pricing, highlights, and associated room type details.
+    /// </summary>
     public class PackageSummaryViewModel
     {
         public int PackageId { get; set; }

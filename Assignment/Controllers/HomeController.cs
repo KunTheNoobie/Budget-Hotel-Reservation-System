@@ -9,17 +9,38 @@ using System.Linq;
 
 namespace Assignment.Controllers
 {
+    /// <summary>
+    /// Controller for handling home page and public-facing pages.
+    /// Manages the main landing page, featured rooms, packages display, and public information pages.
+    /// </summary>
     public class HomeController : Controller
     {
+        /// <summary>
+        /// Logger for recording application events and errors.
+        /// </summary>
         private readonly ILogger<HomeController> _logger;
+
+        /// <summary>
+        /// Database context for accessing hotel reservation data.
+        /// </summary>
         private readonly HotelDbContext _context;
 
+        /// <summary>
+        /// Initializes a new instance of the HomeController.
+        /// </summary>
+        /// <param name="logger">Logger instance for logging.</param>
+        /// <param name="context">Database context for data access.</param>
         public HomeController(ILogger<HomeController> logger, HotelDbContext context)
         {
             _logger = logger;
             _context = context;
         }
 
+        /// <summary>
+        /// Displays the home page with featured rooms, packages, and statistics.
+        /// Randomly selects 3 featured rooms that change on each page load.
+        /// </summary>
+        /// <returns>The home page view with featured content.</returns>
         public async Task<IActionResult> Index()
         {
             var allRooms = await _context.RoomTypes

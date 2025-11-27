@@ -6,6 +6,11 @@ using BookingModel = Assignment.Models.Booking;
 
 namespace Assignment.ViewModels.Booking
 {
+    /// <summary>
+    /// View model for the payment form when completing a booking.
+    /// Supports multiple payment methods: Credit Card, PayPal, and Bank Transfer.
+    /// Contains validation attributes for each payment method's required fields.
+    /// </summary>
     public class PaymentViewModel
     {
         public int BookingId { get; set; }

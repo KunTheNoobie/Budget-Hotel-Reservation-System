@@ -281,11 +281,6 @@ footer.navbar .text-white {
   flex-direction: column;
 }
 
-/* Utilities */
-background: var(--primary);
-opacity: 0.5;
-}
-
 .swiper-pagination-bullet-active {
   opacity: 1;
   background: var(--primary);

@@ -5,10 +5,24 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Assignment.Migrations
 {
-    /// <inheritdoc />
+    /// <summary>
+    /// Migration: AddImageUrlToAmenity
+    /// 
+    /// This migration performs several database schema updates:
+    /// 1. Adds ImageUrl column to Amenities table for displaying amenity icons
+    /// 2. Merges Payment table into Bookings table (adds payment fields to Bookings)
+    /// 3. Adds ImageUrl column to Hotels table
+    /// 4. Creates PromotionUsages table for tracking promotion code usage
+    /// 5. Adds abuse prevention fields to Promotions table (LimitPerDevice, LimitPerPaymentCard, etc.)
+    /// 6. Removes old Payments table and updates Review foreign key constraints
+    /// </summary>
     public partial class AddImageUrlToAmenity : Migration
     {
-        /// <inheritdoc />
+        /// <summary>
+        /// Applies the migration - adds new columns and tables, removes old ones.
+        /// Uses conditional SQL to handle cases where database was created manually.
+        /// </summary>
+        /// <param name="migrationBuilder">Migration builder for executing SQL commands.</param>
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             // Drop foreign key only if it exists

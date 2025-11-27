@@ -538,6 +538,270 @@ For issues, questions, or contributions:
 - Check the code comments
 - Contact the development team
 
+## 📊 Database Models
+
+This section explains each model in the system and their purpose.
+
+### Core Models
+
+#### **User**
+Represents a user account in the system (admin, staff, or customer).
+- **Purpose**: Stores user authentication information, profile data, and preferences
+- **Key Fields**: Email, PasswordHash (BCrypt), Role (Admin/Manager/Staff/Customer), IsEmailVerified, IsActive
+- **Special Features**: 
+  - Phone numbers are encrypted using AES encryption
+  - Supports soft delete
+  - Tracks user preferences (language, theme, profile picture, bio)
+- **Relationships**: Has many Bookings, Reviews, and FavoriteRoomTypes
+
+#### **Hotel**
+Represents a hotel property in the reservation system.
+- **Purpose**: Stores hotel location information, contact details, and descriptive information
+- **Key Fields**: Name, Address, City, Country, ContactNumber, ContactEmail, Description, ImageUrl
+- **Relationships**: Has many RoomTypes
+
+#### **RoomType**
+Represents a type/category of room (e.g., "Standard Single", "Deluxe Double", "Executive Suite").
+- **Purpose**: Defines the characteristics, pricing, and amenities for a category of rooms
+- **Key Fields**: Name, Description, Occupancy (max guests), BasePrice (per night), HotelId
+- **Relationships**: 
+  - Belongs to one Hotel
+  - Has many Rooms (physical rooms of this type)
+  - Has many RoomImages
+  - Has many Amenities (through RoomTypeAmenity)
+  - Has many FavoriteRoomTypes (users who favorited this type)
+
+#### **Room**
+Represents a physical room in a hotel.
+- **Purpose**: Tracks individual rooms and their current status
+- **Key Fields**: RoomNumber (unique identifier), RoomTypeId, Status (Available/Occupied/UnderMaintenance/Cleaning)
+- **Relationships**: 
+  - Belongs to one RoomType
+  - Has many Bookings (booking history)
+
+#### **RoomImage**
+Represents an image associated with a room type.
+- **Purpose**: Stores multiple images per room type to showcase rooms to customers
+- **Key Fields**: RoomTypeId, ImageUrl, Caption
+- **Relationships**: Belongs to one RoomType
+
+#### **Amenity**
+Represents a facility or feature that can be associated with room types.
+- **Purpose**: Defines amenities like "Free Wi-Fi", "Air Conditioning", "Flat-Screen TV", etc.
+- **Key Fields**: Name, ImageUrl
+- **Relationships**: Has many RoomTypes (through RoomTypeAmenity - many-to-many)
+
+#### **RoomTypeAmenity**
+Junction entity linking RoomTypes to Amenities (many-to-many relationship).
+- **Purpose**: Associates amenities with room types
+- **Key Fields**: RoomTypeId, AmenityId
+
+### Booking Models
+
+#### **Booking**
+Represents a hotel room booking made by a user.
+- **Purpose**: Stores booking details, payment information, and cancellation data
+- **Key Fields**: 
+  - UserId, RoomId, CheckInDate, CheckOutDate, BookingDate
+  - TotalPrice, Status (Pending/Confirmed/Cancelled/CheckedIn/CheckedOut/NoShow)
+  - PaymentAmount, PaymentMethod (CreditCard/PayPal/BankTransfer), PaymentStatus, TransactionId, PaymentDate
+  - CancellationDate, CancellationReason, RefundAmount
+  - PromotionId (optional)
+- **Special Features**: 
+  - Payment information is merged into this entity (previously separate Payment table)
+  - Cancellation information is merged into this entity (previously separate BookingCancellation table)
+  - Supports soft delete
+- **Relationships**: 
+  - Belongs to one User, one Room, and optionally one Promotion
+  - Has many Reviews
+
+#### **Promotion**
+Represents a promotion code that can be applied to bookings for discounts.
+- **Purpose**: Manages discount codes with validation rules and abuse prevention
+- **Key Fields**: 
+  - Code (e.g., "WELCOME10"), Description, Type (Percentage/FixedAmount), Value
+  - StartDate, EndDate, IsActive
+  - MinimumNights, MinimumAmount, MaxTotalUses
+  - Abuse prevention settings: LimitPerPhoneNumber, LimitPerPaymentCard, LimitPerDevice, LimitPerUserAccount, MaxUsesPerLimit
+- **Special Features**: 
+  - Comprehensive validation rules (dates, minimum requirements, usage limits)
+  - Multiple abuse prevention mechanisms
+  - Automatically deactivates when expired or max uses reached
+- **Relationships**: Has many PromotionUsages
+
+#### **PromotionUsage**
+Tracks when and how a promotion code was used.
+- **Purpose**: Records promotion usage for validation and abuse prevention
+- **Key Fields**: 
+  - PromotionId, BookingId, UserId, UsedAt
+  - PhoneNumberHash (encrypted), CardIdentifier (hashed), DeviceFingerprint, IpAddress
+- **Special Features**: 
+  - Stores encrypted/hashed identifiers (phone number, card number) for privacy and security
+  - Used to enforce usage limits per phone, card, device, or user account
+- **Relationships**: Belongs to one Promotion, one Booking, and one User
+
+### Service & Package Models
+
+#### **Service**
+Represents an additional service that can be purchased or included in packages.
+- **Purpose**: Defines services like "Airport Transfer", "Breakfast Buffet", "Spa Treatment", etc.
+- **Key Fields**: Name, Description, Price
+- **Relationships**: Can be included in Packages (through PackageItem)
+
+#### **Package**
+Represents a package deal that bundles room types and services together at a discounted price.
+- **Purpose**: Creates bundled offers (e.g., "Kuala Lumpur City Explorer", "Honeymoon Bliss")
+- **Key Fields**: Name, Description, TotalPrice, IsActive, ImageUrl
+- **Relationships**: Has many PackageItems (room types and services included in the package)
+
+#### **PackageItem**
+Junction entity linking Packages to RoomTypes and Services.
+- **Purpose**: Defines what items (room types and services) are included in a package and their quantities
+- **Key Fields**: PackageId, RoomTypeId (optional), ServiceId (optional), Quantity
+- **Relationships**: Belongs to one Package, optionally one RoomType, and optionally one Service
+
+### Review & Feedback Models
+
+#### **Review**
+Represents a review/rating submitted by a user for a completed booking.
+- **Purpose**: Allows customers to rate their stay experience and provide feedback
+- **Key Fields**: BookingId, UserId, Rating (1-5 stars), Comment, ReviewDate
+- **Special Features**: 
+  - Reviews are linked to specific bookings (only customers who have stayed can review)
+  - Supports soft delete for review moderation
+- **Relationships**: Belongs to one Booking and one User
+
+#### **ContactMessage**
+Represents a contact message submitted through the contact form.
+- **Purpose**: Stores customer inquiries, feedback, and support requests
+- **Key Fields**: Name, Email, Subject, Message, SentAt, IsRead
+- **Special Features**: 
+  - Tracks read/unread status for admin management
+  - Supports soft delete
+- **Relationships**: None (standalone entity)
+
+#### **Newsletter**
+Represents a newsletter subscription entry.
+- **Purpose**: Stores email addresses of users subscribed to promotional emails and newsletters
+- **Key Fields**: Email, SubscribedAt, IsActive
+- **Special Features**: 
+  - IsActive flag allows unsubscribing without deleting the record
+  - Supports soft delete
+- **Relationships**: None (standalone entity)
+
+### Security Models
+
+#### **SecurityToken**
+Represents a security token used for password reset and email verification.
+- **Purpose**: Provides time-limited, single-use tokens for secure operations
+- **Key Fields**: TokenValue (unique token), UserId, Type (PasswordReset/EmailVerification), ExpiryDate, IsUsed
+- **Special Features**: 
+  - Tokens expire after a set period (typically 24 hours)
+  - Tokens are single-use (cannot be reused after IsUsed = true)
+- **Relationships**: Belongs to one User
+
+#### **LoginAttempt**
+Tracks login attempts for security and audit purposes.
+- **Purpose**: Records all login attempts (successful and failed) for security monitoring
+- **Key Fields**: Email, Timestamp, WasSuccessful, IpAddress
+- **Special Features**: 
+  - Used to implement account lockout after multiple failed attempts
+  - Helps detect brute-force attacks
+- **Relationships**: None (standalone entity)
+
+#### **SecurityLog**
+Represents a security event log entry for audit and monitoring.
+- **Purpose**: Records security-related actions (login, logout, password changes, etc.)
+- **Key Fields**: UserId (optional), Action, IPAddress, Timestamp, Details
+- **Special Features**: 
+  - Comprehensive security audit trail
+  - Supports soft delete
+- **Relationships**: Optionally belongs to one User
+
+### User Preference Models
+
+#### **FavoriteRoomType**
+Represents a favorite/wishlist entry where a user saves a room type for later viewing.
+- **Purpose**: Implements the favorites/wishlist feature
+- **Key Fields**: UserId, RoomTypeId, AddedAt
+- **Special Features**: 
+  - Many-to-many relationship between Users and RoomTypes
+  - Supports soft delete
+- **Relationships**: Belongs to one User and one RoomType
+
+### View Models
+
+#### **ErrorViewModel**
+View model used for displaying error pages (404, 500, etc.).
+- **Purpose**: Provides error information to error pages
+- **Key Fields**: RequestId (for tracking and debugging)
+
+### Database Context
+
+#### **HotelDbContext**
+Entity Framework Core database context for the application.
+- **Purpose**: Manages database connections and entity configurations
+- **Key Features**: 
+  - Configures all entity relationships and constraints
+  - Implements global query filters for soft delete (automatically filters out deleted records)
+  - Prevents cascade deletes to avoid circular dependencies
+
+### Model Relationships Summary
+
+```
+User
+  ├── Bookings (1-to-many)
+  ├── Reviews (1-to-many)
+  ├── FavoriteRoomTypes (1-to-many)
+  └── SecurityTokens (1-to-many)
+
+Hotel
+  └── RoomTypes (1-to-many)
+
+RoomType
+  ├── Hotel (many-to-1)
+  ├── Rooms (1-to-many)
+  ├── RoomImages (1-to-many)
+  ├── Amenities (many-to-many via RoomTypeAmenity)
+  └── FavoriteRoomTypes (1-to-many)
+
+Room
+  ├── RoomType (many-to-1)
+  └── Bookings (1-to-many)
+
+Booking
+  ├── User (many-to-1)
+  ├── Room (many-to-1)
+  ├── Promotion (many-to-1, optional)
+  └── Reviews (1-to-many)
+
+Promotion
+  └── PromotionUsages (1-to-many)
+
+Package
+  └── PackageItems (1-to-many)
+
+PackageItem
+  ├── Package (many-to-1)
+  ├── RoomType (many-to-1, optional)
+  └── Service (many-to-1, optional)
+```
+
+### Soft Delete Pattern
+
+All major entities support **soft delete**:
+- `IsDeleted` flag (boolean) - marks entity as deleted
+- `DeletedAt` timestamp (nullable DateTime) - records when deletion occurred
+- Global query filters automatically exclude soft-deleted records from queries
+- Allows data recovery and maintains referential integrity
+
+### Security Features
+
+- **Password Hashing**: All passwords are hashed using BCrypt (never stored in plain text)
+- **Data Encryption**: Phone numbers are encrypted using AES-256 encryption
+- **Token Security**: Security tokens are time-limited and single-use
+- **Audit Logging**: Security events are logged for compliance and monitoring
+
 ## 📄 License
 
 This project is part of a BMIT2023 Web and Mobile Systems Assignment.

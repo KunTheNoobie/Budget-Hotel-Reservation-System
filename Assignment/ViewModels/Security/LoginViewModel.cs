@@ -2,6 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Assignment.ViewModels.Security
 {
+    /// <summary>
+    /// View model for the user login form.
+    /// Contains email, password, remember me option, and return URL for post-login redirection.
+    /// </summary>
     public class LoginViewModel
     {
         [Required(ErrorMessage = "Email is required")]

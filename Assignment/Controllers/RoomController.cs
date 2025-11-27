@@ -5,17 +5,47 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Assignment.Controllers
 {
+    /// <summary>
+    /// Controller for browsing and viewing room information.
+    /// Provides room catalog with search and filtering capabilities, room details pages,
+    /// and availability checking. Public access (no authentication required).
+    /// </summary>
     public class RoomController : Controller
     {
+        /// <summary>
+        /// Database context for accessing room and related data.
+        /// </summary>
         private readonly HotelDbContext _context;
+
+        /// <summary>
+        /// Logger for recording room browsing events and errors.
+        /// </summary>
         private readonly ILogger<RoomController> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the RoomController.
+        /// </summary>
+        /// <param name="context">Database context for data access.</param>
+        /// <param name="logger">Logger instance for logging.</param>
         public RoomController(HotelDbContext context, ILogger<RoomController> logger)
         {
             _context = context;
             _logger = logger;
         }
 
+        /// <summary>
+        /// Displays the room catalog with search and filtering options.
+        /// Supports filtering by search term, room type, maximum price, check-in date, and number of guests.
+        /// Implements pagination for large result sets.
+        /// </summary>
+        /// <param name="searchTerm">Search term for filtering rooms by name or description.</param>
+        /// <param name="roomTypeId">Optional room type ID to filter by specific room type.</param>
+        /// <param name="maxPrice">Optional maximum price filter.</param>
+        /// <param name="checkIn">Optional check-in date for availability checking.</param>
+        /// <param name="guests">Optional number of guests for occupancy filtering.</param>
+        /// <param name="page">Page number for pagination (default: 1).</param>
+        /// <param name="pageSize">Number of items per page (default: 9).</param>
+        /// <returns>The room catalog view with filtered results.</returns>
         public async Task<IActionResult> Catalog(string searchTerm = "", int? roomTypeId = null, decimal? maxPrice = null, DateTime? checkIn = null, int? guests = null, int page = 1, int pageSize = 9)
         {
             // Validate input parameters

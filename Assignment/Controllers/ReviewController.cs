@@ -6,15 +6,35 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Assignment.Controllers
 {
+    /// <summary>
+    /// Controller for handling customer reviews and ratings.
+    /// Allows authenticated users to submit reviews for completed bookings.
+    /// Public access for viewing reviews, authentication required for creating reviews.
+    /// </summary>
     public class ReviewController : Controller
     {
+        /// <summary>
+        /// Database context for accessing review and booking data.
+        /// </summary>
         private readonly HotelDbContext _context;
 
+        /// <summary>
+        /// Initializes a new instance of the ReviewController.
+        /// </summary>
+        /// <param name="context">Database context for data access.</param>
         public ReviewController(HotelDbContext context)
         {
             _context = context;
         }
 
+        /// <summary>
+        /// Creates a new review for a completed booking.
+        /// Only allows users to review their own bookings.
+        /// </summary>
+        /// <param name="bookingId">ID of the booking to review.</param>
+        /// <param name="rating">Rating value (1-5 stars).</param>
+        /// <param name="comment">Optional review comment/feedback.</param>
+        /// <returns>Redirects to booking history or returns error if validation fails.</returns>
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(int bookingId, int rating, string comment)

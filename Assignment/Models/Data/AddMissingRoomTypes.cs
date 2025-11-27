@@ -4,8 +4,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Assignment.Models.Data
 {
+    /// <summary>
+    /// Static class for adding missing room types to hotels in specific cities.
+    /// Ensures that hotels in Ipoh, Kota Kinabalu, Kuching, and Cameron Highlands
+    /// have at least one room type available for booking.
+    /// Also creates corresponding rooms and room images for the new room types.
+    /// </summary>
     public static class AddMissingRoomTypes
     {
+        /// <summary>
+        /// Adds missing room types, rooms, and images for hotels in specific cities.
+        /// Checks if hotels in Ipoh, Kota Kinabalu, Kuching, and Cameron Highlands have room types,
+        /// and creates them if they don't exist.
+        /// </summary>
+        /// <param name="context">The database context to update.</param>
         public static async Task AddMissingData(HotelDbContext context)
         {
             // Check if specific hotels need room types (Ipoh, Kota Kinabalu, Kuching, Cameron Highlands)

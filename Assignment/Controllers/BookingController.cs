@@ -10,13 +10,36 @@ using System.Drawing;
 
 namespace Assignment.Controllers
 {
+    /// <summary>
+    /// Controller for handling hotel room bookings.
+    /// Manages booking creation, payment processing, booking history, cancellation,
+    /// receipt generation, and QR code generation for booking confirmations.
+    /// Requires authentication (Customer, Admin, Manager, or Staff roles).
+    /// </summary>
     [AuthorizeRole(UserRole.Customer, UserRole.Admin, UserRole.Manager, UserRole.Staff)]
     public class BookingController : Controller
     {
+        /// <summary>
+        /// Database context for accessing booking and related data.
+        /// </summary>
         private readonly HotelDbContext _context;
+
+        /// <summary>
+        /// Logger for recording booking events and errors.
+        /// </summary>
         private readonly ILogger<BookingController> _logger;
+
+        /// <summary>
+        /// Service for validating promotion code usage and preventing abuse.
+        /// </summary>
         private readonly PromotionValidationService _promotionValidation;
 
+        /// <summary>
+        /// Initializes a new instance of the BookingController.
+        /// </summary>
+        /// <param name="context">Database context for data access.</param>
+        /// <param name="logger">Logger instance for logging.</param>
+        /// <param name="promotionValidation">Service for promotion validation.</param>
         public BookingController(HotelDbContext context, ILogger<BookingController> logger, PromotionValidationService promotionValidation)
         {
             _context = context;
@@ -24,6 +47,15 @@ namespace Assignment.Controllers
             _promotionValidation = promotionValidation;
         }
 
+        /// <summary>
+        /// Displays the booking creation page for a specific room type or package.
+        /// Allows users to select dates, apply promotion codes, and proceed to payment.
+        /// </summary>
+        /// <param name="roomTypeId">ID of the room type to book.</param>
+        /// <param name="checkIn">Optional check-in date (defaults to tomorrow).</param>
+        /// <param name="checkOut">Optional check-out date (defaults to day after tomorrow).</param>
+        /// <param name="packageId">Optional package ID if booking a package deal.</param>
+        /// <returns>The booking creation page view.</returns>
         [HttpGet]
         public async Task<IActionResult> Create(int roomTypeId, DateTime? checkIn, DateTime? checkOut, int? packageId)
         {

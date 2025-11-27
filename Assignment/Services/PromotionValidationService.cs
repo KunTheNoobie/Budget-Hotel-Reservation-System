@@ -4,15 +4,45 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Assignment.Services
 {
+    /// <summary>
+    /// Service for validating and managing promotion code usage.
+    /// Implements comprehensive validation rules including date ranges, minimum requirements,
+    /// usage limits, and abuse prevention mechanisms (per phone number, payment card, device, or user account).
+    /// Automatically deactivates expired or fully-used promotions.
+    /// </summary>
     public class PromotionValidationService
     {
+        /// <summary>
+        /// Database context for accessing Promotions and PromotionUsages tables.
+        /// </summary>
         private readonly HotelDbContext _context;
 
+        /// <summary>
+        /// Initializes a new instance of the PromotionValidationService with the provided database context.
+        /// </summary>
+        /// <param name="context">The database context for accessing promotions data.</param>
         public PromotionValidationService(HotelDbContext context)
         {
             _context = context;
         }
 
+        /// <summary>
+        /// Validates whether a promotion can be used for a specific booking.
+        /// Checks all validation rules including dates, minimum requirements, usage limits, and abuse prevention.
+        /// </summary>
+        /// <param name="promotionId">The ID of the promotion to validate.</param>
+        /// <param name="userId">The ID of the user attempting to use the promotion.</param>
+        /// <param name="phoneNumber">Optional phone number used in the booking (for abuse prevention).</param>
+        /// <param name="cardNumber">Optional payment card number (for abuse prevention).</param>
+        /// <param name="deviceFingerprint">Optional device fingerprint (for abuse prevention).</param>
+        /// <param name="ipAddress">Optional IP address (for abuse prevention).</param>
+        /// <param name="totalAmount">Total booking amount (for minimum amount validation).</param>
+        /// <param name="nights">Number of nights in the booking (for minimum nights validation).</param>
+        /// <returns>
+        /// A tuple containing:
+        /// - IsValid: True if the promotion can be used, false otherwise.
+        /// - ErrorMessage: Error message explaining why validation failed (empty if valid).
+        /// </returns>
         public async Task<(bool IsValid, string ErrorMessage)> ValidatePromotionUsageAsync(
             int promotionId,
             int userId,
@@ -23,22 +53,24 @@ namespace Assignment.Services
             decimal totalAmount,
             int nights)
         {
-            // First, clean up any invalid promotions
+            // Step 1: Clean up any invalid promotions (expired, max uses reached, etc.)
             await DeactivateInvalidPromotionsAsync();
 
+            // Step 2: Load the promotion with its usage history
             var promotion = await _context.Promotions
                 .Include(p => p.PromotionUsages)
                 .FirstOrDefaultAsync(p => p.PromotionId == promotionId);
 
+            // Step 3: Check if promotion exists and is active
             if (promotion == null || !promotion.IsActive)
             {
                 return (false, "Invalid or inactive promotion code.");
             }
 
-            // Check date validity
+            // Step 4: Check date validity (must be within start and end dates)
             if (promotion.StartDate > DateTime.Now || promotion.EndDate < DateTime.Now)
             {
-                // Auto-deactivate if expired
+                // Auto-deactivate if expired (for future requests)
                 if (promotion.EndDate < DateTime.Now)
                 {
                     promotion.IsActive = false;
@@ -47,7 +79,7 @@ namespace Assignment.Services
                 return (false, "The selected promotion is not valid for the current date.");
             }
 
-            // Check minimum criteria
+            // Step 5: Check minimum requirements (nights and amount)
             if (promotion.MinimumNights.HasValue && nights < promotion.MinimumNights.Value)
             {
                 return (false, $"This promotion requires a minimum stay of {promotion.MinimumNights.Value} night(s).");
@@ -58,7 +90,7 @@ namespace Assignment.Services
                 return (false, $"This promotion requires a minimum amount of RM {promotion.MinimumAmount.Value:F2}.");
             }
 
-            // Check maximum total uses
+            // Step 6: Check maximum total uses across all users
             if (promotion.MaxTotalUses.HasValue)
             {
                 var totalUses = await _context.PromotionUsages
@@ -73,7 +105,7 @@ namespace Assignment.Services
                 }
             }
 
-            // Check per-phone-number limit
+            // Step 7: Check per-phone-number limit (abuse prevention)
             if (promotion.LimitPerPhoneNumber && !string.IsNullOrEmpty(phoneNumber))
             {
                 var phoneHash = EncryptionService.Encrypt(phoneNumber);
@@ -86,7 +118,7 @@ namespace Assignment.Services
                 }
             }
 
-            // Check per-payment-card limit
+            // Step 8: Check per-payment-card limit (abuse prevention)
             if (promotion.LimitPerPaymentCard && !string.IsNullOrEmpty(cardNumber))
             {
                 var cardIdentifier = GetCardIdentifier(cardNumber);
@@ -99,7 +131,7 @@ namespace Assignment.Services
                 }
             }
 
-            // Check per-user-account limit
+            // Step 9: Check per-user-account limit (abuse prevention)
             if (promotion.LimitPerUserAccount)
             {
                 var userUses = await _context.PromotionUsages
@@ -111,7 +143,7 @@ namespace Assignment.Services
                 }
             }
 
-            // Check per-device/IP limit
+            // Step 10: Check per-device/IP limit (abuse prevention)
             if (promotion.LimitPerDevice)
             {
                 var deviceUses = await _context.PromotionUsages
@@ -126,9 +158,22 @@ namespace Assignment.Services
                 }
             }
 
+            // All validation checks passed
             return (true, string.Empty);
         }
 
+        /// <summary>
+        /// Records that a promotion was used in a booking.
+        /// Stores tracking information (phone number, card, device, IP) for abuse prevention.
+        /// Automatically deactivates the promotion if maximum total uses is reached.
+        /// </summary>
+        /// <param name="promotionId">The ID of the promotion that was used.</param>
+        /// <param name="bookingId">The ID of the booking where the promotion was applied.</param>
+        /// <param name="userId">The ID of the user who used the promotion.</param>
+        /// <param name="phoneNumber">Optional phone number used in the booking (encrypted before storage).</param>
+        /// <param name="cardNumber">Optional payment card number (hashed before storage).</param>
+        /// <param name="deviceFingerprint">Optional device fingerprint.</param>
+        /// <param name="ipAddress">Optional IP address.</param>
         public async Task RecordPromotionUsageAsync(
             int promotionId,
             int bookingId,
@@ -168,28 +213,39 @@ namespace Assignment.Services
             }
         }
 
+        /// <summary>
+        /// Creates a secure identifier for a payment card number.
+        /// Stores only the last 4 digits and a hash of the full number for security.
+        /// Never stores the full card number in plain text.
+        /// </summary>
+        /// <param name="cardNumber">The full payment card number.</param>
+        /// <returns>A card identifier in the format "XXXX-HASH" where XXXX is last 4 digits.</returns>
         private string GetCardIdentifier(string cardNumber)
         {
-            // Remove spaces and get last 4 digits
+            // Remove spaces and dashes from card number
             var cleaned = cardNumber.Replace(" ", "").Replace("-", "");
             if (cleaned.Length < 4) return cleaned;
             
+            // Get last 4 digits (commonly shown on receipts)
             var last4 = cleaned.Substring(cleaned.Length - 4);
             // Create a hash of the full card number (for security, we don't store full number)
             var hash = EncryptionService.Encrypt(cleaned);
+            // Return format: "XXXX-HASH" where XXXX is last 4 digits and HASH is encrypted identifier
             return $"{last4}-{hash.Substring(0, 8)}";
         }
 
         /// <summary>
         /// Automatically deactivates promotions that have expired or reached their maximum usage limits.
-        /// This should be called periodically or before loading promotions.
+        /// This should be called periodically (e.g., on application startup or via a scheduled task)
+        /// to keep the promotions table clean and ensure expired promotions are not shown to users.
         /// </summary>
+        /// <returns>The number of promotions that were deactivated.</returns>
         public async Task<int> DeactivateInvalidPromotionsAsync()
         {
             var now = DateTime.Now;
             var deactivatedCount = 0;
 
-            // Get all active promotions
+            // Get all active promotions that might need deactivation
             var activePromotions = await _context.Promotions
                 .Where(p => p.IsActive)
                 .ToListAsync();
@@ -199,19 +255,15 @@ namespace Assignment.Services
                 bool shouldDeactivate = false;
                 string reason = string.Empty;
 
-                // Check if expired
+                // Check if promotion has expired (end date has passed)
                 if (promotion.EndDate < now)
                 {
                     shouldDeactivate = true;
                     reason = "Expired";
                 }
-                // Check if not started yet (optional - you might want to keep these active)
-                // else if (promotion.StartDate > now)
-                // {
-                //     shouldDeactivate = true;
-                //     reason = "Not started yet";
-                // }
-                // Check if max total uses reached
+                // Note: We don't deactivate promotions that haven't started yet
+                // (they will become active when StartDate is reached)
+                // Check if maximum total uses has been reached
                 else if (promotion.MaxTotalUses.HasValue)
                 {
                     var totalUses = await _context.PromotionUsages
@@ -224,6 +276,7 @@ namespace Assignment.Services
                     }
                 }
 
+                // Deactivate the promotion if any condition is met
                 if (shouldDeactivate)
                 {
                     promotion.IsActive = false;
@@ -231,6 +284,7 @@ namespace Assignment.Services
                 }
             }
 
+            // Save changes if any promotions were deactivated
             if (deactivatedCount > 0)
             {
                 await _context.SaveChangesAsync();

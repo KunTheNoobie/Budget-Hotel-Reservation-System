@@ -2,6 +2,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Assignment.ViewModels.Search
 {
+    /// <summary>
+    /// View model for the room search form.
+    /// Contains search parameters including search term, dates, guests, price, and room type filters.
+    /// Includes validation attributes to ensure data integrity.
+    /// </summary>
     public class SearchViewModel
     {
         [StringLength(200, ErrorMessage = "Search term cannot exceed 200 characters")]

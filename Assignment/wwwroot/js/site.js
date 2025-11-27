@@ -1,9 +1,20 @@
-﻿// Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
-// for details on configuring this project to bundle and minify static web assets.
+﻿/**
+ * Budget Hotel Reservation System - Client-Side JavaScript
+ * 
+ * This file contains global JavaScript functions for:
+ * - AJAX loading indicators
+ * - Toast notification system
+ * - Image preview functionality
+ * 
+ * Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
+ * for details on configuring this project to bundle and minify static web assets.
+ */
 
-// Write your JavaScript code.
-
-// Global AJAX Loading Indicator
+/**
+ * Global AJAX Loading Indicator
+ * Shows/hides a loading spinner during AJAX requests to provide user feedback.
+ * Automatically displays when any AJAX request starts and hides when it completes or errors.
+ */
 $(document).ajaxStart(function() {
     $('#loadingIndicator').fadeIn(200);
 }).ajaxStop(function() {
@@ -12,7 +23,17 @@ $(document).ajaxStart(function() {
     $('#loadingIndicator').fadeOut(200);
 });
 
-// Toast Notification System
+/**
+ * Toast Notification System
+ * Displays temporary notification messages to users (success, error, warning, info).
+ * Uses Bootstrap's toast component for styling and animation.
+ * 
+ * @param {string} message - The message to display in the toast notification
+ * @param {string} type - The type of toast: 'success', 'error', 'warning', or 'info' (default: 'info')
+ * @example
+ * showToast('Booking confirmed!', 'success');
+ * showToast('An error occurred', 'error');
+ */
 function showToast(message, type = 'info') {
     const toastId = 'toast-' + Date.now();
     const bgColor = {
@@ -54,9 +75,14 @@ function showToast(message, type = 'info') {
     });
 }
 
-// Show TempData messages as toasts
+/**
+ * Initialize Toast Notifications from Server-Side TempData
+ * Checks for TempData messages from the server (Success, Error, Info, Warning)
+ * and displays them as toast notifications when the page loads.
+ * Also handles newsletter-specific messages.
+ */
 $(document).ready(function() {
-    // Check for TempData messages
+    // Check for TempData messages from server-side (ASP.NET Core TempData)
     @if (TempData["Success"] != null)
     {
         <text>showToast('@Html.Raw(TempData["Success"])', 'success');</text>
@@ -85,7 +111,16 @@ $(document).ready(function() {
     }
 });
 
-// Image Preview Function
+/**
+ * Image Preview Function
+ * Displays a preview of an image file before it is uploaded.
+ * Used for profile picture uploads and other image selection scenarios.
+ * 
+ * @param {HTMLInputElement} input - The file input element containing the selected file
+ * @param {string} previewId - The ID of the img element where the preview should be displayed
+ * @example
+ * previewImage(document.getElementById('fileInput'), 'imagePreview');
+ */
 function previewImage(input, previewId) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();

@@ -10,13 +10,36 @@ using Microsoft.AspNetCore.Http;
 
 namespace Assignment.Controllers
 {
+    /// <summary>
+    /// Controller for administrative operations and management functions.
+    /// Provides comprehensive admin dashboard, CRUD operations for all entities,
+    /// user management, hotel management, booking management, and system statistics.
+    /// Requires Admin, Manager, or Staff role for access.
+    /// </summary>
     [AuthorizeRole(UserRole.Admin, UserRole.Manager, UserRole.Staff)]
     public class AdminController : Controller
     {
+        /// <summary>
+        /// Database context for accessing all system data.
+        /// </summary>
         private readonly HotelDbContext _context;
+
+        /// <summary>
+        /// Logger for recording admin operations and errors.
+        /// </summary>
         private readonly ILogger<AdminController> _logger;
+
+        /// <summary>
+        /// Web host environment for file operations (image uploads, etc.).
+        /// </summary>
         private readonly IWebHostEnvironment _environment;
 
+        /// <summary>
+        /// Initializes a new instance of the AdminController.
+        /// </summary>
+        /// <param name="context">Database context for data access.</param>
+        /// <param name="logger">Logger instance for logging.</param>
+        /// <param name="environment">Web host environment for file operations.</param>
         public AdminController(HotelDbContext context, ILogger<AdminController> logger, IWebHostEnvironment environment)
         {
             _context = context;
@@ -24,7 +47,12 @@ namespace Assignment.Controllers
             _environment = environment;
         }
 
-        // Helper method to validate search parameters
+        /// <summary>
+        /// Validates and sanitizes search parameters to prevent injection attacks and ensure data integrity.
+        /// </summary>
+        /// <param name="searchTerm">Search term to validate (max 200 characters, alphanumeric only).</param>
+        /// <param name="page">Page number (ensures minimum value of 1).</param>
+        /// <param name="pageSize">Page size (ensures value between 1 and 100, defaults to 10).</param>
         private void ValidateSearchParameters(ref string searchTerm, ref int page, ref int pageSize)
         {
             // Validate search term

@@ -5,10 +5,26 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Assignment.Migrations
 {
-    /// <inheritdoc />
+    /// <summary>
+    /// Migration: AddFavoriteRoomTypes
+    /// 
+    /// Creates the FavoriteRoomTypes table to implement the favorites/wishlist feature.
+    /// This table establishes a many-to-many relationship between Users and RoomTypes,
+    /// allowing users to save favorite room types for later viewing.
+    /// 
+    /// Table includes:
+    /// - FavoriteId (Primary Key)
+    /// - UserId (Foreign Key to Users)
+    /// - RoomTypeId (Foreign Key to RoomTypes)
+    /// - AddedAt (Timestamp when favorited)
+    /// - IsDeleted and DeletedAt (Soft delete support)
+    /// </summary>
     public partial class AddFavoriteRoomTypes : Migration
     {
-        /// <inheritdoc />
+        /// <summary>
+        /// Applies the migration - creates the FavoriteRoomTypes table with indexes.
+        /// </summary>
+        /// <param name="migrationBuilder">Migration builder for executing SQL commands.</param>
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(

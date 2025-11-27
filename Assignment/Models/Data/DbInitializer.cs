@@ -6,14 +6,26 @@ using System.Linq;
 
 namespace Assignment.Models.Data
 {
+    /// <summary>
+    /// Static class responsible for seeding the database with initial data.
+    /// Creates sample hotels, users, rooms, amenities, packages, services, promotions, bookings, and reviews
+    /// if they don't already exist in the database.
+    /// This ensures the application has data to work with on first run.
+    /// </summary>
     public static class DbInitializer
     {
+        /// <summary>
+        /// Initializes the database by seeding it with initial data.
+        /// Only seeds data if it doesn't already exist to avoid duplicates.
+        /// </summary>
+        /// <param name="context">The database context to seed.</param>
         public static void Initialize(HotelDbContext context)
         {
             // Don't use EnsureCreated() - let migrations handle database creation
             // context.Database.EnsureCreated();
 
             // Check if we need to seed - check each component independently
+            // This allows partial seeding if some data already exists
             bool hasUsers = context.Users.Any();
             bool hasHotels = context.Hotels.Any();
             bool hasPackages = context.Packages.Any();

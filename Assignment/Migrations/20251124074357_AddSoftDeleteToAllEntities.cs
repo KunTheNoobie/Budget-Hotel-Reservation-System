@@ -5,10 +5,25 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Assignment.Migrations
 {
-    /// <inheritdoc />
+    /// <summary>
+    /// Migration: AddSoftDeleteToAllEntities
+    /// 
+    /// Adds soft delete functionality to all major entities in the system.
+    /// Soft delete allows records to be marked as deleted without physically removing them from the database,
+    /// enabling data recovery and maintaining referential integrity.
+    /// 
+    /// Adds IsDeleted (boolean) and DeletedAt (nullable DateTime) columns to:
+    /// - Users, Hotels, Rooms, RoomTypes, RoomImages, Amenities
+    /// - Packages, PackageItems, Bookings, Reviews
+    /// - ContactMessages, Promotions, PromotionUsages
+    /// - Services, Newsletters, SecurityLogs
+    /// </summary>
     public partial class AddSoftDeleteToAllEntities : Migration
     {
-        /// <inheritdoc />
+        /// <summary>
+        /// Applies the migration - adds IsDeleted and DeletedAt columns to all entities.
+        /// </summary>
+        /// <param name="migrationBuilder">Migration builder for executing SQL commands.</param>
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             // Add soft delete columns to existing tables

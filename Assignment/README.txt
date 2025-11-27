@@ -10,23 +10,34 @@ LOGIN CREDENTIALS
 
 1. ADMIN ACCOUNT
    Email:    admin@hotel.com
-   Password: Password123!
+   Password: Admin123!
    Role:     Admin (Full Access)
+   Note:     Full system access - can manage all aspects of the system
 
 2. MANAGER ACCOUNT
    Email:    manager@hotel.com
-   Password: Password123!
-   Role:     Manager (Manage Hotels, Rooms, Bookings)
+   Password: Manager123!
+   Role:     Manager (Full Access - same as Admin)
+   Note:     Can manage hotels, rooms, bookings, users, and all system features
 
 3. STAFF ACCOUNT
    Email:    staff@hotel.com
    Password: Password123!
-   Role:     Staff (Manage Bookings)
+   Role:     Staff (Limited Admin Access)
+   Note:     Can manage bookings and some content, but has restricted access
 
-4. CUSTOMER ACCOUNT
-   Email:    customer@example.com
-   Password: Password123!
-   Role:     Customer (Book Rooms, View Profile)
+4. CUSTOMER ACCOUNTS
+   Email:    ahmad@example.com
+   Password: Ahmad123!
+   Role:     Customer (Email Verified, Has Bookings)
+   
+   Email:    siti@example.com
+   Password: Siti123!
+   Role:     Customer (Email Verified, Has Pending Bookings)
+   
+   Email:    charlie@example.com
+   Password: Charlie123!
+   Role:     Customer (Email NOT Verified - for testing email verification flow)
 
 ===========================================================================
 PROJECT SETUP

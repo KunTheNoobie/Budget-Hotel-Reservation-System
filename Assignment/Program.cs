@@ -2,14 +2,20 @@ using Assignment.Models.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
+// ========== Application Entry Point ==========
+// This is the main entry point for the ASP.NET Core application.
+// Configures services, database, authentication, and the HTTP request pipeline.
+
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add services to the container.
+// ========== 1. Configure Services ==========
+
+// Configure database connection using Entity Framework Core
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<HotelDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// Initialize Encryption Service
+// Initialize Encryption Service for encrypting sensitive data (e.g., phone numbers)
 var encryptionKey = builder.Configuration["EncryptionKey"];
 if (string.IsNullOrEmpty(encryptionKey))
 {
@@ -17,31 +23,38 @@ if (string.IsNullOrEmpty(encryptionKey))
 }
 Assignment.Services.EncryptionService.Initialize(encryptionKey);
 
-// Configure Cookie Authentication
+// Configure Cookie-based Authentication
+// Uses custom cookie authentication (not ASP.NET Core Identity)
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath = "/Security/Login";
-        options.LogoutPath = "/Security/Logout";
-        options.AccessDeniedPath = "/Home/AccessDenied";
-        options.ExpireTimeSpan = TimeSpan.FromDays(7);
-        options.SlidingExpiration = true;
+        options.LoginPath = "/Security/Login";           // Redirect to login if not authenticated
+        options.LogoutPath = "/Security/Logout";          // Path for logout
+        options.AccessDeniedPath = "/Home/AccessDenied";  // Redirect if access denied
+        options.ExpireTimeSpan = TimeSpan.FromDays(7);    // Cookie expires after 7 days
+        options.SlidingExpiration = true;                 // Reset expiration on each request
     });
 
+// Add MVC services (Controllers and Views)
 builder.Services.AddControllersWithViews();
+
+// Configure session state for storing temporary data
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
+    options.IdleTimeout = TimeSpan.FromMinutes(30);  // Session expires after 30 minutes of inactivity
+    options.Cookie.HttpOnly = true;                   // Prevent JavaScript access to session cookie
+    options.Cookie.IsEssential = true;                // Required for GDPR compliance
 });
 
-// Register PromotionValidationService
+// Register PromotionValidationService as a scoped service (one instance per HTTP request)
 builder.Services.AddScoped<Assignment.Services.PromotionValidationService>();
 
+// Build the application
 var app = builder.Build();
 
-// 2. Apply migrations and seed the database
+// ========== 2. Database Initialization ==========
+// Apply migrations, seed initial data, and perform database maintenance tasks
+
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -50,13 +63,15 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<HotelDbContext>();
         var logger = services.GetRequiredService<ILogger<Program>>();
         
-        // Apply pending migrations
+        // Apply pending Entity Framework migrations to update database schema
         try
         {
             context.Database.Migrate();
         }
         catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Message.Contains("There is already an object named"))
         {
+            // Handle case where database tables exist but migration history is missing
+            // (e.g., database was created manually or from SQL scripts)
             logger.LogWarning("Database tables already exist. Marking migration as applied...");
             
             // Ensure migration history table exists
@@ -71,7 +86,7 @@ using (var scope = app.Services.CreateScope())
                 END
             ");
             
-            // Mark migration as applied if not already recorded
+            // Mark initial migration as applied if not already recorded
             context.Database.ExecuteSqlRaw(@"
                 IF NOT EXISTS (SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '20251123141346_IntialCreate')
                 BEGIN
@@ -83,7 +98,7 @@ using (var scope = app.Services.CreateScope())
             logger.LogInformation("Migration marked as applied. Continuing with database initialization...");
         }
         
-        // Add ImageUrl column to Hotels table if it doesn't exist
+        // Add ImageUrl column to Hotels table if it doesn't exist (backward compatibility)
         try
         {
             context.Database.ExecuteSqlRaw(@"
@@ -98,12 +113,13 @@ using (var scope = app.Services.CreateScope())
             logger.LogWarning($"Could not add ImageUrl column: {ex.Message}");
         }
         
+        // Seed the database with initial data (hotels, users, rooms, etc.)
         DbInitializer.Initialize(context);
         
-        // Add missing room types for specific cities
+        // Add missing room types for specific cities (Ipoh, Kota Kinabalu, Kuching, Cameron Highlands)
         Assignment.Models.Data.AddMissingRoomTypes.AddMissingData(context).GetAwaiter().GetResult();
         
-        // Clean up invalid promotions on startup
+        // Clean up invalid promotions on startup (expired, max uses reached, etc.)
         try
         {
             var promotionValidation = services.GetRequiredService<Assignment.Services.PromotionValidationService>();
@@ -126,33 +142,51 @@ using (var scope = app.Services.CreateScope())
 }
 
 
-// 3. Configure the HTTP request pipeline.
+// ========== 3. Configure HTTP Request Pipeline ==========
+// Middleware is executed in the order it is added here
+
+// Configure error handling based on environment
 if (!app.Environment.IsDevelopment())
 {
+    // Production: Use custom error page and enable HSTS (HTTP Strict Transport Security)
     app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
+    app.UseHsts();  // Force HTTPS in production
 }
 else
 {
+    // Development: Show detailed error pages for debugging
     app.UseDeveloperExceptionPage();
 }
 
-// Custom error pages for status codes
+// Custom error pages for HTTP status codes (404, 403, 500, etc.)
 app.UseStatusCodePagesWithReExecute("/Home/Error/{0}");
 
+// Add security headers middleware (X-Frame-Options, CSP, etc.)
 app.UseMiddleware<Assignment.Middleware.SecurityHeadersMiddleware>();
 
+// Redirect HTTP requests to HTTPS
 app.UseHttpsRedirection();
+
+// Serve static files (CSS, JavaScript, images) from wwwroot folder
 app.UseStaticFiles();
 
+// Enable routing to match URLs to controllers and actions
 app.UseRouting();
 
+// Enable authentication (must come before authorization)
 app.UseAuthentication();
+
+// Enable authorization (role-based access control)
 app.UseAuthorization();
+
+// Enable session state
 app.UseSession();
 
+// Configure default route: /Controller/Action/Id
+// Defaults to Home/Index if no controller/action is specified
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
+// Start the application and begin listening for HTTP requests
 app.Run();

@@ -2,8 +2,25 @@
 -- Script to Insert Sample Data
 -- Budget Hotel Reservation System
 -- ============================================
--- This script inserts 10+ sample records for each table
+-- This script inserts 15+ sample records for each table
 -- Run 01_ClearAllData.sql first to clear existing data
+-- 
+-- RECORD COUNTS:
+-- - 15 Hotels (various locations across Malaysia)
+-- - 15 Users (1 Admin, 1 Manager, 1 Staff, 12 Customers)
+-- - 15 Amenities (with image URLs)
+-- - 20 Room Types (various categories and price ranges)
+-- - 25 Rooms (across different room types)
+-- - 30 Room Images (multiple images per room type)
+-- - 50 Room Type-Amenity relationships
+-- - 15 Services (additional services for booking)
+-- - 15 Packages (bundled deals)
+-- - 30 Package Items (linking room types and services to packages)
+-- - 12 Promotions (discount codes with various validation rules)
+-- - 15 Bookings (various statuses and payment methods)
+-- - 12 Reviews (customer feedback and ratings)
+-- - 12 Contact Messages (customer inquiries)
+-- - 12 Newsletter Subscriptions (email subscriptions)
 -- ============================================
 --
 -- IMPORTANT NOTES:
@@ -313,7 +330,7 @@ VALUES
 GO
 
 -- ============================================
--- 11. INSERT PROMOTIONS (12 promotions)
+-- 11. INSERT PROMOTIONS (15 promotions)
 -- ============================================
 INSERT INTO Promotions (Code, Description, Type, Value, StartDate, EndDate, IsActive, LimitPerPhoneNumber, LimitPerPaymentCard, LimitPerDevice, LimitPerUserAccount, MaxUsesPerLimit, MinimumNights, MinimumAmount, MaxTotalUses, IsDeleted, DeletedAt)
 VALUES
@@ -328,7 +345,10 @@ VALUES
 ('STUDENT10', 'Student discount - 10% off', 0, 10, GETDATE(), DATEADD(day, 90, GETDATE()), 1, 1, 1, 0, 0, 1, NULL, NULL, NULL, 0, NULL),
 ('SENIOR15', 'Senior citizen discount - 15% off', 0, 15, GETDATE(), DATEADD(day, 90, GETDATE()), 1, 1, 1, 0, 0, 1, NULL, NULL, NULL, 0, NULL),
 ('GROUP20', 'Group booking discount - 20% off for 3+ rooms', 0, 20, GETDATE(), DATEADD(day, 120, GETDATE()), 1, 1, 1, 0, 0, 1, NULL, NULL, NULL, 0, NULL),
-('LOYALTY5', 'Loyalty member discount - 5% off', 0, 5, GETDATE(), DATEADD(day, 365, GETDATE()), 1, 1, 1, 0, 0, 10, NULL, NULL, NULL, 0, NULL)
+('LOYALTY5', 'Loyalty member discount - 5% off', 0, 5, GETDATE(), DATEADD(day, 365, GETDATE()), 1, 1, 1, 0, 0, 10, NULL, NULL, NULL, 0, NULL),
+('FAMILY30', 'Family package discount - 30% off for family rooms', 0, 30, GETDATE(), DATEADD(day, 75, GETDATE()), 1, 1, 1, 0, 0, 2, NULL, NULL, NULL, 0, NULL),
+('MIDWEEK20', 'Midweek special - 20% off for Monday-Thursday bookings', 0, 20, GETDATE(), DATEADD(day, 100, GETDATE()), 1, 1, 1, 0, 0, 1, NULL, NULL, NULL, 0, NULL),
+('LASTMIN15', 'Last minute booking - 15% off for bookings within 48 hours', 0, 15, GETDATE(), DATEADD(day, 180, GETDATE()), 1, 1, 1, 0, 0, 1, NULL, NULL, NULL, 0, NULL)
 GO
 
 -- ============================================
@@ -354,7 +374,7 @@ VALUES
 GO
 
 -- ============================================
--- 13. INSERT REVIEWS (12 reviews)
+-- 13. INSERT REVIEWS (15 reviews)
 -- ============================================
 INSERT INTO Reviews (BookingId, UserId, Rating, Comment, ReviewDate, IsDeleted, DeletedAt)
 VALUES
@@ -369,11 +389,14 @@ VALUES
 (9, 13, 5, 'Stunning ocean view! The suite exceeded all expectations. Beautiful balcony, comfortable bed, and excellent service. Worth every ringgit. Perfect for a romantic getaway!', DATEADD(day, -65, GETDATE()), 0, NULL),
 (11, 5, 5, 'Absolutely fantastic! The staff went above and beyond to make our stay memorable. The room was spotless and the breakfast was delicious. Will definitely return!', DATEADD(day, -2, GETDATE()), 0, NULL),
 (13, 8, 4, 'Great hotel with excellent location. Room was clean and had all the amenities we needed. Good value for money.', DATEADD(day, -1, GETDATE()), 0, NULL),
-(15, 10, 5, 'Outstanding service and beautiful room. The view was amazing and the staff was very accommodating. Highly recommend this hotel!', GETDATE(), 0, NULL)
+(15, 10, 5, 'Outstanding service and beautiful room. The view was amazing and the staff was very accommodating. Highly recommend this hotel!', GETDATE(), 0, NULL),
+(10, 7, 4, 'Very satisfied with our stay. The room was clean, the bed was comfortable, and the location was convenient. Good value for the price.', DATEADD(day, -40, GETDATE()), 0, NULL),
+(12, 9, 5, 'Exceptional service! The staff was friendly and helpful. The room exceeded our expectations. Will definitely book again!', DATEADD(day, -50, GETDATE()), 0, NULL),
+(14, 11, 4, 'Nice hotel with good amenities. The breakfast was decent and the room was well-maintained. Would recommend for budget travelers.', DATEADD(day, -5, GETDATE()), 0, NULL)
 GO
 
 -- ============================================
--- 14. INSERT CONTACT MESSAGES (12 messages)
+-- 14. INSERT CONTACT MESSAGES (15 messages)
 -- ============================================
 INSERT INTO ContactMessages (Name, Email, Subject, Message, SentAt, IsRead, IsDeleted, DeletedAt)
 VALUES
@@ -388,11 +411,14 @@ VALUES
 ('James Lee', 'james.lee@example.com', 'Breakfast options', 'What breakfast options are available? Do you serve halal food?', DATEADD(day, -9, GETDATE()), 1, 0, NULL),
 ('Fatimah Zahra', 'fatimah.z@example.com', 'Room with view', 'Do you have rooms with city view? I would like to book one for my anniversary.', DATEADD(day, -1, GETDATE()), 0, 0, NULL),
 ('Kevin Chen', 'kevin.chen@example.com', 'Long-term stay discount', 'I plan to stay for 2 weeks. Do you offer discounts for long-term stays?', DATEADD(day, -12, GETDATE()), 1, 0, NULL),
-('Amira Hassan', 'amira.hassan@example.com', 'Gift voucher', 'Do you sell gift vouchers? I would like to purchase one as a gift.', GETDATE(), 0, 0, NULL)
+('Amira Hassan', 'amira.hassan@example.com', 'Gift voucher', 'Do you sell gift vouchers? I would like to purchase one as a gift.', GETDATE(), 0, 0, NULL),
+('Thomas Anderson', 'thomas.a@example.com', 'Conference room availability', 'Do you have conference or meeting rooms available for business events?', DATEADD(day, -11, GETDATE()), 1, 0, NULL),
+('Maria Garcia', 'maria.g@example.com', 'Luggage storage', 'Can I store my luggage at the hotel before check-in or after check-out?', DATEADD(day, -13, GETDATE()), 0, 0, NULL),
+('Ahmed Ibrahim', 'ahmed.i@example.com', 'Prayer room facilities', 'Do you have prayer room facilities for Muslim guests?', DATEADD(day, -14, GETDATE()), 1, 0, NULL)
 GO
 
 -- ============================================
--- 15. INSERT NEWSLETTERS (12 subscriptions)
+-- 15. INSERT NEWSLETTERS (15 subscriptions)
 -- ============================================
 INSERT INTO Newsletters (Email, SubscribedAt, IsActive, IsDeleted, DeletedAt)
 VALUES
@@ -407,7 +433,10 @@ VALUES
 ('member3@example.com', DATEADD(day, -28, GETDATE()), 1, 0, NULL),
 ('customer1@example.com', DATEADD(day, -22, GETDATE()), 1, 0, NULL),
 ('customer2@example.com', DATEADD(day, -18, GETDATE()), 1, 0, NULL),
-('customer3@example.com', DATEADD(day, -8, GETDATE()), 1, 0, NULL)
+('customer3@example.com', DATEADD(day, -8, GETDATE()), 1, 0, NULL),
+('traveler1@example.com', DATEADD(day, -45, GETDATE()), 1, 0, NULL),
+('traveler2@example.com', DATEADD(day, -32, GETDATE()), 1, 0, NULL),
+('traveler3@example.com', DATEADD(day, -12, GETDATE()), 0, 0, NULL)
 GO
 
 PRINT 'Sample data has been inserted successfully!'
@@ -422,10 +451,12 @@ PRINT '  - Room Type Amenities: 50 relationships'
 PRINT '  - Services: 15'
 PRINT '  - Packages: 15'
 PRINT '  - Package Items: 30'
-PRINT '  - Promotions: 12'
+PRINT '  - Promotions: 15'
 PRINT '  - Bookings: 15'
-PRINT '  - Reviews: 12'
-PRINT '  - Contact Messages: 12'
-PRINT '  - Newsletters: 12'
+PRINT '  - Reviews: 15'
+PRINT '  - Contact Messages: 15'
+PRINT '  - Newsletters: 15'
+PRINT ''
+PRINT 'All tables now contain 15+ sample records for comprehensive testing!'
 GO
 

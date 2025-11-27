@@ -3,6 +3,11 @@ using Assignment.Models;
 
 namespace Assignment.ViewModels.Security
 {
+    /// <summary>
+    /// View model for the user registration form.
+    /// Contains validation for user registration including password strength requirements
+    /// and a math captcha for spam prevention.
+    /// </summary>
     public class RegisterViewModel
     {
         [Required(ErrorMessage = "Full Name is required")]
