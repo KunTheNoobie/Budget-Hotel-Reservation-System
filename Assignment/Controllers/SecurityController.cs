@@ -587,6 +587,28 @@ namespace Assignment.Controllers
             return View("Login", new LoginViewModel());
         }
 
+        /// <summary>
+        /// Generates a cryptographically secure 6-digit OTP code for password reset.
+        /// Uses RandomNumberGenerator to ensure secure, unpredictable OTPs in multi-threaded environments.
+        /// </summary>
+        /// <returns>A 6-digit OTP code as a string.</returns>
+        private string GenerateSecureOtp()
+        {
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                var bytes = new byte[4];
+                rng.GetBytes(bytes);
+                // Convert to positive integer and ensure it's in the range 100000-999999
+                var value = BitConverter.ToUInt32(bytes, 0);
+                var otp = (int)(100000 + (value % 900000));
+                return otp.ToString();
+            }
+        }
+
+        /// <summary>
+        /// Generates a cryptographically secure token for email verification and password reset links.
+        /// </summary>
+        /// <returns>A base64-encoded secure token string.</returns>
         private string GenerateSecureToken()
         {
             using (var rng = RandomNumberGenerator.Create())
@@ -598,4 +620,3 @@ namespace Assignment.Controllers
         }
     }
 }
-
