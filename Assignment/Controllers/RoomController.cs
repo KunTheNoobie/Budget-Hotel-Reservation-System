@@ -250,7 +250,9 @@ namespace Assignment.Controllers
                 .Include(rt => rt.Rooms)
                     .ThenInclude(r => r.Bookings)
                         .ThenInclude(b => b.Reviews)
-                            .ThenInclude(r => r.User)
+                .Include(rt => rt.Rooms)
+                    .ThenInclude(r => r.Bookings)
+                        .ThenInclude(b => b.User)
                 .FirstOrDefaultAsync(rt => rt.RoomTypeId == id);
 
             if (roomType == null)

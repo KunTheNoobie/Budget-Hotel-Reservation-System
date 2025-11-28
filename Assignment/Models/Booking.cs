@@ -120,6 +120,48 @@ namespace Assignment.Models
         [ForeignKey("PromotionId")]
         public virtual Promotion? Promotion { get; set; }
 
+        // ========== Promotion Usage Tracking (Merged from PromotionUsage table) ==========
+
+        /// <summary>
+        /// Encrypted hash of the phone number used in the booking (for promotion abuse prevention).
+        /// Used to enforce "LimitPerPhoneNumber" restrictions.
+        /// Stored as encrypted string (not plain text) for privacy and security.
+        /// Maximum length of 255 characters.
+        /// </summary>
+        [StringLength(255)]
+        public string? PromotionPhoneNumberHash { get; set; }
+
+        /// <summary>
+        /// Identifier for the payment card used with promotion (last 4 digits + hash of full card number).
+        /// Used to enforce "LimitPerPaymentCard" restrictions.
+        /// Format: "XXXX-HASH" where XXXX is last 4 digits and HASH is encrypted identifier.
+        /// Maximum length of 100 characters.
+        /// </summary>
+        [StringLength(100)]
+        public string? PromotionCardIdentifier { get; set; }
+
+        /// <summary>
+        /// Device fingerprint or identifier from the client device/browser (for promotion abuse prevention).
+        /// Used to enforce "LimitPerDevice" restrictions.
+        /// Maximum length of 100 characters.
+        /// </summary>
+        [StringLength(100)]
+        public string? PromotionDeviceFingerprint { get; set; }
+
+        /// <summary>
+        /// IP address from which the booking was made (for promotion abuse prevention).
+        /// Used to enforce "LimitPerDevice" restrictions and for security monitoring.
+        /// Maximum length of 50 characters (supports IPv6).
+        /// </summary>
+        [StringLength(50)]
+        public string? PromotionIpAddress { get; set; }
+
+        /// <summary>
+        /// Date and time when the promotion was used/applied to this booking.
+        /// Null if no promotion was used.
+        /// </summary>
+        public DateTime? PromotionUsedAt { get; set; }
+
         // ========== Payment Information (Merged from Payment table) ==========
         
         /// <summary>

@@ -33,6 +33,11 @@ namespace Assignment.Controllers
         private readonly SecurityLogger _securityLogger;
 
         /// <summary>
+        /// Service for sending emails (verification links and OTP codes).
+        /// </summary>
+        private readonly Services.EmailService _emailService;
+
+        /// <summary>
         /// Configuration for accessing application settings.
         /// </summary>
         private readonly IConfiguration _configuration;
@@ -55,12 +60,14 @@ namespace Assignment.Controllers
         /// <param name="context">Database context for data access.</param>
         /// <param name="logger">Logger instance for logging.</param>
         /// <param name="configuration">Configuration for accessing settings.</param>
-        public SecurityController(HotelDbContext context, ILogger<SecurityController> logger, IConfiguration configuration)
+        /// <param name="emailService">Service for sending emails.</param>
+        public SecurityController(HotelDbContext context, ILogger<SecurityController> logger, IConfiguration configuration, Services.EmailService emailService)
         {
             _context = context;
             _logger = logger;
             _securityLogger = new SecurityLogger(context);
             _configuration = configuration;
+            _emailService = emailService;
         }
 
         /// <summary>
@@ -306,10 +313,26 @@ namespace Assignment.Controllers
             _context.SecurityTokens.Add(securityToken);
             await _context.SaveChangesAsync();
 
-            // In a real application, send email here
-            // For now, we'll redirect to a page that shows the verification link
-            TempData["VerificationToken"] = token;
-            TempData["UserId"] = user.UserId;
+            // Send email verification link
+            var emailSent = await _emailService.SendVerificationEmailAsync(
+                user.Email, 
+                user.FullName, 
+                token, 
+                user.UserId
+            );
+
+            if (emailSent)
+            {
+                TempData["SuccessMessage"] = $"A verification email has been sent to {user.Email}. Please check your inbox and click the verification link to activate your account.";
+            }
+            else
+            {
+                // If email fails, still show the link as fallback (for development/testing)
+                _logger.LogWarning($"Failed to send verification email to {user.Email}. Showing fallback link.");
+                TempData["VerificationToken"] = token;
+                TempData["UserId"] = user.UserId;
+                TempData["WarningMessage"] = "Email sending failed. Please use the verification link below.";
+            }
 
             return RedirectToAction("VerifyEmail", new { userId = user.UserId });
         }
@@ -330,7 +353,13 @@ namespace Assignment.Controllers
 
             ViewBag.UserId = userId;
             ViewBag.Email = user.Email;
-            ViewBag.Token = TempData["VerificationToken"]?.ToString();
+            
+            // Preserve TempData messages and token (if email sending failed)
+            var token = TempData["VerificationToken"]?.ToString();
+            if (!string.IsNullOrEmpty(token))
+            {
+                ViewBag.Token = token;
+            }
 
             return View();
         }
@@ -348,7 +377,11 @@ namespace Assignment.Controllers
 
             if (securityToken == null)
             {
+                // Try to get user info for display
+                var user = await _context.Users.FindAsync(userId);
                 ViewBag.Error = "Invalid or expired verification token.";
+                ViewBag.UserId = userId;
+                ViewBag.Email = user?.Email ?? "";
                 return View("VerifyEmail");
             }
 
@@ -357,6 +390,8 @@ namespace Assignment.Controllers
             await _context.SaveChangesAsync();
 
             ViewBag.Success = "Email verified successfully! You can now login.";
+            ViewBag.UserId = userId;
+            ViewBag.Email = securityToken.User.Email;
             return View("VerifyEmail");
         }
 
@@ -379,32 +414,128 @@ namespace Assignment.Controllers
             if (user == null)
             {
                 // Don't reveal that the email doesn't exist
-                ViewBag.Message = "If the email exists, a password reset link has been sent.";
+                ViewBag.Message = "If the email exists, a password reset OTP has been sent to your email.";
                 return View(model);
             }
 
-            // Generate password reset token
-            var token = GenerateSecureToken();
+            // Generate 6-digit OTP code
+            var random = new Random();
+            var otpCode = random.Next(100000, 999999).ToString();
+
+            // Store OTP as token (expires in 10 minutes)
             var securityToken = new SecurityToken
             {
-                TokenValue = token,
+                TokenValue = otpCode,
                 UserId = user.UserId,
                 Type = TokenType.PasswordReset,
-                ExpiryDate = DateTime.Now.AddHours(1),
+                ExpiryDate = DateTime.Now.AddMinutes(10),
                 IsUsed = false
             };
 
             _context.SecurityTokens.Add(securityToken);
             await _context.SaveChangesAsync();
 
-            // In a real application, send email here
-            // For now, we'll redirect to a page that shows the reset link
-            TempData["ResetToken"] = token;
-            TempData["ResetEmail"] = user.Email;
+            // Send OTP via email
+            var emailSent = await _emailService.SendPasswordResetOtpAsync(
+                user.Email,
+                user.FullName,
+                otpCode
+            );
 
-            return RedirectToAction("ResetPassword", new { token = token, email = user.Email });
+            if (emailSent)
+            {
+                TempData["SuccessMessage"] = $"A password reset OTP has been sent to {user.Email}. Please check your inbox.";
+            }
+            else
+            {
+                _logger.LogWarning($"Failed to send OTP email to {user.Email}.");
+                // If email fails, still allow OTP entry (for development/testing)
+                TempData["WarningMessage"] = "Email sending failed. Please check your email configuration. OTP: " + otpCode;
+            }
+
+            return RedirectToAction("VerifyOtp", new { email = user.Email });
         }
 
+        /// <summary>
+        /// Displays the OTP verification page for password reset.
+        /// </summary>
+        /// <param name="email">User's email address.</param>
+        /// <returns>The OTP verification view.</returns>
+        [HttpGet]
+        public IActionResult VerifyOtp(string email)
+        {
+            var model = new VerifyOtpViewModel
+            {
+                Email = email ?? string.Empty
+            };
+
+            return View(model);
+        }
+
+        /// <summary>
+        /// Verifies the OTP code entered by the user.
+        /// If valid, redirects to password reset page.
+        /// </summary>
+        /// <param name="model">OTP verification view model containing email and OTP code.</param>
+        /// <returns>Redirects to ResetPassword if OTP is valid, otherwise shows error.</returns>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> VerifyOtp(VerifyOtpViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
+            if (user == null)
+            {
+                ModelState.AddModelError("", "Invalid email address.");
+                return View(model);
+            }
+
+            // Verify OTP token
+            var securityToken = await _context.SecurityTokens
+                .FirstOrDefaultAsync(st => st.UserId == user.UserId &&
+                                          st.TokenValue == model.OtpCode &&
+                                          st.Type == TokenType.PasswordReset &&
+                                          !st.IsUsed &&
+                                          st.ExpiryDate > DateTime.Now);
+
+            if (securityToken == null)
+            {
+                ModelState.AddModelError("OtpCode", "Invalid or expired OTP code. Please request a new one.");
+                return View(model);
+            }
+
+            // Mark OTP as used
+            securityToken.IsUsed = true;
+            await _context.SaveChangesAsync();
+
+            // Generate a new secure token for password reset (different from OTP)
+            var resetToken = GenerateSecureToken();
+            var resetSecurityToken = new SecurityToken
+            {
+                TokenValue = resetToken,
+                UserId = user.UserId,
+                Type = TokenType.PasswordReset,
+                ExpiryDate = DateTime.Now.AddHours(1),
+                IsUsed = false
+            };
+
+            _context.SecurityTokens.Add(resetSecurityToken);
+            await _context.SaveChangesAsync();
+
+            // Redirect to password reset page with the secure token
+            return RedirectToAction("ResetPassword", new { token = resetToken, email = user.Email });
+        }
+
+        /// <summary>
+        /// Displays the password reset form.
+        /// </summary>
+        /// <param name="token">Password reset token (generated after OTP verification).</param>
+        /// <param name="email">User's email address.</param>
+        /// <returns>The password reset view.</returns>
         [HttpGet]
         public IActionResult ResetPassword(string token, string email)
         {

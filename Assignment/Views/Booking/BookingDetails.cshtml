@@ -231,7 +231,7 @@
                 <div class="col-md-6 text-end">
                 @* Only show Cancel button for Pending bookings without reviews *@
                 @{
-                    var hasReviewForDetails = Model.Reviews != null && Model.Reviews.Any(r => r.UserId == Model.UserId);
+                    var hasReviewForDetails = Model.Reviews != null && Model.Reviews.Any();
                 }
                 @if (Model.Status == Assignment.Models.BookingStatus.Pending && 
                      !hasReviewForDetails &&

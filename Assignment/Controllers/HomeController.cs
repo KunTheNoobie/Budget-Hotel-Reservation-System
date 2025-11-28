@@ -147,12 +147,14 @@ namespace Assignment.Controllers
 
             // Get customer reviews for testimonials section - show only 3 random reviews
             // Include reviews with comments, or if no comments exist, show reviews with ratings
+            // Review is linked to Booking, user info from Booking.User
             var allReviews = await _context.Reviews
-                .Include(r => r.User)
+                .Include(r => r.Booking)
+                    .ThenInclude(b => b.User)
                 .Include(r => r.Booking)
                     .ThenInclude(b => b.Room)
                         .ThenInclude(rm => rm.RoomType)
-                .Where(r => r.User != null) // Ensure user exists
+                .Where(r => r.Booking != null && r.Booking.User != null) // Ensure booking and user exist
                 .OrderByDescending(r => r.ReviewDate) // Get most recent first
                 .ToListAsync();
             
@@ -384,13 +386,14 @@ namespace Assignment.Controllers
                     .ToListAsync();
                 ViewBag.RoomImages = roomImages;
 
-                // Get reviews for this room type
+                // Get reviews for this room type (Review is linked to Booking, user info from Booking.User)
                 var reviews = await _context.Reviews
-                    .Include(r => r.User)
+                    .Include(r => r.Booking)
+                        .ThenInclude(b => b.User)
                     .Include(r => r.Booking)
                         .ThenInclude(b => b.Room)
                             .ThenInclude(rm => rm.RoomType)
-                    .Where(r => r.Booking.Room.RoomTypeId == roomType.RoomTypeId)
+                    .Where(r => r.Booking != null && r.Booking.Room != null && r.Booking.Room.RoomTypeId == roomType.RoomTypeId)
                     .OrderByDescending(r => r.ReviewDate)
                     .Take(5)
                     .ToListAsync();

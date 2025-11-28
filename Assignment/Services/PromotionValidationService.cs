@@ -13,7 +13,8 @@ namespace Assignment.Services
     public class PromotionValidationService
     {
         /// <summary>
-        /// Database context for accessing Promotions and PromotionUsages tables.
+        /// Database context for accessing Promotions and Bookings tables.
+        /// Promotion usage tracking is now stored in the Booking table.
         /// </summary>
         private readonly HotelDbContext _context;
 
@@ -56,9 +57,8 @@ namespace Assignment.Services
             // Step 1: Clean up any invalid promotions (expired, max uses reached, etc.)
             await DeactivateInvalidPromotionsAsync();
 
-            // Step 2: Load the promotion with its usage history
+            // Step 2: Load the promotion
             var promotion = await _context.Promotions
-                .Include(p => p.PromotionUsages)
                 .FirstOrDefaultAsync(p => p.PromotionId == promotionId);
 
             // Step 3: Check if promotion exists and is active
@@ -93,8 +93,8 @@ namespace Assignment.Services
             // Step 6: Check maximum total uses across all users
             if (promotion.MaxTotalUses.HasValue)
             {
-                var totalUses = await _context.PromotionUsages
-                    .CountAsync(pu => pu.PromotionId == promotionId);
+                var totalUses = await _context.Bookings
+                    .CountAsync(b => b.PromotionId == promotionId && b.PromotionUsedAt != null);
                 
                 if (totalUses >= promotion.MaxTotalUses.Value)
                 {
@@ -109,8 +109,10 @@ namespace Assignment.Services
             if (promotion.LimitPerPhoneNumber && !string.IsNullOrEmpty(phoneNumber))
             {
                 var phoneHash = EncryptionService.Encrypt(phoneNumber);
-                var phoneUses = await _context.PromotionUsages
-                    .CountAsync(pu => pu.PromotionId == promotionId && pu.PhoneNumberHash == phoneHash);
+                var phoneUses = await _context.Bookings
+                    .CountAsync(b => b.PromotionId == promotionId && 
+                                   b.PromotionPhoneNumberHash == phoneHash && 
+                                   b.PromotionUsedAt != null);
                 
                 if (phoneUses >= promotion.MaxUsesPerLimit)
                 {
@@ -122,8 +124,10 @@ namespace Assignment.Services
             if (promotion.LimitPerPaymentCard && !string.IsNullOrEmpty(cardNumber))
             {
                 var cardIdentifier = GetCardIdentifier(cardNumber);
-                var cardUses = await _context.PromotionUsages
-                    .CountAsync(pu => pu.PromotionId == promotionId && pu.CardIdentifier == cardIdentifier);
+                var cardUses = await _context.Bookings
+                    .CountAsync(b => b.PromotionId == promotionId && 
+                                   b.PromotionCardIdentifier == cardIdentifier && 
+                                   b.PromotionUsedAt != null);
                 
                 if (cardUses >= promotion.MaxUsesPerLimit)
                 {
@@ -134,8 +138,10 @@ namespace Assignment.Services
             // Step 9: Check per-user-account limit (abuse prevention)
             if (promotion.LimitPerUserAccount)
             {
-                var userUses = await _context.PromotionUsages
-                    .CountAsync(pu => pu.PromotionId == promotionId && pu.UserId == userId);
+                var userUses = await _context.Bookings
+                    .CountAsync(b => b.PromotionId == promotionId && 
+                                   b.UserId == userId && 
+                                   b.PromotionUsedAt != null);
                 
                 if (userUses >= promotion.MaxUsesPerLimit)
                 {
@@ -146,10 +152,10 @@ namespace Assignment.Services
             // Step 10: Check per-device/IP limit (abuse prevention)
             if (promotion.LimitPerDevice)
             {
-                var deviceUses = await _context.PromotionUsages
-                    .Where(pu => pu.PromotionId == promotionId)
-                    .Where(pu => (deviceFingerprint != null && pu.DeviceFingerprint == deviceFingerprint) ||
-                                 (ipAddress != null && pu.IpAddress == ipAddress))
+                var deviceUses = await _context.Bookings
+                    .Where(b => b.PromotionId == promotionId && b.PromotionUsedAt != null)
+                    .Where(b => (deviceFingerprint != null && b.PromotionDeviceFingerprint == deviceFingerprint) ||
+                                (ipAddress != null && b.PromotionIpAddress == ipAddress))
                     .CountAsync();
                 
                 if (deviceUses >= promotion.MaxUsesPerLimit)
@@ -164,7 +170,7 @@ namespace Assignment.Services
 
         /// <summary>
         /// Records that a promotion was used in a booking.
-        /// Stores tracking information (phone number, card, device, IP) for abuse prevention.
+        /// Stores tracking information (phone number, card, device, IP) in the Booking table for abuse prevention.
         /// Automatically deactivates the promotion if maximum total uses is reached.
         /// </summary>
         /// <param name="promotionId">The ID of the promotion that was used.</param>
@@ -183,27 +189,26 @@ namespace Assignment.Services
             string? deviceFingerprint,
             string? ipAddress)
         {
-            var usage = new PromotionUsage
+            // Update the booking with promotion usage tracking information
+            var booking = await _context.Bookings.FindAsync(bookingId);
+            if (booking != null)
             {
-                PromotionId = promotionId,
-                BookingId = bookingId,
-                UserId = userId,
-                PhoneNumberHash = !string.IsNullOrEmpty(phoneNumber) ? EncryptionService.Encrypt(phoneNumber) : null,
-                CardIdentifier = !string.IsNullOrEmpty(cardNumber) ? GetCardIdentifier(cardNumber) : null,
-                DeviceFingerprint = deviceFingerprint,
-                IpAddress = ipAddress,
-                UsedAt = DateTime.Now
-            };
+                booking.PromotionId = promotionId;
+                booking.PromotionPhoneNumberHash = !string.IsNullOrEmpty(phoneNumber) ? EncryptionService.Encrypt(phoneNumber) : null;
+                booking.PromotionCardIdentifier = !string.IsNullOrEmpty(cardNumber) ? GetCardIdentifier(cardNumber) : null;
+                booking.PromotionDeviceFingerprint = deviceFingerprint;
+                booking.PromotionIpAddress = ipAddress;
+                booking.PromotionUsedAt = DateTime.Now;
+            }
 
-            _context.PromotionUsages.Add(usage);
             await _context.SaveChangesAsync();
 
             // After recording usage, check if promotion should be deactivated
             var promotion = await _context.Promotions.FindAsync(promotionId);
             if (promotion != null && promotion.IsActive && promotion.MaxTotalUses.HasValue)
             {
-                var totalUses = await _context.PromotionUsages
-                    .CountAsync(pu => pu.PromotionId == promotionId);
+                var totalUses = await _context.Bookings
+                    .CountAsync(b => b.PromotionId == promotionId && b.PromotionUsedAt != null);
                 
                 if (totalUses >= promotion.MaxTotalUses.Value)
                 {
@@ -281,8 +286,8 @@ namespace Assignment.Services
                 // Check if maximum total uses has been reached
                 else if (promotion.MaxTotalUses.HasValue)
                 {
-                    var totalUses = await _context.PromotionUsages
-                        .CountAsync(pu => pu.PromotionId == promotion.PromotionId);
+                    var totalUses = await _context.Bookings
+                        .CountAsync(b => b.PromotionId == promotion.PromotionId && b.PromotionUsedAt != null);
                     
                     if (totalUses >= promotion.MaxTotalUses.Value)
                     {

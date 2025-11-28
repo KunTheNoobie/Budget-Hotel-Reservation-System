@@ -36,9 +36,9 @@ namespace Assignment.Models.Data
         public DbSet<Booking> Bookings { get; set; }
         // Note: Payment information is merged into Booking entity - no separate Payment table
         public DbSet<Promotion> Promotions { get; set; }
-        public DbSet<PromotionUsage> PromotionUsages { get; set; }
+        // Note: PromotionUsage table removed - usage tracking now stored in Booking table
         public DbSet<Newsletter> Newsletters { get; set; }
-        public DbSet<FavoriteRoomType> FavoriteRoomTypes { get; set; }
+        // Note: FavoriteRoomType feature removed
 
 
         /// <summary>
@@ -51,13 +51,7 @@ namespace Assignment.Models.Data
             base.OnModelCreating(modelBuilder);
 
             // Configure Review relationships - prevent circular dependencies
-            // Uses Restrict delete behavior to prevent cascade deletes that could cause issues
-            modelBuilder.Entity<Review>()
-                .HasOne(r => r.User)
-                .WithMany(u => u.Reviews)
-                .HasForeignKey(r => r.UserId)
-                .OnDelete(DeleteBehavior.Restrict); // Prevent cascade delete
-            
+            // Review is only linked to Booking, user info obtained from Booking.UserId
             modelBuilder.Entity<Review>()
                 .HasOne(r => r.Booking)
                 .WithMany(b => b.Reviews)
@@ -79,11 +73,11 @@ namespace Assignment.Models.Data
             modelBuilder.Entity<Review>().HasQueryFilter(r => !r.IsDeleted);
             modelBuilder.Entity<ContactMessage>().HasQueryFilter(cm => !cm.IsDeleted);
             modelBuilder.Entity<Promotion>().HasQueryFilter(p => !p.IsDeleted);
-            modelBuilder.Entity<PromotionUsage>().HasQueryFilter(pu => !pu.IsDeleted);
+            // Note: PromotionUsage table removed - usage tracking now in Booking table
             modelBuilder.Entity<Service>().HasQueryFilter(s => !s.IsDeleted);
             modelBuilder.Entity<Newsletter>().HasQueryFilter(n => !n.IsDeleted);
             modelBuilder.Entity<SecurityLog>().HasQueryFilter(sl => !sl.IsDeleted);
-            modelBuilder.Entity<FavoriteRoomType>().HasQueryFilter(f => !f.IsDeleted);
+            // Note: FavoriteRoomType feature removed
         }
     }
 }

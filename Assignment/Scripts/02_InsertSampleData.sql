@@ -16,11 +16,13 @@
 -- - 15 Services (additional services for booking)
 -- - 15 Packages (bundled deals)
 -- - 30 Package Items (linking room types and services to packages)
--- - 12 Promotions (discount codes with various validation rules)
+-- - 15 Promotions (discount codes with various validation rules)
 -- - 15 Bookings (various statuses and payment methods)
--- - 12 Reviews (customer feedback and ratings)
--- - 12 Contact Messages (customer inquiries)
--- - 12 Newsletter Subscriptions (email subscriptions)
+--   Note: Promotion usage tracking stored directly in Booking table (PromotionUsage table removed)
+-- - 15 Reviews (customer feedback and ratings)
+--   Note: Reviews linked to Booking only (user info from Booking.UserId, no direct UserId field)
+-- - 15 Contact Messages (customer inquiries)
+-- - 15 Newsletter Subscriptions (email subscriptions)
 -- ============================================
 --
 -- IMPORTANT NOTES:
@@ -354,6 +356,10 @@ GO
 -- ============================================
 -- 12. INSERT BOOKINGS (15 bookings)
 -- ============================================
+-- Note: Promotion usage tracking fields (PromotionPhoneNumberHash, PromotionCardIdentifier, 
+--       PromotionDeviceFingerprint, PromotionIpAddress, PromotionUsedAt) are not included here
+--       as they are populated automatically when promotions are used through the application.
+--       These fields are nullable and will be NULL for bookings without promotions or before promotion usage is recorded.
 INSERT INTO Bookings (UserId, RoomId, CheckInDate, CheckOutDate, BookingDate, TotalPrice, Status, PromotionId, PaymentAmount, PaymentMethod, PaymentStatus, TransactionId, PaymentDate, CancellationDate, CancellationReason, RefundAmount, IsDeleted, DeletedAt)
 VALUES
 (4, 1, DATEADD(day, 10, GETDATE()), DATEADD(day, 13, GETDATE()), DATEADD(day, -5, GETDATE()), 239.97, 1, 1, 239.97, 0, 1, 'TXN-CC-' + CAST(NEWID() AS VARCHAR(36)), DATEADD(day, -5, GETDATE()), NULL, NULL, NULL, 0, NULL),
@@ -376,23 +382,24 @@ GO
 -- ============================================
 -- 13. INSERT REVIEWS (15 reviews)
 -- ============================================
-INSERT INTO Reviews (BookingId, UserId, Rating, Comment, ReviewDate, IsDeleted, DeletedAt)
+-- Note: Review.UserId removed - user info obtained from Booking.UserId
+INSERT INTO Reviews (BookingId, Rating, Comment, ReviewDate, IsDeleted, DeletedAt)
 VALUES
-(1, 4, 5, 'Excellent stay! The room was clean, comfortable, and the staff was very helpful. Great value for money!', DATEADD(day, -3, GETDATE()), 0, NULL),
-(2, 5, 4, 'Good experience overall. The room was spacious and well-maintained. Would stay again.', DATEADD(day, -1, GETDATE()), 0, NULL),
-(3, 7, 5, 'Perfect location and great service. Highly recommended!', DATEADD(day, -25, GETDATE()), 0, NULL),
-(4, 8, 4, 'Comfortable room with all necessary amenities. Good value.', DATEADD(day, -15, GETDATE()), 0, NULL),
-(5, 9, 5, 'Amazing experience! The suite was luxurious and the view was spectacular.', DATEADD(day, -10, GETDATE()), 0, NULL),
-(6, 10, 4, 'Great value for money. The location is perfect, close to everything. Room was clean and comfortable.', DATEADD(day, -35, GETDATE()), 0, NULL),
-(7, 11, 5, 'Best budget hotel experience I''ve had! The family room was spacious, perfect for our needs. Kids loved it and we''ll be back for sure. Highly recommend!', DATEADD(day, -45, GETDATE()), 0, NULL),
-(8, 12, 4, 'Clean, modern, and well-maintained. The twin room was perfect for our business trip. Good amenities and friendly staff. Would stay again.', DATEADD(day, -55, GETDATE()), 0, NULL),
-(9, 13, 5, 'Stunning ocean view! The suite exceeded all expectations. Beautiful balcony, comfortable bed, and excellent service. Worth every ringgit. Perfect for a romantic getaway!', DATEADD(day, -65, GETDATE()), 0, NULL),
-(11, 5, 5, 'Absolutely fantastic! The staff went above and beyond to make our stay memorable. The room was spotless and the breakfast was delicious. Will definitely return!', DATEADD(day, -2, GETDATE()), 0, NULL),
-(13, 8, 4, 'Great hotel with excellent location. Room was clean and had all the amenities we needed. Good value for money.', DATEADD(day, -1, GETDATE()), 0, NULL),
-(15, 10, 5, 'Outstanding service and beautiful room. The view was amazing and the staff was very accommodating. Highly recommend this hotel!', GETDATE(), 0, NULL),
-(10, 7, 4, 'Very satisfied with our stay. The room was clean, the bed was comfortable, and the location was convenient. Good value for the price.', DATEADD(day, -40, GETDATE()), 0, NULL),
-(12, 9, 5, 'Exceptional service! The staff was friendly and helpful. The room exceeded our expectations. Will definitely book again!', DATEADD(day, -50, GETDATE()), 0, NULL),
-(14, 11, 4, 'Nice hotel with good amenities. The breakfast was decent and the room was well-maintained. Would recommend for budget travelers.', DATEADD(day, -5, GETDATE()), 0, NULL)
+(1, 5, 'Excellent stay! The room was clean, comfortable, and the staff was very helpful. Great value for money!', DATEADD(day, -3, GETDATE()), 0, NULL),
+(2, 4, 'Good experience overall. The room was spacious and well-maintained. Would stay again.', DATEADD(day, -1, GETDATE()), 0, NULL),
+(3, 5, 'Perfect location and great service. Highly recommended!', DATEADD(day, -25, GETDATE()), 0, NULL),
+(4, 4, 'Comfortable room with all necessary amenities. Good value.', DATEADD(day, -15, GETDATE()), 0, NULL),
+(5, 5, 'Amazing experience! The suite was luxurious and the view was spectacular.', DATEADD(day, -10, GETDATE()), 0, NULL),
+(6, 4, 'Great value for money. The location is perfect, close to everything. Room was clean and comfortable.', DATEADD(day, -35, GETDATE()), 0, NULL),
+(7, 5, 'Best budget hotel experience I''ve had! The family room was spacious, perfect for our needs. Kids loved it and we''ll be back for sure. Highly recommend!', DATEADD(day, -45, GETDATE()), 0, NULL),
+(8, 4, 'Clean, modern, and well-maintained. The twin room was perfect for our business trip. Good amenities and friendly staff. Would stay again.', DATEADD(day, -55, GETDATE()), 0, NULL),
+(9, 5, 'Stunning ocean view! The suite exceeded all expectations. Beautiful balcony, comfortable bed, and excellent service. Worth every ringgit. Perfect for a romantic getaway!', DATEADD(day, -65, GETDATE()), 0, NULL),
+(11, 5, 'Absolutely fantastic! The staff went above and beyond to make our stay memorable. The room was spotless and the breakfast was delicious. Will definitely return!', DATEADD(day, -2, GETDATE()), 0, NULL),
+(13, 4, 'Great hotel with excellent location. Room was clean and had all the amenities we needed. Good value for money.', DATEADD(day, -1, GETDATE()), 0, NULL),
+(15, 5, 'Outstanding service and beautiful room. The view was amazing and the staff was very accommodating. Highly recommend this hotel!', GETDATE(), 0, NULL),
+(10, 4, 'Very satisfied with our stay. The room was clean, the bed was comfortable, and the location was convenient. Good value for the price.', DATEADD(day, -40, GETDATE()), 0, NULL),
+(12, 5, 'Exceptional service! The staff was friendly and helpful. The room exceeded our expectations. Will definitely book again!', DATEADD(day, -50, GETDATE()), 0, NULL),
+(14, 4, 'Nice hotel with good amenities. The breakfast was decent and the room was well-maintained. Would recommend for budget travelers.', DATEADD(day, -5, GETDATE()), 0, NULL)
 GO
 
 -- ============================================

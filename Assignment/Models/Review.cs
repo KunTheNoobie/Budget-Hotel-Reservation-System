@@ -19,25 +19,16 @@ namespace Assignment.Models
         /// <summary>
         /// Foreign key to the Booking that this review is for.
         /// A review must be associated with a specific booking.
+        /// User information can be obtained from Booking.UserId.
         /// </summary>
         public int BookingId { get; set; }
 
         /// <summary>
         /// Navigation property - the booking that this review is for.
+        /// User information can be accessed via Booking.User.
         /// </summary>
         [ForeignKey("BookingId")]
         public virtual Booking Booking { get; set; }
-
-        /// <summary>
-        /// Foreign key to the User who wrote this review.
-        /// </summary>
-        public int UserId { get; set; }
-
-        /// <summary>
-        /// Navigation property - the user who wrote this review.
-        /// </summary>
-        [ForeignKey("UserId")]
-        public virtual User User { get; set; }
 
         /// <summary>
         /// Rating given by the user, on a scale of 1 to 5 stars.

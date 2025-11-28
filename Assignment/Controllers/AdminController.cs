@@ -347,7 +347,6 @@ namespace Assignment.Controllers
         {
             var user = await _context.Users
                 .Include(u => u.Bookings)
-                .Include(u => u.Reviews)
                 .FirstOrDefaultAsync(u => u.UserId == id);
             
             if (user == null)
@@ -383,8 +382,12 @@ namespace Assignment.Controllers
                 }
             }
 
-            // Soft delete reviews associated with this user
-            var reviewsToDelete = user.Reviews.Where(r => !r.IsDeleted).ToList();
+            // Soft delete reviews associated with this user (through bookings)
+            // Review is now linked to Booking, user info from Booking.UserId
+            var reviewsToDelete = await _context.Reviews
+                .Include(r => r.Booking)
+                .Where(r => r.Booking != null && r.Booking.UserId == id && !r.IsDeleted)
+                .ToListAsync();
             if (reviewsToDelete.Any())
             {
                 foreach (var review in reviewsToDelete)
@@ -2003,8 +2006,10 @@ namespace Assignment.Controllers
         {
             ValidateSearchParameters(ref searchTerm, ref page, ref pageSize);
 
+            // Review is linked to Booking, user info from Booking.User
             var query = _context.Reviews
-                .Include(r => r.User)
+                .Include(r => r.Booking)
+                    .ThenInclude(b => b.User)
                 .Include(r => r.Booking)
                     .ThenInclude(b => b.Room)
                         .ThenInclude(r => r.RoomType)
@@ -2012,8 +2017,8 @@ namespace Assignment.Controllers
 
             if (!string.IsNullOrEmpty(searchTerm))
             {
-                query = query.Where(r => r.User.FullName.Contains(searchTerm) || 
-                                        r.User.Email.Contains(searchTerm) ||
+                query = query.Where(r => (r.Booking != null && r.Booking.User != null && r.Booking.User.FullName.Contains(searchTerm)) || 
+                                        (r.Booking != null && r.Booking.User != null && r.Booking.User.Email.Contains(searchTerm)) ||
                                         (r.Comment != null && r.Comment.Contains(searchTerm)));
             }
 
@@ -2312,8 +2317,8 @@ namespace Assignment.Controllers
             var usageCountsDict = new Dictionary<int, int>();
             foreach (var promotion in promotions)
             {
-                var usageCount = await _context.PromotionUsages
-                    .CountAsync(pu => pu.PromotionId == promotion.PromotionId);
+                var usageCount = await _context.Bookings
+                    .CountAsync(b => b.PromotionId == promotion.PromotionId && b.PromotionUsedAt != null);
                 usageCountsDict[promotion.PromotionId] = usageCount;
             }
 
@@ -2420,9 +2425,9 @@ namespace Assignment.Controllers
                 return RedirectToAction("Promotions");
             }
 
-            // Check if there are any promotion usages
-            var promotionUsagesCount = await _context.PromotionUsages
-                .Where(pu => pu.PromotionId == id)
+            // Check if there are any promotion usages (stored in Bookings table)
+            var promotionUsagesCount = await _context.Bookings
+                .Where(b => b.PromotionId == id && b.PromotionUsedAt != null)
                 .CountAsync();
             
             if (promotionUsagesCount > 0)

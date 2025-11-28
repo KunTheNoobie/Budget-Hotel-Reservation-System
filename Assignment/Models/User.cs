@@ -151,14 +151,7 @@ namespace Assignment.Models
         /// </summary>
         public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
-        /// <summary>
-        /// Navigation property - collection of reviews written by this user.
-        /// </summary>
-        public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
-
-        /// <summary>
-        /// Navigation property - collection of room types favorited by this user.
-        /// </summary>
-        public virtual ICollection<FavoriteRoomType> FavoriteRoomTypes { get; set; } = new List<FavoriteRoomType>();
+        // Note: Reviews are no longer directly linked to User.
+        // Reviews: Get user info from Review.Booking.UserId
     }
 }

@@ -86,11 +86,5 @@ namespace Assignment.Models
         /// Represents a many-to-many relationship through RoomTypeAmenity.
         /// </summary>
         public virtual ICollection<RoomTypeAmenity> RoomTypeAmenities { get; set; } = new List<RoomTypeAmenity>();
-
-        /// <summary>
-        /// Navigation property - collection of users who have favorited this room type.
-        /// Represents a many-to-many relationship through FavoriteRoomType.
-        /// </summary>
-        public virtual ICollection<FavoriteRoomType> FavoriteRoomTypes { get; set; } = new List<FavoriteRoomType>();
     }
 }

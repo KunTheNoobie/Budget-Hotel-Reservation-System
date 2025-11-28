@@ -51,7 +51,7 @@
                         var reviewStatus = ViewBag.BookingReviewStatus as Dictionary<int, dynamic>;
                         var canReview = reviewStatus != null && reviewStatus.ContainsKey(booking.BookingId) && reviewStatus[booking.BookingId].CanReview;
                         var hasReview = reviewStatus != null && reviewStatus.ContainsKey(booking.BookingId) && reviewStatus[booking.BookingId].HasReview;
-                        var existingReview = booking.Reviews?.FirstOrDefault(r => r.UserId == booking.UserId);
+                        var existingReview = booking.Reviews?.FirstOrDefault();
                         
                         // Fallback: check reviews directly if ViewBag is not available
                         if (existingReview != null && !hasReview)

@@ -766,7 +766,7 @@ namespace Assignment.Controllers
                 .OrderByDescending(b => b.BookingDate)
                 .ToListAsync();
 
-            // Check which bookings can be reviewed
+            // Check which bookings can be reviewed (Review is linked to Booking, user info from Booking.UserId)
             var bookingReviewStatus = bookings.ToDictionary(
                 b => b.BookingId,
                 b => new
@@ -774,8 +774,8 @@ namespace Assignment.Controllers
                     CanReview = (b.Status == BookingStatus.Confirmed || 
                                 b.Status == BookingStatus.CheckedOut || 
                                 b.Status == BookingStatus.CheckedIn) &&
-                               !b.Reviews.Any(r => r.UserId == userId),
-                    HasReview = b.Reviews.Any(r => r.UserId == userId)
+                               !b.Reviews.Any(),
+                    HasReview = b.Reviews.Any()
                 }
             );
 
@@ -788,12 +788,15 @@ namespace Assignment.Controllers
         public async Task<IActionResult> BookingDetails(int id)
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);
+            // Review is linked to Booking, user info from Booking.User
             var booking = await _context.Bookings
                 .Include(b => b.User)
                 .Include(b => b.Room)
                     .ThenInclude(r => r.RoomType)
                 .Include(b => b.Promotion)
                 .Include(b => b.Reviews)
+                    .ThenInclude(r => r.Booking)
+                        .ThenInclude(b => b.User)
                 .FirstOrDefaultAsync(b => b.BookingId == id);
 
             if (booking == null || (booking.UserId != userId && AuthenticationHelper.GetUserRole(HttpContext) != UserRole.Admin))
@@ -827,16 +830,16 @@ namespace Assignment.Controllers
                 }
             }
 
-            // Check if user can leave a review
+            // Check if user can leave a review (Review is linked to Booking, user info from Booking.UserId)
             var canReview = booking.UserId == userId && 
                            (booking.Status == BookingStatus.Confirmed || 
                             booking.Status == BookingStatus.CheckedOut || 
                             booking.Status == BookingStatus.CheckedIn) &&
-                           !booking.Reviews.Any(r => r.UserId == userId);
+                           !booking.Reviews.Any();
 
             ViewBag.CanReview = canReview;
-            ViewBag.HasReview = booking.Reviews.Any(r => r.UserId == userId);
-            ViewBag.ExistingReview = booking.Reviews.FirstOrDefault(r => r.UserId == userId);
+            ViewBag.HasReview = booking.Reviews.Any();
+            ViewBag.ExistingReview = booking.Reviews.FirstOrDefault();
 
             return View(booking);
         }
@@ -872,7 +875,7 @@ namespace Assignment.Controllers
             }
 
             // Check if booking has a review - if reviewed, cannot cancel
-            if (booking.Reviews != null && booking.Reviews.Any(r => r.UserId == userId))
+            if (booking.Reviews != null && booking.Reviews.Any())
             {
                 TempData["Error"] = "Cannot cancel a booking that has been reviewed.";
                 return RedirectToAction("MyBookings");

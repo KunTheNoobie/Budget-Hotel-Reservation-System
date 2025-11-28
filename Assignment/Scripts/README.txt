@@ -57,9 +57,11 @@ This script provides comprehensive sample data for testing and demonstration:
 - 15 Services (Airport Transfer, Breakfast Buffet, Late Checkout, Island Hopping Tour, Spa Treatment, Candlelight Dinner, City Tour, Car Rental, Laundry Service, Room Upgrade, Wi-Fi Premium, Pet Care, Concierge, Gym Access, Pool Access)
 - 15 Packages (Kuala Lumpur City Explorer, Malacca Family Fun Package, Langkawi Beach Escape, Honeymoon Bliss, Business Traveler, Adventure Seeker, Ipoh Heritage Experience, Sabah Adventure Package, Sarawak Cultural Journey, Cameron Highlands Retreat, Weekend Getaway Special, Extended Stay Value, and more)
 - 30 Package Items (linking room types and services to packages with quantities)
-- 12 Promotions (various discount codes with different types: Percentage and FixedAmount, with different validation rules)
+- 15 Promotions (various discount codes with different types: Percentage and FixedAmount, with different validation rules)
 - 15 Bookings (various statuses: Pending, Confirmed, Cancelled, CheckedIn, CheckedOut, NoShow)
-- 12 Reviews (ratings and comments from customers for completed bookings)
+  - Note: Promotion usage tracking is stored directly in Booking table (not separate PromotionUsage table)
+- 15 Reviews (ratings and comments from customers for completed bookings)
+  - Note: Reviews are linked to Booking only (user info obtained from Booking.UserId)
 - 12 Contact Messages (customer inquiries with read/unread status)
 - 12 Newsletter Subscriptions (email subscriptions with active/inactive status)
 

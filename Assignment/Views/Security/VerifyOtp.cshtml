@@ -1,0 +1,107 @@
+@* 
+    OTP Verification View
+    Displays form for users to enter the OTP code received via email for password reset.
+    Users must enter the correct 6-digit OTP code before they can reset their password.
+*@
+@model Assignment.ViewModels.Security.VerifyOtpViewModel
+@{
+    ViewData["Title"] = "Verify OTP";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white text-center">
+                    <h3><i class="bi bi-shield-lock"></i> Verify OTP Code</h3>
+                </div>
+                <div class="card-body">
+                    @if (TempData["SuccessMessage"] != null)
+                    {
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
+                        </div>
+                    }
+                    else if (TempData["WarningMessage"] != null)
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> @TempData["WarningMessage"]
+                        </div>
+                    }
+
+                    <p class="text-muted">We've sent a 6-digit OTP code to <strong>@Model.Email</strong>. Please enter it below to continue with password reset.</p>
+
+                    <form asp-action="VerifyOtp" method="post">
+                        <input type="hidden" asp-for="Email" />
+                        <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="OtpCode" class="form-label">
+                                OTP Code
+                                <span asp-validation-for="OtpCode" class="text-danger"></span>
+                            </label>
+                            <input asp-for="OtpCode" 
+                                   class="form-control text-center" 
+                                   type="text" 
+                                   placeholder="000000" 
+                                   required 
+                                   maxlength="6" 
+                                   pattern="[0-9]{6}"
+                                   style="font-size: 24px; letter-spacing: 8px; font-weight: bold;"
+                                   autocomplete="off" />
+                            <small class="form-text text-muted">
+                                <i class="bi bi-info-circle"></i> Enter the 6-digit code sent to your email. The code expires in 10 minutes.
+                            </small>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                <i class="bi bi-check-circle"></i> Verify OTP
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr />
+
+                    <div class="text-center">
+                        <p class="text-muted mb-2">Didn't receive the OTP?</p>
+                        <a asp-action="ForgotPassword" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Request New OTP
+                        </a>
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <a asp-action="Login">Back to Login</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        // Auto-focus on OTP input and format as user types
+        document.addEventListener('DOMContentLoaded', function() {
+            const otpInput = document.querySelector('input[name="OtpCode"]');
+            if (otpInput) {
+                otpInput.focus();
+                
+                // Only allow numbers
+                otpInput.addEventListener('input', function(e) {
+                    this.value = this.value.replace(/[^0-9]/g, '');
+                });
+                
+                // Auto-submit when 6 digits are entered (optional enhancement)
+                otpInput.addEventListener('input', function(e) {
+                    if (this.value.length === 6) {
+                        // Optionally auto-submit - commented out for better UX
+                        // this.form.submit();
+                    }
+                });
+            }
+        });
+    </script>
+}
+

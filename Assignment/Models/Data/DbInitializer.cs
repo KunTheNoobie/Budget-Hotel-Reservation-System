@@ -975,7 +975,6 @@ namespace Assignment.Models.Data
                 new Review
                 {
                     BookingId = bookings[0].BookingId,
-                    UserId = bookings[0].UserId,
                     Rating = 5,
                     Comment = "Excellent stay! The room was clean, comfortable, and the staff was very helpful. Great value for money!",
                     ReviewDate = DateTime.Now.AddDays(-3)
@@ -983,7 +982,6 @@ namespace Assignment.Models.Data
                 new Review
                 {
                     BookingId = bookings[1].BookingId,
-                    UserId = bookings[1].UserId,
                     Rating = 4,
                     Comment = "Good experience overall. The room was spacious and well-maintained. Would stay again.",
                     ReviewDate = DateTime.Now.AddDays(-1)
@@ -1054,7 +1052,6 @@ namespace Assignment.Models.Data
                 new Review
                 {
                     BookingId = additionalBookings[0].BookingId,
-                    UserId = additionalBookings[0].UserId,
                     Rating = 5,
                     Comment = "Perfect location and great service. Highly recommended!",
                     ReviewDate = DateTime.Now.AddDays(-25)
@@ -1062,7 +1059,6 @@ namespace Assignment.Models.Data
                 new Review
                 {
                     BookingId = additionalBookings[1].BookingId,
-                    UserId = additionalBookings[1].UserId,
                     Rating = 4,
                     Comment = "Comfortable room with all necessary amenities. Good value.",
                     ReviewDate = DateTime.Now.AddDays(-15)
@@ -1070,7 +1066,6 @@ namespace Assignment.Models.Data
                 new Review
                 {
                     BookingId = additionalBookings[2].BookingId,
-                    UserId = additionalBookings[2].UserId,
                     Rating = 5,
                     Comment = "Amazing experience! The suite was luxurious and the view was spectacular.",
                     ReviewDate = DateTime.Now.AddDays(-10)
@@ -1164,7 +1159,6 @@ namespace Assignment.Models.Data
                 new Review
                 {
                     BookingId = moreBookings[0].BookingId,
-                    UserId = moreBookings[0].UserId,
                     Rating = 5,
                     Comment = "Absolutely fantastic! The staff went above and beyond to make our stay memorable. The room was spotless and the breakfast was delicious. Will definitely return!",
                     ReviewDate = DateTime.Now.AddDays(-35)
@@ -1172,7 +1166,6 @@ namespace Assignment.Models.Data
                 new Review
                 {
                     BookingId = moreBookings[1].BookingId,
-                    UserId = moreBookings[1].UserId,
                     Rating = 4,
                     Comment = "Great value for money. The location is perfect, close to everything. Room was clean and comfortable. Only minor issue was the Wi-Fi speed, but overall very satisfied.",
                     ReviewDate = DateTime.Now.AddDays(-45)
@@ -1180,7 +1173,6 @@ namespace Assignment.Models.Data
                 new Review
                 {
                     BookingId = moreBookings[2].BookingId,
-                    UserId = moreBookings[2].UserId,
                     Rating = 5,
                     Comment = "Best budget hotel experience I've had! The family room was spacious, perfect for our needs. Kids loved it and we'll be back for sure. Highly recommend!",
                     ReviewDate = DateTime.Now.AddDays(-55)
@@ -1188,7 +1180,6 @@ namespace Assignment.Models.Data
                 new Review
                 {
                     BookingId = moreBookings[3].BookingId,
-                    UserId = moreBookings[3].UserId,
                     Rating = 4,
                     Comment = "Clean, modern, and well-maintained. The twin room was perfect for our business trip. Good amenities and friendly staff. Would stay again.",
                     ReviewDate = DateTime.Now.AddDays(-65)
@@ -1196,7 +1187,6 @@ namespace Assignment.Models.Data
                 new Review
                 {
                     BookingId = moreBookings[4].BookingId,
-                    UserId = moreBookings[4].UserId,
                     Rating = 5,
                     Comment = "Stunning ocean view! The suite exceeded all expectations. Beautiful balcony, comfortable bed, and excellent service. Worth every ringgit. Perfect for a romantic getaway!",
                     ReviewDate = DateTime.Now.AddDays(-75)
@@ -1204,7 +1194,6 @@ namespace Assignment.Models.Data
                 new Review
                 {
                     BookingId = moreBookings[5].BookingId,
-                    UserId = moreBookings[5].UserId,
                     Rating = 4,
                     Comment = "Charming heritage room in the heart of Ipoh. Great location for exploring the old town and trying local food. Room was clean and had character. Enjoyed our stay!",
                     ReviewDate = DateTime.Now.AddDays(-85)
@@ -1213,44 +1202,7 @@ namespace Assignment.Models.Data
             context.Reviews.AddRange(moreReviews);
             context.SaveChanges();
 
-            // Seed sample favorites/wishlist data
-            if (!context.FavoriteRoomTypes.Any())
-            {
-                var demoCustomer = context.Users.FirstOrDefault(u => u.Email == "customer@example.com");
-                var demoCustomer2 = context.Users.FirstOrDefault(u => u.Email == "sarah@example.com");
-
-                var popularRoomTypes = context.RoomTypes
-                    .OrderBy(rt => rt.RoomTypeId)
-                    .Take(4)
-                    .ToList();
-
-                if (demoCustomer != null && popularRoomTypes.Any())
-                {
-                    int offset = 1;
-                    foreach (var rt in popularRoomTypes.Take(3))
-                    {
-                        context.FavoriteRoomTypes.Add(new FavoriteRoomType
-                        {
-                            UserId = demoCustomer.UserId,
-                            RoomTypeId = rt.RoomTypeId,
-                            AddedAt = DateTime.Now.AddDays(-offset * 2)
-                        });
-                        offset++;
-                    }
-                }
-
-                if (demoCustomer2 != null && popularRoomTypes.Count > 1)
-                {
-                    context.FavoriteRoomTypes.Add(new FavoriteRoomType
-                    {
-                        UserId = demoCustomer2.UserId,
-                        RoomTypeId = popularRoomTypes[1].RoomTypeId,
-                        AddedAt = DateTime.Now.AddDays(-3)
-                    });
-                }
-
-                context.SaveChanges();
-            }
+            // Note: Favorites/Wishlist feature has been removed
             } // End of main seeding block
             
             // Ensure reviews exist - if reviews are missing but bookings exist, create reviews for checked-out bookings
@@ -1284,7 +1236,6 @@ namespace Assignment.Models.Data
                     var missingReviews = checkedOutBookings.Select((booking, index) => new Review
                     {
                         BookingId = booking.BookingId,
-                        UserId = booking.UserId,
                         Rating = sampleRatings[index % sampleRatings.Length],
                         Comment = sampleComments[index % sampleComments.Length],
                         ReviewDate = DateTime.Now.AddDays(-(index + 1) * 5)

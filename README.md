@@ -94,7 +94,6 @@ The Budget Hotel Reservation System is a full-featured web application designed 
 #### Functional Features
 - ✅ **AJAX-powered room search and filtering** - Real-time search without page refresh
 - ✅ **QR code generation** - Booking confirmations with QR codes (QRCoder library)
-- ✅ **Favorites/Wishlist** - Save favorite rooms for later
 - ✅ **Price breakdown display** - Detailed pricing (base price, discount, final price)
 - ✅ **Soft delete functionality** - All entities support soft delete
 - ✅ **Professional payment forms** - Comprehensive validation
@@ -170,7 +169,6 @@ The application automatically creates the database and seeds initial data on fir
    - 10 Amenities
    - 3 Active Promotions
    - 2 Sample Bookings
-   - Sample Favorites/Wishlist entries for demo customers (so **My Favorites** is not empty)
 
 ### Option 2: SQL Scripts (Comprehensive Sample Data)
 
@@ -294,6 +292,15 @@ Key configuration settings:
   "SecuritySettings": {
     "MaxLoginAttempts": 3,
     "LockoutMinutes": 15
+  },
+  "EmailSettings": {
+    "SmtpHost": "smtp.gmail.com",
+    "SmtpPort": 587,
+    "SmtpUsername": "your-email@gmail.com",
+    "SmtpPassword": "your-app-password",
+    "FromEmail": "noreply@hotel.com",
+    "FromName": "Budget Hotel Reservation System",
+    "BaseUrl": "https://localhost:5001"
   }
 }
 ```
@@ -303,6 +310,28 @@ Key configuration settings:
 - **Connection String**: Update if using a different SQL Server instance
 - **EncryptionKey**: Used for encrypting sensitive data (change in production!)
 - **SecuritySettings**: Configure login attempt limits and lockout duration
+- **EmailSettings**: Configure SMTP settings for sending verification emails and OTP codes
+
+#### Email Configuration Guide
+
+The application uses MailKit to send emails for:
+- **Email Verification**: Users receive a verification link when registering
+- **Password Reset OTP**: Users receive a 6-digit OTP code for password reset
+
+**For Gmail:**
+1. Enable 2-Factor Authentication on your Google account
+2. Generate an App Password: https://myaccount.google.com/apppasswords
+3. Use the App Password (not your regular password) in `SmtpPassword`
+4. Set `SmtpHost` to `"smtp.gmail.com"` and `SmtpPort` to `587`
+
+**For Other Email Providers:**
+- **Outlook/Hotmail**: `smtp-mail.outlook.com`, Port `587`
+- **Yahoo**: `smtp.mail.yahoo.com`, Port `587`
+- **Custom SMTP**: Use your provider's SMTP settings
+
+**Development/Testing:**
+- If email settings are not configured, the system will show fallback links/OTPs in the UI
+- For production, ensure all email settings are properly configured
 
 ## 🔑 Key Modules
 
@@ -327,7 +356,6 @@ Each team member is responsible for **at least 2 core modules** as per assignmen
    - Change password
    - View booking history
    - Cancel bookings
-   - Favorites/Wishlist feature
    - User preferences (language, theme)
 
 #### **Team Member 2 (PIC)**
@@ -463,7 +491,6 @@ Each team member is responsible for **at least 2 core modules** as per assignmen
 - ✅ **Print-Optimized CSS** - Professional print styles for booking receipts
 
 ### New Features
-- ✅ **Favorites/Wishlist** - Users can save favorite rooms for later viewing
 - ✅ **Email Confirmation Simulation** - Booking confirmation emails are logged
 - ✅ **Rate Limiting** - Protection against spam on registration and contact forms
 - ✅ **Enhanced Error Handling** - Consistent error handling across all controllers
@@ -472,7 +499,9 @@ Each team member is responsible for **at least 2 core modules** as per assignmen
 - ✅ **Timezone Fixes** - Fixed date handling to prevent timezone mismatches
 - ✅ **Avatar Display Fixes** - Fixed duplicate avatar display in reviews
 - ✅ **Date Validation** - Improved date validation for package bookings
-- ✅ **Database Migration** - Added FavoriteRoomTypes table
+- ✅ **Database Schema Updates** - Merged PromotionUsage into Booking, removed FavoriteRoomType feature
+- ✅ **Email Integration** - Real email sending with MailKit for verification and password reset OTP
+- ✅ **Schema Simplification** - Removed separate PromotionUsage table (tracking now in Booking), removed FavoriteRoomType feature, simplified Review model (linked to Booking only)
 
 ## 🧪 Testing Recommendations
 
@@ -490,7 +519,6 @@ Each team member is responsible for **at least 2 core modules** as per assignmen
 4. ✅ Test receipt view/download
 5. ✅ Test promotion code application
 6. ✅ Test booking cancellation
-7. ✅ Test favorites/wishlist feature
 8. ✅ Test image preview on profile upload
 9. ✅ Test toast notifications
 10. ✅ Test loading indicators during AJAX calls
@@ -508,12 +536,14 @@ Each team member is responsible for **at least 2 core modules** as per assignmen
 
 - **Authentication**: Uses custom cookie-based authentication (NOT ASP.NET Core Identity)
 - **Password Storage**: All passwords are hashed using BCrypt
-- **Email Functionality**: Email sending is simulated - confirmation emails are logged for demonstration purposes
+- **Email Functionality**: Real email sending using MailKit (SMTP). Configure email settings in `appsettings.json` for email verification and password reset OTP
+- **Email Verification**: Users receive a real verification email with a clickable link when registering
+- **Password Reset**: Uses OTP (One-Time Password) sent via email - users receive a 6-digit code to reset their password
 - **Database**: Uses file-based SQL Server Express (LocalDB)
 - **Currency**: Displayed in RM (Malaysian Ringgit)
 - **Soft Delete**: All entities support soft delete functionality
 - **Admin Protection**: Main admin account (`admin@hotel.com`) cannot be deleted
-- **Favorites Feature**: Requires database migration - run `dotnet ef migrations add AddFavoriteRoomTypes` then `dotnet ef database update`
+- **Database Schema**: PromotionUsage merged into Booking table, FavoriteRoomType feature removed, Review linked to Booking only
 - **Module Assignments**: Each of 4 team members is responsible for at least 2 core modules (see Key Modules section above)
 
 ## 🐛 Troubleshooting
@@ -542,6 +572,30 @@ For issues, questions, or contributions:
 
 This section explains each model in the system and their purpose.
 
+### Recent Schema Changes
+
+**Important**: The database schema has been updated with the following changes:
+
+1. **PromotionUsage Merged into Booking**
+   - The separate `PromotionUsages` table has been removed
+   - Promotion usage tracking fields are now stored directly in the `Bookings` table:
+     - `PromotionPhoneNumberHash` (encrypted phone number)
+     - `PromotionCardIdentifier` (hashed card identifier)
+     - `PromotionDeviceFingerprint` (device identifier)
+     - `PromotionIpAddress` (IP address)
+     - `PromotionUsedAt` (timestamp when promotion was used)
+
+2. **Review Model Simplified**
+   - Removed `UserId` field from `Reviews` table
+   - Reviews are now linked only to `Booking`
+   - User information is obtained from `Booking.UserId` (via `Review.Booking.User`)
+
+3. **FavoriteRoomType Feature Removed**
+   - The `FavoriteRoomTypes` table and feature have been completely removed
+   - All related code, views, and functionality have been removed
+
+**Migration Required**: Run `dotnet ef migrations add <MigrationName>` and `dotnet ef database update` to apply these schema changes.
+
 ### Core Models
 
 #### **User**
@@ -552,7 +606,7 @@ Represents a user account in the system (admin, staff, or customer).
   - Phone numbers are encrypted using AES encryption
   - Supports soft delete
   - Tracks user preferences (language, theme, profile picture, bio)
-- **Relationships**: Has many Bookings, Reviews, and FavoriteRoomTypes
+- **Relationships**: Has many Bookings
 
 #### **Hotel**
 Represents a hotel property in the reservation system.
@@ -569,7 +623,6 @@ Represents a type/category of room (e.g., "Standard Single", "Deluxe Double", "E
   - Has many Rooms (physical rooms of this type)
   - Has many RoomImages
   - Has many Amenities (through RoomTypeAmenity)
-  - Has many FavoriteRoomTypes (users who favorited this type)
 
 #### **Room**
 Represents a physical room in a hotel.
@@ -600,16 +653,23 @@ Junction entity linking RoomTypes to Amenities (many-to-many relationship).
 
 #### **Booking**
 Represents a hotel room booking made by a user.
-- **Purpose**: Stores booking details, payment information, and cancellation data
+- **Purpose**: Stores booking details, payment information, cancellation data, and promotion usage tracking
 - **Key Fields**: 
   - UserId, RoomId, CheckInDate, CheckOutDate, BookingDate
   - TotalPrice, Status (Pending/Confirmed/Cancelled/CheckedIn/CheckedOut/NoShow)
   - PaymentAmount, PaymentMethod (CreditCard/PayPal/BankTransfer), PaymentStatus, TransactionId, PaymentDate
   - CancellationDate, CancellationReason, RefundAmount
   - PromotionId (optional)
+  - **Promotion Usage Tracking** (merged from PromotionUsage table):
+    - PromotionPhoneNumberHash (encrypted phone number)
+    - PromotionCardIdentifier (hashed card identifier)
+    - PromotionDeviceFingerprint (device identifier)
+    - PromotionIpAddress (IP address)
+    - PromotionUsedAt (timestamp when promotion was used)
 - **Special Features**: 
   - Payment information is merged into this entity (previously separate Payment table)
   - Cancellation information is merged into this entity (previously separate BookingCancellation table)
+  - Promotion usage tracking is merged into this entity (previously separate PromotionUsage table)
   - Supports soft delete
 - **Relationships**: 
   - Belongs to one User, one Room, and optionally one Promotion
@@ -627,18 +687,8 @@ Represents a promotion code that can be applied to bookings for discounts.
   - Comprehensive validation rules (dates, minimum requirements, usage limits)
   - Multiple abuse prevention mechanisms
   - Automatically deactivates when expired or max uses reached
-- **Relationships**: Has many PromotionUsages
+- **Relationships**: Has many Bookings (promotion usage tracking stored in Booking table)
 
-#### **PromotionUsage**
-Tracks when and how a promotion code was used.
-- **Purpose**: Records promotion usage for validation and abuse prevention
-- **Key Fields**: 
-  - PromotionId, BookingId, UserId, UsedAt
-  - PhoneNumberHash (encrypted), CardIdentifier (hashed), DeviceFingerprint, IpAddress
-- **Special Features**: 
-  - Stores encrypted/hashed identifiers (phone number, card number) for privacy and security
-  - Used to enforce usage limits per phone, card, device, or user account
-- **Relationships**: Belongs to one Promotion, one Booking, and one User
 
 ### Service & Package Models
 
@@ -665,11 +715,12 @@ Junction entity linking Packages to RoomTypes and Services.
 #### **Review**
 Represents a review/rating submitted by a user for a completed booking.
 - **Purpose**: Allows customers to rate their stay experience and provide feedback
-- **Key Fields**: BookingId, UserId, Rating (1-5 stars), Comment, ReviewDate
+- **Key Fields**: BookingId, Rating (1-5 stars), Comment, ReviewDate
 - **Special Features**: 
   - Reviews are linked to specific bookings (only customers who have stayed can review)
+  - User information is obtained from Booking.UserId (no direct UserId field)
   - Supports soft delete for review moderation
-- **Relationships**: Belongs to one Booking and one User
+- **Relationships**: Belongs to one Booking (user info accessed via Booking.User)
 
 #### **ContactMessage**
 Represents a contact message submitted through the contact form.
@@ -720,14 +771,6 @@ Represents a security event log entry for audit and monitoring.
 
 ### User Preference Models
 
-#### **FavoriteRoomType**
-Represents a favorite/wishlist entry where a user saves a room type for later viewing.
-- **Purpose**: Implements the favorites/wishlist feature
-- **Key Fields**: UserId, RoomTypeId, AddedAt
-- **Special Features**: 
-  - Many-to-many relationship between Users and RoomTypes
-  - Supports soft delete
-- **Relationships**: Belongs to one User and one RoomType
 
 ### View Models
 
@@ -751,8 +794,6 @@ Entity Framework Core database context for the application.
 ```
 User
   ├── Bookings (1-to-many)
-  ├── Reviews (1-to-many)
-  ├── FavoriteRoomTypes (1-to-many)
   └── SecurityTokens (1-to-many)
 
 Hotel
@@ -762,8 +803,7 @@ RoomType
   ├── Hotel (many-to-1)
   ├── Rooms (1-to-many)
   ├── RoomImages (1-to-many)
-  ├── Amenities (many-to-many via RoomTypeAmenity)
-  └── FavoriteRoomTypes (1-to-many)
+  └── Amenities (many-to-many via RoomTypeAmenity)
 
 Room
   ├── RoomType (many-to-1)
@@ -773,10 +813,16 @@ Booking
   ├── User (many-to-1)
   ├── Room (many-to-1)
   ├── Promotion (many-to-1, optional)
-  └── Reviews (1-to-many)
+  ├── Reviews (1-to-many)
+  └── Promotion Usage Tracking (stored directly in Booking):
+      - PromotionPhoneNumberHash (encrypted)
+      - PromotionCardIdentifier (hashed)
+      - PromotionDeviceFingerprint
+      - PromotionIpAddress
+      - PromotionUsedAt
 
 Promotion
-  └── PromotionUsages (1-to-many)
+  └── Bookings (1-to-many, promotion usage tracked in Booking table)
 
 Package
   └── PackageItems (1-to-many)

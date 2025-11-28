@@ -16,11 +16,10 @@ GO
 -- Delete data in reverse order of dependencies
 -- Start with tables that have foreign keys pointing to them
 
--- 1. Delete PromotionUsage (references Promotion, Booking, User)
-DELETE FROM PromotionUsages
-GO
+-- Note: PromotionUsage table has been removed - usage tracking now stored in Booking table
+-- Note: FavoriteRoomTypes table has been removed - feature discontinued
 
--- 2. Delete Reviews (references Booking, User)
+-- 1. Delete Reviews (references Booking)
 DELETE FROM Reviews
 GO
 
@@ -97,7 +96,8 @@ EXEC sp_MSforeachtable "ALTER TABLE ? CHECK CONSTRAINT all"
 GO
 
 -- Reset identity columns (optional, but recommended for clean IDs)
-DBCC CHECKIDENT ('PromotionUsages', RESEED, 0)
+-- Note: PromotionUsages table removed - usage tracking now in Booking table
+-- Note: FavoriteRoomTypes table removed - feature discontinued
 DBCC CHECKIDENT ('Reviews', RESEED, 0)
 DBCC CHECKIDENT ('Bookings', RESEED, 0)
 DBCC CHECKIDENT ('PackageItems', RESEED, 0)

@@ -55,8 +55,8 @@
                             <tr>
                                 <td>@review.ReviewId</td>
                                 <td>
-                                    @review.User.FullName<br />
-                                    <small class="text-muted">@review.User.Email</small>
+                                    @review.Booking?.User?.FullName<br />
+                                    <small class="text-muted">@review.Booking?.User?.Email</small>
                                 </td>
                                 <td>
                                     @review.Booking?.Room?.RoomType?.Name<br />
@@ -74,7 +74,7 @@
                                     {
                                         <button type="button" class="btn btn-sm btn-outline-primary view-comment-btn" 
                                                 data-comment="@review.Comment"
-                                                data-user="@review.User.FullName">
+                                                data-user="@review.Booking?.User?.FullName">
                                             @(review.Comment.Length > 50 ? review.Comment.Substring(0, 50) + "..." : review.Comment)
                                         </button>
                                     }

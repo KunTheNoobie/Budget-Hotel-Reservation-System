@@ -284,24 +284,24 @@
                             <div class="card-body">
                                 <div class="d-flex align-items-center mb-3">
                                     <div class="me-3 position-relative" style="width: 50px; height: 50px; flex-shrink: 0;">
-                                        @if (!string.IsNullOrEmpty(review.User?.ProfilePictureUrl))
+                                        @if (!string.IsNullOrEmpty(review.Booking?.User?.ProfilePictureUrl))
                                         {
-                                            <img src="@review.User.ProfilePictureUrl" alt="@(review.User?.FullName ?? "Guest")" 
+                                            <img src="@review.Booking.User.ProfilePictureUrl" alt="@(review.Booking?.User?.FullName ?? "Guest")" 
                                                  class="rounded-circle review-avatar-img" style="width: 50px; height: 50px; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1;" 
                                                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                             <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle review-avatar-fallback" style="display: none; width: 50px; height: 50px; font-weight: bold; font-size: 1.2rem; position: absolute; top: 0; left: 0; z-index: 0;">
-                                                @(review.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                @(review.Booking?.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
                                             </div>
                                         }
                                         else
                                         {
                                             <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 50px; height: 50px; font-weight: bold; font-size: 1.2rem;">
-                                                @(review.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                @(review.Booking?.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
                                             </div>
                                         }
                                     </div>
                                     <div>
-                                        <h6 class="mb-0">@(review.User?.FullName ?? "Guest")</h6>
+                                        <h6 class="mb-0">@(review.Booking?.User?.FullName ?? "Guest")</h6>
                                         <small class="text-muted">@review.ReviewDate.ToString("MMM dd, yyyy")</small>
                                     </div>
                                 </div>

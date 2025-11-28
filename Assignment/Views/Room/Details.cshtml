@@ -132,26 +132,26 @@
                                 <div class="review-item border-bottom pb-3 mb-3">
                                     <div class="d-flex align-items-start mb-2">
                                         <div class="me-3 position-relative" style="width: 45px; height: 45px; flex-shrink: 0;">
-                                            @if (!string.IsNullOrEmpty(review.User?.ProfilePictureUrl))
+                                            @if (!string.IsNullOrEmpty(review.Booking?.User?.ProfilePictureUrl))
                                             {
-                                                <img src="@review.User.ProfilePictureUrl" alt="@review.User.FullName" 
+                                                <img src="@review.Booking.User.ProfilePictureUrl" alt="@review.Booking.User.FullName" 
                                                      class="rounded-circle review-avatar-img" style="width: 45px; height: 45px; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1;" 
                                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                                 <div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center rounded-circle review-avatar-fallback" style="display: none; width: 45px; height: 45px; font-size: 0.9rem; position: absolute; top: 0; left: 0; z-index: 0;">
-                                                    @(review.User.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                    @(review.Booking?.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
                                                 </div>
                                             }
                                             else
                                             {
                                                 <div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 45px; height: 45px; font-size: 0.9rem;">
-                                                    @(review.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                    @(review.Booking?.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
                                                 </div>
                                             }
                                         </div>
                                         <div class="flex-grow-1">
                                             <div class="d-flex justify-content-between align-items-start">
                                                 <div>
-                                                    <h6 class="mb-1">@review.User?.FullName</h6>
+                                                    <h6 class="mb-1">@review.Booking?.User?.FullName</h6>
                                                     <div class="text-warning small mb-2">
                                                         @for (int i = 1; i <= 5; i++)
                                                         {
@@ -225,16 +225,6 @@
                     @if (Assignment.Helpers.AuthenticationHelper.IsAuthenticated(Context))
                     {
                         <hr class="my-4" />
-                        <div class="mb-3">
-                            <button type="button" id="favoriteBtn" class="btn btn-outline-danger w-100" data-room-type-id="@Model.RoomTypeId">
-                                <i class="bi bi-heart" id="favoriteIcon"></i> <span id="favoriteText">Add to Favorites</span>
-                            </button>
-                        </div>
-                        <!-- Anti-forgery token for favorites AJAX requests -->
-                        <form id="favoriteAntiForgeryForm" method="post" class="d-none">
-                            @Html.AntiForgeryToken()
-                        </form>
-                        <hr class="my-4" />
                         <h5 class="mb-3">Book This Room</h5>
                         <form id="availabilityForm">
                             <div class="mb-3">
@@ -275,43 +265,10 @@
                 $(this).siblings('.review-avatar-fallback').hide();
             });
 
-            // Favorites functionality
+            // Note: Favorites feature removed
             var roomTypeId = @Model.RoomTypeId;
-            var antiForgeryToken = $('input[name="__RequestVerificationToken"]').first().val();
             
-            // Check if already favorited
-            $.get('/Customer/CheckFavorite', { roomTypeId: roomTypeId }, function(data) {
-                if (data.isFavorite) {
-                    $('#favoriteBtn').removeClass('btn-outline-danger').addClass('btn-danger');
-                    $('#favoriteIcon').removeClass('bi-heart').addClass('bi-heart-fill');
-                    $('#favoriteText').text('Remove from Favorites');
-                } else {
-                    $('#favoriteBtn').removeClass('btn-danger').addClass('btn-outline-danger');
-                    $('#favoriteIcon').removeClass('bi-heart-fill').addClass('bi-heart');
-                    $('#favoriteText').text('Add to Favorites');
-                }
-            });
-
-            // Toggle favorite
-            $('#favoriteBtn').on('click', function() {
-                var isFavorite = $('#favoriteIcon').hasClass('bi-heart-fill');
-                var url = isFavorite ? '/Customer/RemoveFromFavorites' : '/Customer/AddToFavorites';
-                
-                $.post(url, { 
-                        roomTypeId: roomTypeId,
-                        __RequestVerificationToken: antiForgeryToken
-                    }, function(data) {
-                    if (data.success) {
-                        if (isFavorite) {
-                            $('#favoriteBtn').removeClass('btn-danger').addClass('btn-outline-danger');
-                            $('#favoriteIcon').removeClass('bi-heart-fill').addClass('bi-heart');
-                            $('#favoriteText').text('Add to Favorites');
-                        } else {
-                            $('#favoriteBtn').removeClass('btn-outline-danger').addClass('btn-danger');
-                            $('#favoriteIcon').removeClass('bi-heart').addClass('bi-heart-fill');
-                            $('#favoriteText').text('Remove from Favorites');
-                        }
-                        if (typeof showToast === 'function') {
+            if (typeof showToast === 'function') {
                             showToast(data.message, 'success');
                         }
                     } else {

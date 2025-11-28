@@ -163,9 +163,9 @@ namespace Assignment.Models
         // ========== Navigation Properties ==========
 
         /// <summary>
-        /// Navigation property - collection of usage records tracking when and how this promotion was used.
-        /// Used for validation and abuse prevention.
+        /// Navigation property - collection of bookings that used this promotion.
+        /// Promotion usage tracking is now stored directly in the Booking table.
         /// </summary>
-        public virtual ICollection<PromotionUsage> PromotionUsages { get; set; } = new List<PromotionUsage>();
+        public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
     }
 }

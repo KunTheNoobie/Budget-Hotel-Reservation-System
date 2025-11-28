@@ -67,8 +67,8 @@ namespace Assignment.Controllers
                 return RedirectToAction("MyBookings", "Booking");
             }
 
-            // Check if review already exists for this booking by this user
-            if (await _context.Reviews.AnyAsync(r => r.BookingId == bookingId && r.UserId == currentUserId))
+            // Check if review already exists for this booking (user info from Booking.UserId)
+            if (await _context.Reviews.AnyAsync(r => r.BookingId == bookingId))
             {
                 TempData["Error"] = "You have already reviewed this booking.";
                 return RedirectToAction("MyBookings", "Booking");
@@ -77,7 +77,6 @@ namespace Assignment.Controllers
             var review = new Review
             {
                 BookingId = bookingId,
-                UserId = currentUserId.Value,
                 Rating = rating,
                 Comment = comment,
                 ReviewDate = DateTime.Now

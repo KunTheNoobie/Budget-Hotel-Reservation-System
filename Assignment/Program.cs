@@ -49,6 +49,9 @@ builder.Services.AddSession(options =>
 // Register PromotionValidationService as a scoped service (one instance per HTTP request)
 builder.Services.AddScoped<Assignment.Services.PromotionValidationService>();
 
+// Register EmailService as a scoped service for sending emails
+builder.Services.AddScoped<Assignment.Services.EmailService>();
+
 // Build the application
 var app = builder.Build();
 
