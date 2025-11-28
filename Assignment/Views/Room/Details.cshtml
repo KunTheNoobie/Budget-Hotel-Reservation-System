@@ -273,7 +273,7 @@
             var roomTypeId = @Model.RoomTypeId;
             
             // Set minimum dates for date inputs
-            var today = new Date().toISOString().split('T')[0];
+            var today = new Date().toLocaleDateString('en-CA');
             $('#checkIn').attr('min', today);
             $('#checkOut').attr('min', today);
 
