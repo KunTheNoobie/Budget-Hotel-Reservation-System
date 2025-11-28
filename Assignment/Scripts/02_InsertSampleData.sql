@@ -40,8 +40,68 @@
 -- 3. The application's DbInitializer will handle admin account passwords
 --    automatically when you first run the application
 -- ============================================
+-- 
+-- NOTE: If your database has a different name, update the database name below
+-- or modify this script to use your actual database name.
+-- ============================================
 
-USE [BMIT2023_HotelReservation]
+-- Check if database exists and switch to it
+IF DB_ID('BMIT2023_HotelReservation') IS NOT NULL
+BEGIN
+    USE [BMIT2023_HotelReservation]
+    SET NOEXEC OFF
+    PRINT 'Using database: BMIT2023_HotelReservation'
+    PRINT ''
+END
+ELSE
+BEGIN
+    PRINT 'ERROR: Could not find database ''BMIT2023_HotelReservation''.'
+    PRINT ''
+    PRINT 'Available options:'
+    PRINT '1. Create the database by running the application (it will be created automatically)'
+    PRINT '2. Or manually create the database using: Assignment/Scripts/00_CreateDatabase.sql'
+    PRINT '3. Or run: dotnet ef database update (from the Assignment folder)'
+    PRINT ''
+    PRINT 'After creating the database, run this script again.'
+    PRINT ''
+    PRINT 'Script execution stopped.'
+    SET NOEXEC ON
+END
+GO
+
+-- Check if required tables exist (check in dbo schema)
+IF DB_NAME() = 'BMIT2023_HotelReservation'
+BEGIN
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Hotels' AND schema_id = SCHEMA_ID('dbo'))
+       OR NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Users' AND schema_id = SCHEMA_ID('dbo'))
+       OR NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Bookings' AND schema_id = SCHEMA_ID('dbo'))
+    BEGIN
+        PRINT 'ERROR: Required tables do not exist in the database.'
+        PRINT ''
+        PRINT 'The database exists but is empty (no tables created yet).'
+        PRINT ''
+        PRINT 'To create the tables, choose ONE of these methods:'
+        PRINT ''
+        PRINT 'METHOD 1 (Recommended): Run the Application'
+        PRINT '   - Run the application (F5 in Visual Studio or: dotnet run --project Assignment)'
+        PRINT '   - The application will automatically create all tables via Entity Framework migrations'
+        PRINT ''
+        PRINT 'METHOD 2: Use Entity Framework CLI'
+        PRINT '   - Open terminal/command prompt in the Assignment folder'
+        PRINT '   - Run: dotnet ef database update'
+        PRINT '   - This will create all tables from migrations'
+        PRINT ''
+        PRINT 'After tables are created, run this script again to insert sample data.'
+        PRINT ''
+        PRINT 'Script execution stopped.'
+        SET NOEXEC ON
+    END
+    ELSE
+    BEGIN
+        PRINT 'Database and tables found. Proceeding with data insertion...'
+        PRINT ''
+    END
+END
 GO
 
 -- ============================================
@@ -446,24 +506,35 @@ VALUES
 ('traveler3@example.com', DATEADD(day, -12, GETDATE()), 0, 0, NULL)
 GO
 
-PRINT 'Sample data has been inserted successfully!'
-PRINT 'Total records inserted:'
-PRINT '  - Hotels: 15'
-PRINT '  - Users: 15'
-PRINT '  - Amenities: 15'
-PRINT '  - Room Types: 20'
-PRINT '  - Rooms: 25'
-PRINT '  - Room Images: 30'
-PRINT '  - Room Type Amenities: 50 relationships'
-PRINT '  - Services: 15'
-PRINT '  - Packages: 15'
-PRINT '  - Package Items: 30'
-PRINT '  - Promotions: 15'
-PRINT '  - Bookings: 15'
-PRINT '  - Reviews: 15'
-PRINT '  - Contact Messages: 15'
-PRINT '  - Newsletters: 15'
-PRINT ''
-PRINT 'All tables now contain 15+ sample records for comprehensive testing!'
+-- Only print success message if we're in the correct database context and tables exist
+IF DB_NAME() = 'BMIT2023_HotelReservation'
+   AND EXISTS (SELECT * FROM sys.tables WHERE name = 'Hotels' AND schema_id = SCHEMA_ID('dbo'))
+   AND EXISTS (SELECT * FROM sys.tables WHERE name = 'Users' AND schema_id = SCHEMA_ID('dbo'))
+BEGIN
+    PRINT ''
+    PRINT 'Sample data has been inserted successfully!'
+    PRINT 'Total records inserted:'
+    PRINT '  - Hotels: 15'
+    PRINT '  - Users: 15'
+    PRINT '  - Amenities: 15'
+    PRINT '  - Room Types: 20'
+    PRINT '  - Rooms: 25'
+    PRINT '  - Room Images: 30'
+    PRINT '  - Room Type Amenities: 50 relationships'
+    PRINT '  - Services: 15'
+    PRINT '  - Packages: 15'
+    PRINT '  - Package Items: 30'
+    PRINT '  - Promotions: 15'
+    PRINT '  - Bookings: 15'
+    PRINT '  - Reviews: 15'
+    PRINT '  - Contact Messages: 15'
+    PRINT '  - Newsletters: 15'
+    PRINT ''
+    PRINT 'All tables now contain 15+ sample records for comprehensive testing!'
+END
+GO
+
+-- Re-enable execution in case it was disabled
+SET NOEXEC OFF
 GO
 

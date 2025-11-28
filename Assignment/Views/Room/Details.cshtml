@@ -228,16 +228,20 @@
                         <h5 class="mb-3">Book This Room</h5>
                         <form id="availabilityForm">
                             <div class="mb-3">
-                                <label for="checkIn" class="form-label">Check-In Date</label>
-                                <input type="date" id="checkIn" class="form-control" required />
+                                <label for="checkIn" class="form-label"><i class="bi bi-calendar-event me-2"></i>Check-In Date</label>
+                                <input type="date" id="checkIn" name="checkIn" class="form-control" required />
                             </div>
                             <div class="mb-3">
-                                <label for="checkOut" class="form-label">Check-Out Date</label>
-                                <input type="date" id="checkOut" class="form-control" required />
+                                <label for="checkOut" class="form-label"><i class="bi bi-calendar-check me-2"></i>Check-Out Date</label>
+                                <input type="date" id="checkOut" name="checkOut" class="form-control" required />
                             </div>
                             <div id="availabilityMessage" class="mb-3"></div>
-                            <button type="button" id="checkAvailabilityBtn" class="btn btn-primary w-100 mb-2">Check Availability</button>
-                            <a id="bookNowBtn" asp-controller="Booking" asp-action="Create" asp-route-roomTypeId="@Model.RoomTypeId" class="btn btn-warning w-100 fw-bold" style="display: none;">Book Now</a>
+                            <button type="button" id="checkAvailabilityBtn" class="btn btn-primary w-100 mb-2">
+                                <i class="bi bi-search me-2"></i>Check Availability
+                            </button>
+                            <a id="bookNowBtn" asp-controller="Booking" asp-action="Create" asp-route-roomTypeId="@Model.RoomTypeId" class="btn btn-warning w-100 fw-bold" style="display: none;">
+                                <i class="bi bi-bookmark-check me-2"></i>Book Now
+                            </a>
                         </form>
                     }
                     else
@@ -268,40 +272,61 @@
             // Note: Favorites feature removed
             var roomTypeId = @Model.RoomTypeId;
             
-            if (typeof showToast === 'function') {
-                            showToast(data.message, 'success');
-                        }
-                    } else {
-                        if (typeof showToast === 'function') {
-                            showToast(data.message, 'error');
-                        }
-                    }
-                }).fail(function() {
-                    if (typeof showToast === 'function') {
-                        showToast('An error occurred. Please try again.', 'error');
-                    }
-                });
-            });
-
+            // Set minimum dates for date inputs
             var today = new Date().toISOString().split('T')[0];
             $('#checkIn').attr('min', today);
             $('#checkOut').attr('min', today);
 
+            // Update check-out minimum date when check-in changes
             $('#checkIn').on('change', function() {
-                var checkInDate = new Date($(this).val());
-                checkInDate.setDate(checkInDate.getDate() + 1);
-                $('#checkOut').attr('min', checkInDate.toISOString().split('T')[0]);
+                var checkInValue = $(this).val();
+                if (checkInValue) {
+                    var checkInDate = new Date(checkInValue);
+                    checkInDate.setDate(checkInDate.getDate() + 1);
+                    var minCheckOut = checkInDate.toISOString().split('T')[0];
+                    $('#checkOut').attr('min', minCheckOut);
+                    
+                    // If check-out is before new minimum, clear it
+                    var checkOutValue = $('#checkOut').val();
+                    if (checkOutValue && checkOutValue < minCheckOut) {
+                        $('#checkOut').val('');
+                    }
+                }
+                // Clear availability message when dates change
+                $('#availabilityMessage').html('');
+                $('#bookNowBtn').hide();
             });
 
-            $('#checkAvailabilityBtn').on('click', function() {
+            // Clear availability message when check-out date changes
+            $('#checkOut').on('change', function() {
+                $('#availabilityMessage').html('');
+                $('#bookNowBtn').hide();
+            });
+
+            // Check availability function - only called when button is clicked
+            function checkAvailability() {
                 var checkIn = $('#checkIn').val();
                 var checkOut = $('#checkOut').val();
-                var roomTypeId = @Model.RoomTypeId;
 
                 if (!checkIn || !checkOut) {
-                    $('#availabilityMessage').html('<div class="alert alert-warning">Please select both dates.</div>');
+                    $('#availabilityMessage').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Please select both dates.</div>');
+                    $('#bookNowBtn').hide();
                     return;
                 }
+
+                // Validate dates
+                var checkInDate = new Date(checkIn);
+                var checkOutDate = new Date(checkOut);
+                
+                if (checkOutDate <= checkInDate) {
+                    $('#availabilityMessage').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Check-out date must be after check-in date.</div>');
+                    $('#bookNowBtn').hide();
+                    return;
+                }
+
+                // Show loading message
+                $('#availabilityMessage').html('<div class="alert alert-info"><i class="bi bi-hourglass-split me-2"></i>Checking availability...</div>');
+                $('#checkAvailabilityBtn').prop('disabled', true);
 
                 $.ajax({
                     url: '@Url.Action("CheckAvailability", "Room")',
@@ -312,18 +337,29 @@
                         checkOut: checkOut
                     },
                     success: function(response) {
-                        if (response.available) {
-                            $('#availabilityMessage').html('<div class="alert alert-success">Available! ' + response.count + ' room(s) available.</div>');
+                        $('#checkAvailabilityBtn').prop('disabled', false);
+                        if (response.available && response.count > 0) {
+                            $('#availabilityMessage').html('<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Available! ' + response.count + ' room(s) available.</div>');
                             $('#bookNowBtn').show().attr('href', '/Booking/Create?roomTypeId=' + roomTypeId + '&checkIn=' + checkIn + '&checkOut=' + checkOut);
                         } else {
-                            $('#availabilityMessage').html('<div class="alert alert-danger">' + response.message + '</div>');
+                            var message = response.message || 'No rooms available for the selected dates.';
+                            $('#availabilityMessage').html('<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>' + message + '</div>');
                             $('#bookNowBtn').hide();
                         }
                     },
-                    error: function() {
-                        $('#availabilityMessage').html('<div class="alert alert-danger">Error checking availability.</div>');
+                    error: function(xhr, status, error) {
+                        $('#checkAvailabilityBtn').prop('disabled', false);
+                        console.error('Availability check error:', error);
+                        $('#availabilityMessage').html('<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Error checking availability. Please try again.</div>');
+                        $('#bookNowBtn').hide();
                     }
                 });
+            }
+
+            // Check availability only when button is clicked
+            $('#checkAvailabilityBtn').on('click', function(e) {
+                e.preventDefault();
+                checkAvailability();
             });
         });
     </script>

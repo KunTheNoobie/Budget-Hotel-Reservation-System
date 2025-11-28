@@ -789,14 +789,13 @@ namespace Assignment.Controllers
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);
             // Review is linked to Booking, user info from Booking.User
+            // Note: Review.Booking is automatically populated by EF, so we don't need to include it
             var booking = await _context.Bookings
                 .Include(b => b.User)
                 .Include(b => b.Room)
                     .ThenInclude(r => r.RoomType)
                 .Include(b => b.Promotion)
                 .Include(b => b.Reviews)
-                    .ThenInclude(r => r.Booking)
-                        .ThenInclude(b => b.User)
                 .FirstOrDefaultAsync(b => b.BookingId == id);
 
             if (booking == null || (booking.UserId != userId && AuthenticationHelper.GetUserRole(HttpContext) != UserRole.Admin))

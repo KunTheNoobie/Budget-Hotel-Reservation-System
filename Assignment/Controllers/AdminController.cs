@@ -445,14 +445,14 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateHotel(Hotel hotel, IFormFile? imageFile, string? imageUrl)
         {
-            // Check for duplicate hotel name
-            if (await _context.Hotels.AnyAsync(h => h.Name == hotel.Name))
+            // Check for duplicate hotel name (including deleted hotels)
+            if (await _context.Hotels.IgnoreQueryFilters().AnyAsync(h => h.Name == hotel.Name && !h.IsDeleted))
             {
                 ModelState.AddModelError("Name", "A hotel with this name already exists.");
             }
 
-            // Check for duplicate address
-            if (await _context.Hotels.AnyAsync(h => h.Address == hotel.Address && h.City == hotel.City))
+            // Check for duplicate address (including deleted hotels)
+            if (await _context.Hotels.IgnoreQueryFilters().AnyAsync(h => h.Address == hotel.Address && h.City == hotel.City && !h.IsDeleted))
             {
                 ModelState.AddModelError("Address", "A hotel at this address already exists.");
             }
@@ -469,6 +469,10 @@ namespace Assignment.Controllers
 
             if (ModelState.IsValid)
             {
+                // Explicitly set IsDeleted to false to ensure hotel is visible
+                hotel.IsDeleted = false;
+                hotel.DeletedAt = null;
+
                 // Handle image upload
                 if (imageFile != null && imageFile.Length > 0)
                 {
@@ -523,14 +527,14 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Check for duplicate hotel name (excluding current hotel)
-            if (await _context.Hotels.AnyAsync(h => h.Name == hotel.Name && h.HotelId != id))
+            // Check for duplicate hotel name (excluding current hotel, including deleted hotels)
+            if (await _context.Hotels.IgnoreQueryFilters().AnyAsync(h => h.Name == hotel.Name && h.HotelId != id && !h.IsDeleted))
             {
                 ModelState.AddModelError("Name", "A hotel with this name already exists.");
             }
 
-            // Check for duplicate address (excluding current hotel)
-            if (await _context.Hotels.AnyAsync(h => h.Address == hotel.Address && h.City == hotel.City && h.HotelId != id))
+            // Check for duplicate address (excluding current hotel, including deleted hotels)
+            if (await _context.Hotels.IgnoreQueryFilters().AnyAsync(h => h.Address == hotel.Address && h.City == hotel.City && h.HotelId != id && !h.IsDeleted))
             {
                 ModelState.AddModelError("Address", "A hotel at this address already exists.");
             }
@@ -596,7 +600,7 @@ namespace Assignment.Controllers
                     existingHotel.ImageUrl = imageUrl;
                 }
 
-                // Update other fields
+                // Update other fields (preserve IsDeleted and DeletedAt - don't allow editing these through the form)
                 existingHotel.Name = hotel.Name;
                 existingHotel.Address = hotel.Address;
                 existingHotel.City = hotel.City;
@@ -605,6 +609,12 @@ namespace Assignment.Controllers
                 existingHotel.ContactNumber = hotel.ContactNumber;
                 existingHotel.ContactEmail = hotel.ContactEmail;
                 existingHotel.Description = hotel.Description;
+                // Ensure IsDeleted is false when editing (in case it was accidentally set)
+                if (existingHotel.IsDeleted)
+                {
+                    existingHotel.IsDeleted = false;
+                    existingHotel.DeletedAt = null;
+                }
 
                 await _context.SaveChangesAsync();
                 TempData["Success"] = "Hotel updated successfully.";
@@ -1003,26 +1013,48 @@ namespace Assignment.Controllers
         {
             ValidateSearchParameters(ref searchTerm, ref page, ref pageSize);
 
-            var query = _context.RoomTypes
-                .Include(rt => rt.Hotel)
-                .Include(rt => rt.RoomImages)
-                .AsQueryable();
+            // Build query - global query filter automatically excludes deleted items
+            var query = _context.RoomTypes.AsQueryable();
 
             if (!string.IsNullOrEmpty(searchTerm))
             {
-                query = query.Where(rt => rt.Name.Contains(searchTerm) || rt.Hotel.Name.Contains(searchTerm));
+                query = query.Where(rt => rt.Name.Contains(searchTerm) || (rt.Hotel != null && rt.Hotel.Name.Contains(searchTerm)));
             }
 
+            // Get total count first (before Include to ensure accurate count)
             var totalCount = await query.CountAsync();
+            
+            // Calculate total pages - same as other actions (Users, Rooms, Promotions)
+            var totalPages = totalCount > 0 ? (int)Math.Ceiling(totalCount / (double)pageSize) : 0;
+            
+            // Validate page number - redirect if invalid
+            if (totalCount == 0 && page > 1)
+            {
+                return RedirectToAction("RoomTypes", new { searchTerm });
+            }
+            else if (totalCount > 0 && page > totalPages)
+            {
+                return RedirectToAction("RoomTypes", new { searchTerm, page = totalPages, pageSize });
+            }
+
+            // Now add Includes for the actual data retrieval (query filter still applies)
             var roomTypes = await query
+                .Include(rt => rt.Hotel)
+                .Include(rt => rt.RoomImages)
                 .OrderBy(rt => rt.RoomTypeId)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
 
+            // Final safety check: if current page has no results, redirect to last valid page
+            if (totalCount > 0 && !roomTypes.Any() && page > 1)
+            {
+                return RedirectToAction("RoomTypes", new { searchTerm, page = totalPages, pageSize });
+            }
+
             ViewBag.SearchTerm = searchTerm;
             ViewBag.CurrentPage = page;
-            ViewBag.TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+            ViewBag.TotalPages = totalPages;
             ViewBag.PageSize = pageSize;
 
             return View(roomTypes);
@@ -1209,6 +1241,8 @@ namespace Assignment.Controllers
             await _context.SaveChangesAsync();
 
             TempData["Success"] = "Room type deleted successfully.";
+            // Always redirect to page 1 after deletion (consistent with other delete functions like DeleteHotel)
+            // Redirect without parameters to ensure we go to page 1
             return RedirectToAction("RoomTypes");
         }
 

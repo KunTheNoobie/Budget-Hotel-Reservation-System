@@ -260,28 +260,77 @@
                 }
             }
             
-            $('#checkIn, #checkOut, #promotionId').on('change', calculatePrice);
+            // Set minimum dates for date inputs
+            var today = new Date().toISOString().split('T')[0];
+            var checkInInput = $('#checkIn');
+            var checkOutInput = $('#checkOut');
+            
+            // Set min attribute if not already set or if current value is in the past
+            if (!checkInInput.attr('min') || checkInInput.val() < today) {
+                checkInInput.attr('min', today);
+            }
+            if (!checkOutInput.attr('min') || checkOutInput.val() < today) {
+                checkOutInput.attr('min', today);
+            }
+
+            // Update check-out minimum date when check-in changes
+            checkInInput.on('change', function() {
+                var checkInValue = $(this).val();
+                if (checkInValue) {
+                    var checkInDate = new Date(checkInValue);
+                    checkInDate.setDate(checkInDate.getDate() + 1);
+                    var minCheckOut = checkInDate.toISOString().split('T')[0];
+                    checkOutInput.attr('min', minCheckOut);
+                    
+                    // If check-out is before new minimum, update it
+                    var checkOutValue = checkOutInput.val();
+                    if (checkOutValue && checkOutValue < minCheckOut) {
+                        checkOutInput.val(minCheckOut);
+                    }
+                }
+                // Clear availability message when dates change
+                $('#availabilityCheck').html('');
+                calculatePrice();
+            });
+
+            checkOutInput.on('change', function() {
+                // Clear availability message when dates change
+                $('#availabilityCheck').html('');
+                calculatePrice();
+            });
+            
+            $('#promotionId').on('change', calculatePrice);
             calculatePrice();
             
-            // Check availability when dates change
+            // Check availability function - only called when button is clicked or form is submitted
             function checkAvailability() {
-                var checkIn = $('#checkIn').val();
-                var checkOut = $('#checkOut').val();
+                var checkIn = checkInInput.val();
+                var checkOut = checkOutInput.val();
                 var roomTypeId = @roomType.RoomTypeId;
                 
                 if (!checkIn || !checkOut) {
-                    $('#availabilityCheck').html('');
+                    $('#availabilityCheck').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Please select both dates.</div>');
+                    $('#submitBtn').prop('disabled', true);
                     return;
                 }
                 
                 var checkInDate = new Date(checkIn);
                 var checkOutDate = new Date(checkOut);
                 
-                if (checkOutDate <= checkInDate) {
-                    $('#availabilityCheck').html('<div class="alert alert-warning">Check-out date must be after check-in date.</div>');
+                if (checkInDate < new Date(today)) {
+                    $('#availabilityCheck').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Check-in date cannot be in the past.</div>');
                     $('#submitBtn').prop('disabled', true);
                     return;
                 }
+                
+                if (checkOutDate <= checkInDate) {
+                    $('#availabilityCheck').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Check-out date must be after check-in date.</div>');
+                    $('#submitBtn').prop('disabled', true);
+                    return;
+                }
+                
+                // Show loading state
+                $('#availabilityCheck').html('<div class="alert alert-info"><i class="bi bi-hourglass-split me-2"></i>Checking availability...</div>');
                 
                 $.ajax({
                     url: '@Url.Action("CheckAvailability", "Room")',
@@ -296,23 +345,37 @@
                             $('#availabilityCheck').html('<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Available! ' + response.count + ' room(s) available for the selected dates.</div>');
                             $('#submitBtn').prop('disabled', false);
                         } else {
-                            $('#availabilityCheck').html('<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>No rooms available for the selected dates.</div>');
+                            var message = response.message || 'No rooms available for the selected dates.';
+                            $('#availabilityCheck').html('<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>' + message + '</div>');
                             $('#submitBtn').prop('disabled', true);
                         }
                     },
-                    error: function() {
-                        $('#availabilityCheck').html('<div class="alert alert-warning">Error checking availability. Please try again.</div>');
+                    error: function(xhr, status, error) {
+                        console.error('Availability check error:', error);
+                        $('#availabilityCheck').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Error checking availability. Please try again.</div>');
                         $('#submitBtn').prop('disabled', false);
                     }
                 });
             }
             
-            $('#checkIn, #checkOut').on('change', function() {
-                checkAvailability();
+            // Check availability when form is submitted (for validation)
+            $('form').on('submit', function(e) {
+                var checkIn = checkInInput.val();
+                var checkOut = checkOutInput.val();
+                
+                if (!checkIn || !checkOut) {
+                    e.preventDefault();
+                    $('#availabilityCheck').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Please select both dates.</div>');
+                    return false;
+                }
+                
+                // If availability hasn't been checked, check it now
+                if ($('#availabilityCheck').html().trim() === '') {
+                    e.preventDefault();
+                    checkAvailability();
+                    return false;
+                }
             });
-            
-            // Check on page load
-            checkAvailability();
         });
     </script>
 }

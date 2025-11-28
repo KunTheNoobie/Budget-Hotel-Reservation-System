@@ -13,7 +13,13 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure database connection using Entity Framework Core
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<HotelDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null);
+    }));
 
 // Initialize Encryption Service for encrypting sensitive data (e.g., phone numbers)
 var encryptionKey = builder.Configuration["EncryptionKey"];

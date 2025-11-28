@@ -97,14 +97,14 @@
                 </tbody>
             </table>
 
-            @if (ViewBag.TotalPages > 1)
+            @if (ViewBag.TotalPages > 0 && ViewBag.TotalPages > 1 && Model != null && Model.Count > 0)
             {
                 <nav>
                     <ul class="pagination">
                         @for (int i = 1; i <= ViewBag.TotalPages; i++)
                         {
                             <li class="page-item @(i == ViewBag.CurrentPage ? "active" : "")">
-                                <a class="page-link" href="?page=@i&searchTerm=@ViewBag.SearchTerm">@i</a>
+                                <a class="page-link" href="?page=@i&searchTerm=@(ViewBag.SearchTerm ?? "")">@i</a>
                             </li>
                         }
                     </ul>
