@@ -13,7 +13,7 @@
 
     <form asp-action="EditHotel" method="post" enctype="multipart/form-data">
         <input type="hidden" asp-for="HotelId" />
-        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div asp-validation-summary="All" class="text-danger"></div>
 
         <div class="mb-3">
             <label asp-for="Name" class="form-label"></label>
@@ -116,6 +116,10 @@
                                 </option>
                             }
                         </select>
+                        @if (ViewData.ModelState["ManagerId"]?.Errors?.Count > 0)
+                        {
+                            <span class="text-danger d-block">@ViewData.ModelState["ManagerId"].Errors[0].ErrorMessage</span>
+                        }
                         <small class="form-text text-muted">
                             @if (currentManager != null)
                             {
@@ -142,6 +146,10 @@
                                 </option>
                             }
                         </select>
+                        @if (ViewData.ModelState["StaffId"]?.Errors?.Count > 0)
+                        {
+                            <span class="text-danger d-block">@ViewData.ModelState["StaffId"].Errors[0].ErrorMessage</span>
+                        }
                         <small class="form-text text-muted">
                             @if (currentStaff != null)
                             {

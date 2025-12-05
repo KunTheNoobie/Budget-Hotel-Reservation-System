@@ -12,7 +12,7 @@
     <h2>Create New Hotel</h2>
 
     <form asp-action="CreateHotel" method="post" enctype="multipart/form-data">
-        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div asp-validation-summary="All" class="text-danger"></div>
 
         <div class="mb-3">
             <label asp-for="Name" class="form-label"></label>
@@ -96,6 +96,10 @@
                                 <option value="@manager.UserId">@manager.FullName (@manager.Email)</option>
                             }
                         </select>
+                        @if (ViewData.ModelState["ManagerId"]?.Errors?.Count > 0)
+                        {
+                            <span class="text-danger">@ViewData.ModelState["ManagerId"].Errors[0].ErrorMessage</span>
+                        }
                         <small class="form-text text-muted">Select a manager to assign to this hotel. You can assign later if needed.</small>
                     </div>
                     <div class="col-md-6 mb-3">
@@ -107,6 +111,10 @@
                                 <option value="@staff.UserId">@staff.FullName (@staff.Email)</option>
                             }
                         </select>
+                        @if (ViewData.ModelState["StaffId"]?.Errors?.Count > 0)
+                        {
+                            <span class="text-danger">@ViewData.ModelState["StaffId"].Errors[0].ErrorMessage</span>
+                        }
                         <small class="form-text text-muted">Select a staff member to assign to this hotel. You can assign later if needed.</small>
                     </div>
                 </div>

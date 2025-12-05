@@ -904,6 +904,34 @@ namespace Assignment.Controllers
                 }
             }
 
+            // Validate manager assignment if provided
+            if (managerId.HasValue)
+            {
+                var manager = await _context.Users.FindAsync(managerId.Value);
+                if (manager == null)
+                {
+                    ModelState.AddModelError("ManagerId", "Selected manager does not exist.");
+                }
+                else if (manager.Role != UserRole.Manager)
+                {
+                    ModelState.AddModelError("ManagerId", "Selected user is not a manager.");
+                }
+            }
+
+            // Validate staff assignment if provided
+            if (staffId.HasValue)
+            {
+                var staff = await _context.Users.FindAsync(staffId.Value);
+                if (staff == null)
+                {
+                    ModelState.AddModelError("StaffId", "Selected staff member does not exist.");
+                }
+                else if (staff.Role != UserRole.Staff)
+                {
+                    ModelState.AddModelError("StaffId", "Selected user is not a staff member.");
+                }
+            }
+
             if (ModelState.IsValid)
             {
                 // Explicitly set IsDeleted to false to ensure hotel is visible
@@ -937,32 +965,36 @@ namespace Assignment.Controllers
                 _context.Hotels.Add(hotel);
                 await _context.SaveChangesAsync();
 
-                // Assign manager if provided
+                // Assign manager if provided (validation already done above)
                 if (managerId.HasValue)
                 {
                     var manager = await _context.Users.FindAsync(managerId.Value);
                     if (manager != null && manager.Role == UserRole.Manager)
                     {
+                        // Remove from previous hotel if assigned
                         manager.HotelId = hotel.HotelId;
+                        await _context.SaveChangesAsync();
                     }
                 }
 
-                // Assign staff if provided
+                // Assign staff if provided (validation already done above)
                 if (staffId.HasValue)
                 {
                     var staff = await _context.Users.FindAsync(staffId.Value);
                     if (staff != null && staff.Role == UserRole.Staff)
                     {
+                        // Remove from previous hotel if assigned
                         staff.HotelId = hotel.HotelId;
+                        await _context.SaveChangesAsync();
                     }
                 }
 
+                var successMessage = "Hotel created successfully.";
                 if (managerId.HasValue || staffId.HasValue)
                 {
-                    await _context.SaveChangesAsync();
+                    successMessage += " Staff assignments updated.";
                 }
-
-                TempData["Success"] = "Hotel created successfully.";
+                TempData["Success"] = successMessage;
                 return RedirectToAction("Hotels");
             }
 
@@ -1115,7 +1147,7 @@ namespace Assignment.Controllers
 
                 await _context.SaveChangesAsync();
 
-                // Handle manager/staff assignment
+                // Handle manager/staff assignment (validation already done above)
                 // Remove current assignments for this hotel
                 var currentManagers = await _context.Users
                     .Where(u => u.Role == UserRole.Manager && u.HotelId == id)
@@ -1133,7 +1165,7 @@ namespace Assignment.Controllers
                     staff.HotelId = null;
                 }
 
-                // Assign new manager if provided
+                // Assign new manager if provided (validation already done above)
                 if (managerId.HasValue)
                 {
                     var manager = await _context.Users.FindAsync(managerId.Value);
@@ -1143,7 +1175,7 @@ namespace Assignment.Controllers
                     }
                 }
 
-                // Assign new staff if provided
+                // Assign new staff if provided (validation already done above)
                 if (staffId.HasValue)
                 {
                     var staff = await _context.Users.FindAsync(staffId.Value);
@@ -1158,7 +1190,12 @@ namespace Assignment.Controllers
                     await _context.SaveChangesAsync();
                 }
 
-                TempData["Success"] = "Hotel updated successfully.";
+                var successMessage = "Hotel updated successfully.";
+                if (managerId.HasValue || staffId.HasValue || currentManagers.Any() || currentStaff.Any())
+                {
+                    successMessage += " Staff assignments updated.";
+                }
+                TempData["Success"] = successMessage;
                 return RedirectToAction("Hotels");
             }
 
