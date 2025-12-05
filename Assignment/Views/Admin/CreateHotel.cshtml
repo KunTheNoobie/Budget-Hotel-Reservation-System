@@ -81,6 +81,38 @@
             </div>
         </div>
 
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Assign Staff/Manager (Optional)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="managerId" class="form-label">Select Manager</label>
+                        <select name="managerId" id="managerId" class="form-select">
+                            <option value="">-- No Manager (Assign Later) --</option>
+                            @foreach (var manager in ViewBag.AvailableManagers as List<Assignment.Models.User> ?? new List<Assignment.Models.User>())
+                            {
+                                <option value="@manager.UserId">@manager.FullName (@manager.Email)</option>
+                            }
+                        </select>
+                        <small class="form-text text-muted">Select a manager to assign to this hotel. You can assign later if needed.</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="staffId" class="form-label">Select Staff</label>
+                        <select name="staffId" id="staffId" class="form-select">
+                            <option value="">-- No Staff (Assign Later) --</option>
+                            @foreach (var staff in ViewBag.AvailableStaff as List<Assignment.Models.User> ?? new List<Assignment.Models.User>())
+                            {
+                                <option value="@staff.UserId">@staff.FullName (@staff.Email)</option>
+                            }
+                        </select>
+                        <small class="form-text text-muted">Select a staff member to assign to this hotel. You can assign later if needed.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="mb-3">
             <button type="submit" class="btn btn-primary">Create</button>
             <a asp-action="Hotels" class="btn btn-secondary">Cancel</a>

@@ -176,8 +176,8 @@ namespace Assignment.Controllers
                 {
                     // Get user IDs from bookings at their hotel
                     var bookingUserIds = _context.Bookings
-                        .Include(b => b.Room)
-                            .ThenInclude(r => r.RoomType)
+                .Include(b => b.Room)
+                .ThenInclude(r => r.RoomType)
                         .Where(b => accessibleHotelIds.Contains(b.Room.RoomType.HotelId))
                         .Select(b => b.UserId)
                         .Distinct();
@@ -229,12 +229,12 @@ namespace Assignment.Controllers
                     startDate = DateTime.Today.AddMonths(-1);
                     dateFormat = "MMM dd";
                     for (var date = startDate; date <= DateTime.Today; date = date.AddDays(1))
-                    {
+            {
                         var dailyRevenue = bookingsQuery
-                            .Where(b => b.PaymentDate.HasValue && 
-                                       b.PaymentDate.Value.Date == date && 
-                                       b.PaymentStatus == PaymentStatus.Completed)
-                            .Sum(b => b.PaymentAmount ?? 0);
+                    .Where(b => b.PaymentDate.HasValue && 
+                               b.PaymentDate.Value.Date == date && 
+                               b.PaymentStatus == PaymentStatus.Completed)
+                    .Sum(b => b.PaymentAmount ?? 0);
                         revenueData.Add(dailyRevenue);
                         dateLabels.Add(date.ToString(dateFormat));
                     }
@@ -300,7 +300,7 @@ namespace Assignment.Controllers
                                        b.PaymentDate.Value.Date == date && 
                                        b.PaymentStatus == PaymentStatus.Completed)
                             .Sum(b => b.PaymentAmount ?? 0);
-                        revenueData.Add(dailyRevenue);
+                revenueData.Add(dailyRevenue);
                         dateLabels.Add(date.ToString(dateFormat));
                     }
                     break;
@@ -819,6 +819,22 @@ namespace Assignment.Controllers
                 .Take(pageSize)
                 .ToListAsync();
 
+            // Load Manager/Staff assignments for each hotel (Admin only)
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role == UserRole.Admin)
+            {
+                var hotelIds = hotels.Select(h => h.HotelId).ToList();
+                var managers = await _context.Users
+                    .Where(u => u.Role == UserRole.Manager && u.HotelId.HasValue && hotelIds.Contains(u.HotelId.Value))
+                    .ToListAsync();
+                var staff = await _context.Users
+                    .Where(u => u.Role == UserRole.Staff && u.HotelId.HasValue && hotelIds.Contains(u.HotelId.Value))
+                    .ToListAsync();
+                
+                ViewBag.Managers = managers.ToDictionary(m => m.HotelId!.Value, m => m);
+                ViewBag.Staff = staff.ToDictionary(s => s.HotelId!.Value, s => s);
+            }
+
             ViewBag.SearchTerm = searchTerm;
             ViewBag.CurrentPage = page;
             ViewBag.TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
@@ -828,7 +844,7 @@ namespace Assignment.Controllers
         }
 
         [HttpGet]
-        public IActionResult CreateHotel()
+        public async Task<IActionResult> CreateHotel()
         {
             // Only Admin can create hotels
             var role = AuthenticationHelper.GetUserRole(HttpContext);
@@ -837,12 +853,26 @@ namespace Assignment.Controllers
                 TempData["Error"] = "You do not have permission to create hotels.";
                 return RedirectToAction("Hotels");
             }
+
+            // Get all available managers and staff (those not assigned to any hotel)
+            var availableManagers = await _context.Users
+                .Where(u => u.Role == UserRole.Manager && !u.HotelId.HasValue)
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+            var availableStaff = await _context.Users
+                .Where(u => u.Role == UserRole.Staff && !u.HotelId.HasValue)
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+
+            ViewBag.AvailableManagers = availableManagers;
+            ViewBag.AvailableStaff = availableStaff;
+
             return View();
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CreateHotel(Hotel hotel, IFormFile? imageFile, string? imageUrl)
+        public async Task<IActionResult> CreateHotel(Hotel hotel, IFormFile? imageFile, string? imageUrl, int? managerId, int? staffId)
         {
             // Only Admin can create hotels
             var role = AuthenticationHelper.GetUserRole(HttpContext);
@@ -906,9 +936,48 @@ namespace Assignment.Controllers
 
                 _context.Hotels.Add(hotel);
                 await _context.SaveChangesAsync();
+
+                // Assign manager if provided
+                if (managerId.HasValue)
+                {
+                    var manager = await _context.Users.FindAsync(managerId.Value);
+                    if (manager != null && manager.Role == UserRole.Manager)
+                    {
+                        manager.HotelId = hotel.HotelId;
+                    }
+                }
+
+                // Assign staff if provided
+                if (staffId.HasValue)
+                {
+                    var staff = await _context.Users.FindAsync(staffId.Value);
+                    if (staff != null && staff.Role == UserRole.Staff)
+                    {
+                        staff.HotelId = hotel.HotelId;
+                    }
+                }
+
+                if (managerId.HasValue || staffId.HasValue)
+                {
+                    await _context.SaveChangesAsync();
+                }
+
                 TempData["Success"] = "Hotel created successfully.";
                 return RedirectToAction("Hotels");
             }
+
+            // Reload available managers and staff for the view
+            var availableManagers = await _context.Users
+                .Where(u => u.Role == UserRole.Manager && !u.HotelId.HasValue)
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+            var availableStaff = await _context.Users
+                .Where(u => u.Role == UserRole.Staff && !u.HotelId.HasValue)
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+
+            ViewBag.AvailableManagers = availableManagers;
+            ViewBag.AvailableStaff = availableStaff;
 
             return View(hotel);
         }
@@ -922,12 +991,33 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
+            // Get current manager and staff for this hotel
+            var currentManager = await _context.Users
+                .FirstOrDefaultAsync(u => u.Role == UserRole.Manager && u.HotelId == id);
+            var currentStaff = await _context.Users
+                .FirstOrDefaultAsync(u => u.Role == UserRole.Staff && u.HotelId == id);
+
+            // Get all available managers and staff (those not assigned to any hotel or assigned to this hotel)
+            var availableManagers = await _context.Users
+                .Where(u => u.Role == UserRole.Manager && (!u.HotelId.HasValue || u.HotelId == id))
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+            var availableStaff = await _context.Users
+                .Where(u => u.Role == UserRole.Staff && (!u.HotelId.HasValue || u.HotelId == id))
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+
+            ViewBag.CurrentManager = currentManager;
+            ViewBag.CurrentStaff = currentStaff;
+            ViewBag.AvailableManagers = availableManagers;
+            ViewBag.AvailableStaff = availableStaff;
+
             return View(hotel);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditHotel(int id, Hotel hotel, IFormFile? imageFile, string? imageUrl)
+        public async Task<IActionResult> EditHotel(int id, Hotel hotel, IFormFile? imageFile, string? imageUrl, int? managerId, int? staffId)
         {
             if (id != hotel.HotelId)
             {
@@ -1024,9 +1114,73 @@ namespace Assignment.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+
+                // Handle manager/staff assignment
+                // Remove current assignments for this hotel
+                var currentManagers = await _context.Users
+                    .Where(u => u.Role == UserRole.Manager && u.HotelId == id)
+                    .ToListAsync();
+                foreach (var manager in currentManagers)
+                {
+                    manager.HotelId = null;
+                }
+
+                var currentStaff = await _context.Users
+                    .Where(u => u.Role == UserRole.Staff && u.HotelId == id)
+                    .ToListAsync();
+                foreach (var staff in currentStaff)
+                {
+                    staff.HotelId = null;
+                }
+
+                // Assign new manager if provided
+                if (managerId.HasValue)
+                {
+                    var manager = await _context.Users.FindAsync(managerId.Value);
+                    if (manager != null && manager.Role == UserRole.Manager)
+                    {
+                        manager.HotelId = id;
+                    }
+                }
+
+                // Assign new staff if provided
+                if (staffId.HasValue)
+                {
+                    var staff = await _context.Users.FindAsync(staffId.Value);
+                    if (staff != null && staff.Role == UserRole.Staff)
+                    {
+                        staff.HotelId = id;
+                    }
+                }
+
+                if (currentManagers.Any() || currentStaff.Any() || managerId.HasValue || staffId.HasValue)
+                {
+                    await _context.SaveChangesAsync();
+                }
+
                 TempData["Success"] = "Hotel updated successfully.";
                 return RedirectToAction("Hotels");
             }
+
+            // Reload current and available managers/staff for the view
+            var currentManager = await _context.Users
+                .FirstOrDefaultAsync(u => u.Role == UserRole.Manager && u.HotelId == id);
+            var currentStaffMember = await _context.Users
+                .FirstOrDefaultAsync(u => u.Role == UserRole.Staff && u.HotelId == id);
+
+            var availableManagers = await _context.Users
+                .Where(u => u.Role == UserRole.Manager && (!u.HotelId.HasValue || u.HotelId == id))
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+            var availableStaff = await _context.Users
+                .Where(u => u.Role == UserRole.Staff && (!u.HotelId.HasValue || u.HotelId == id))
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+
+            ViewBag.CurrentManager = currentManager;
+            ViewBag.CurrentStaff = currentStaffMember;
+            ViewBag.AvailableManagers = availableManagers;
+            ViewBag.AvailableStaff = availableStaff;
 
             return View(hotel);
         }
@@ -1073,6 +1227,120 @@ namespace Assignment.Controllers
             hotel.DeletedAt = DateTime.Now;
             await _context.SaveChangesAsync();
             TempData["Success"] = "Hotel deleted successfully.";
+            return RedirectToAction("Hotels");
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> AssignHotelStaff(int id)
+        {
+            // Only Admin can assign staff/managers
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role != UserRole.Admin)
+            {
+                TempData["Error"] = "You do not have permission to assign staff/managers.";
+                return RedirectToAction("Hotels");
+            }
+
+            var hotel = await _context.Hotels.FindAsync(id);
+            if (hotel == null)
+            {
+                return NotFound();
+            }
+
+            // Get current manager and staff for this hotel
+            var currentManager = await _context.Users
+                .FirstOrDefaultAsync(u => u.Role == UserRole.Manager && u.HotelId == id);
+            var currentStaff = await _context.Users
+                .FirstOrDefaultAsync(u => u.Role == UserRole.Staff && u.HotelId == id);
+
+            // Get all available managers and staff (those not assigned to any hotel or assigned to this hotel)
+            var availableManagers = await _context.Users
+                .Where(u => u.Role == UserRole.Manager && (!u.HotelId.HasValue || u.HotelId == id))
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+            var availableStaff = await _context.Users
+                .Where(u => u.Role == UserRole.Staff && (!u.HotelId.HasValue || u.HotelId == id))
+                .OrderBy(u => u.FullName)
+                .ToListAsync();
+
+            ViewBag.Hotel = hotel;
+            ViewBag.CurrentManager = currentManager;
+            ViewBag.CurrentStaff = currentStaff;
+            ViewBag.AvailableManagers = availableManagers;
+            ViewBag.AvailableStaff = availableStaff;
+
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AssignHotelStaff(int id, int? managerId, int? staffId)
+        {
+            // Only Admin can assign staff/managers
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role != UserRole.Admin)
+            {
+                TempData["Error"] = "You do not have permission to assign staff/managers.";
+                return RedirectToAction("Hotels");
+            }
+
+            var hotel = await _context.Hotels.FindAsync(id);
+            if (hotel == null)
+            {
+                return NotFound();
+            }
+
+            // Remove current assignments for this hotel
+            var currentManagers = await _context.Users
+                .Where(u => u.Role == UserRole.Manager && u.HotelId == id)
+                .ToListAsync();
+            foreach (var manager in currentManagers)
+            {
+                manager.HotelId = null;
+            }
+
+            var currentStaff = await _context.Users
+                .Where(u => u.Role == UserRole.Staff && u.HotelId == id)
+                .ToListAsync();
+            foreach (var staff in currentStaff)
+            {
+                staff.HotelId = null;
+            }
+
+            // Assign new manager if provided
+            if (managerId.HasValue)
+            {
+                var manager = await _context.Users.FindAsync(managerId.Value);
+                if (manager != null && manager.Role == UserRole.Manager)
+                {
+                    // Remove from previous hotel if assigned
+                    manager.HotelId = id;
+                }
+                else
+                {
+                    TempData["Error"] = "Invalid manager selected.";
+                    return RedirectToAction("AssignHotelStaff", new { id });
+                }
+            }
+
+            // Assign new staff if provided
+            if (staffId.HasValue)
+            {
+                var staff = await _context.Users.FindAsync(staffId.Value);
+                if (staff != null && staff.Role == UserRole.Staff)
+                {
+                    // Remove from previous hotel if assigned
+                    staff.HotelId = id;
+                }
+                else
+                {
+                    TempData["Error"] = "Invalid staff selected.";
+                    return RedirectToAction("AssignHotelStaff", new { id });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            TempData["Success"] = "Hotel staff assignments updated successfully.";
             return RedirectToAction("Hotels");
         }
 

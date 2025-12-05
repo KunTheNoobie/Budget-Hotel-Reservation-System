@@ -63,12 +63,12 @@
                         }
                         else
                         {
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Room" asp-action="Catalog">Hotels</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Packages">Packages</a>
-                            </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-area="" asp-controller="Room" asp-action="Catalog">Hotels</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Packages">Packages</a>
+                        </li>
                         }
                     </ul>
                     
@@ -88,9 +88,9 @@
                             @* Only show "My Bookings" for customers - Admin/Manager/Staff use Admin panel *@
                             @if (userRole == UserRole.Customer)
                             {
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-area="" asp-controller="Booking" asp-action="MyBookings">My Bookings</a>
-                                </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Booking" asp-action="MyBookings">My Bookings</a>
+                            </li>
                             }
                             <li class="nav-item dropdown">
                                 @{
@@ -204,28 +204,28 @@
     }
     else
     {
-        <footer class="navbar navbar-expand-lg navbar-dark mt-auto">
-            <div class="container">
-                <div class="navbar-nav w-100 d-flex flex-row justify-content-between align-items-center flex-wrap">
-                    <div class="d-flex flex-wrap align-items-center">
-                        <a class="navbar-brand mb-0 me-4" asp-area="" asp-controller="Home" asp-action="Index">BudgetStay</a>
-                        <div class="d-flex flex-wrap">
-                            <a class="nav-link" asp-controller="Home" asp-action="About">About Us</a>
-                            <a class="nav-link" asp-controller="Home" asp-action="Careers">Careers</a>
-                            <a class="nav-link" asp-controller="Home" asp-action="Press">Press</a>
-                            <a class="nav-link" asp-controller="Home" asp-action="Blog">Blog</a>
-                            <a class="nav-link" asp-controller="Home" asp-action="HelpCenter">Help Center</a>
-                            <a class="nav-link" asp-controller="Home" asp-action="Contact">Contact Us</a>
-                            <a class="nav-link" asp-controller="Home" asp-action="Privacy">Privacy Policy</a>
-                            <a class="nav-link" asp-controller="Home" asp-action="Terms">Terms of Service</a>
-                        </div>
-                    </div>
-                    <div class="text-white small mb-0">
-                        &copy; 2025 BudgetStay. All rights reserved.
+    <footer class="navbar navbar-expand-lg navbar-dark mt-auto">
+        <div class="container">
+            <div class="navbar-nav w-100 d-flex flex-row justify-content-between align-items-center flex-wrap">
+                <div class="d-flex flex-wrap align-items-center">
+                    <a class="navbar-brand mb-0 me-4" asp-area="" asp-controller="Home" asp-action="Index">BudgetStay</a>
+                    <div class="d-flex flex-wrap">
+                        <a class="nav-link" asp-controller="Home" asp-action="About">About Us</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Careers">Careers</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Press">Press</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Blog">Blog</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="HelpCenter">Help Center</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Contact">Contact Us</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Privacy">Privacy Policy</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Terms">Terms of Service</a>
                     </div>
                 </div>
+                <div class="text-white small mb-0">
+                    &copy; 2025 BudgetStay. All rights reserved.
+                </div>
             </div>
-        </footer>
+        </div>
+    </footer>
     }
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>

@@ -15,7 +15,7 @@
         <h2>Hotel Management</h2>
         @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
         {
-            <a asp-action="CreateHotel" class="btn btn-primary">Create New Hotel</a>
+        <a asp-action="CreateHotel" class="btn btn-primary">Create New Hotel</a>
         }
     </div>
 
@@ -51,6 +51,10 @@
                         <th>City</th>
                         <th>Country</th>
                         <th>Contact</th>
+                        @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
+                        {
+                            <th>Manager/Staff</th>
+                        }
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -76,6 +80,41 @@
                                 <td>@hotel.City</td>
                                 <td>@hotel.Country</td>
                                 <td>@(hotel.ContactNumber ?? hotel.ContactEmail ?? "-")</td>
+                                @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
+                                {
+                                    <td>
+                                        @{
+                                            var managersDict = ViewBag.Managers as Dictionary<int, Assignment.Models.User> ?? new Dictionary<int, Assignment.Models.User>();
+                                            var staffDict = ViewBag.Staff as Dictionary<int, Assignment.Models.User> ?? new Dictionary<int, Assignment.Models.User>();
+                                            var manager = managersDict.ContainsKey(hotel.HotelId) ? managersDict[hotel.HotelId] : null;
+                                            var staffMember = staffDict.ContainsKey(hotel.HotelId) ? staffDict[hotel.HotelId] : null;
+                                        }
+                                        <div class="small">
+                                            <div>
+                                                <strong>Manager:</strong> 
+                                                @if (manager != null)
+                                                {
+                                                    <span>@manager.FullName (@manager.Email)</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">Not assigned</span>
+                                                }
+                                            </div>
+                                            <div>
+                                                <strong>Staff:</strong> 
+                                                @if (staffMember != null)
+                                                {
+                                                    <span>@staffMember.FullName (@staffMember.Email)</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">Not assigned</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    </td>
+                                }
                                 <td>
                                     <a asp-action="EditHotel" asp-route-id="@hotel.HotelId" class="btn btn-sm btn-primary">Edit</a>
                                     <form asp-action="DeleteHotel" asp-route-id="@hotel.HotelId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this hotel?');">
@@ -88,7 +127,7 @@
                     else
                     {
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">
+                            <td colspan="@(AuthenticationHelper.GetUserRole(Context) == UserRole.Admin ? 9 : 8)" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                 No hotels found. 
                                 @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)

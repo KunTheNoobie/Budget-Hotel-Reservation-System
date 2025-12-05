@@ -15,7 +15,7 @@
         <h2>Room Type Management</h2>
         @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin || AuthenticationHelper.GetUserRole(Context) == UserRole.Manager)
         {
-            <a asp-action="CreateRoomType" class="btn btn-primary">Create New Room Type</a>
+        <a asp-action="CreateRoomType" class="btn btn-primary">Create New Room Type</a>
         }
     </div>
 

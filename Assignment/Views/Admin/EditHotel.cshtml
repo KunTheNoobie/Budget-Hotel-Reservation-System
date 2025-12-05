@@ -95,6 +95,68 @@
             </div>
         </div>
 
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Assign Staff/Manager</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="managerId" class="form-label">Select Manager</label>
+                        <select name="managerId" id="managerId" class="form-select">
+                            <option value="">-- No Manager (Unassign) --</option>
+                            @{
+                                var currentManager = ViewBag.CurrentManager as Assignment.Models.User;
+                                var availableManagers = ViewBag.AvailableManagers as List<Assignment.Models.User> ?? new List<Assignment.Models.User>();
+                            }
+                            @foreach (var manager in availableManagers)
+                            {
+                                <option value="@manager.UserId" selected="@(currentManager?.UserId == manager.UserId)">
+                                    @manager.FullName (@manager.Email)@(manager.HotelId.HasValue && manager.HotelId != Model.HotelId ? " - Currently assigned to another hotel" : "")
+                                </option>
+                            }
+                        </select>
+                        <small class="form-text text-muted">
+                            @if (currentManager != null)
+                            {
+                                <span class="text-info">Current: @currentManager.FullName (@currentManager.Email)</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">No manager currently assigned</span>
+                            }
+                        </small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="staffId" class="form-label">Select Staff</label>
+                        <select name="staffId" id="staffId" class="form-select">
+                            <option value="">-- No Staff (Unassign) --</option>
+                            @{
+                                var currentStaff = ViewBag.CurrentStaff as Assignment.Models.User;
+                                var availableStaff = ViewBag.AvailableStaff as List<Assignment.Models.User> ?? new List<Assignment.Models.User>();
+                            }
+                            @foreach (var staff in availableStaff)
+                            {
+                                <option value="@staff.UserId" selected="@(currentStaff?.UserId == staff.UserId)">
+                                    @staff.FullName (@staff.Email)@(staff.HotelId.HasValue && staff.HotelId != Model.HotelId ? " - Currently assigned to another hotel" : "")
+                                </option>
+                            }
+                        </select>
+                        <small class="form-text text-muted">
+                            @if (currentStaff != null)
+                            {
+                                <span class="text-info">Current: @currentStaff.FullName (@currentStaff.Email)</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">No staff currently assigned</span>
+                            }
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="mb-3">
             <button type="submit" class="btn btn-primary">Update</button>
             <a asp-action="Hotels" class="btn btn-secondary">Cancel</a>

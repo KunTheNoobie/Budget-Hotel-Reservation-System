@@ -15,7 +15,7 @@
         <h2>User Management</h2>
         @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
         {
-            <a asp-action="CreateUser" class="btn btn-primary">Create New User</a>
+        <a asp-action="CreateUser" class="btn btn-primary">Create New User</a>
         }
     </div>
 
