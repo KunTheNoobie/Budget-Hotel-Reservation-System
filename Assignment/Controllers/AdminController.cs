@@ -167,9 +167,38 @@ namespace Assignment.Controllers
                 roomsQuery = roomsQuery.Where(r => accessibleHotelIds.Contains(r.RoomType.HotelId));
             }
 
+            // Calculate TotalUsers filtered by accessible hotels (similar to Users() method)
+            var usersQuery = _context.Users.AsQueryable();
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role == UserRole.Manager || role == UserRole.Staff)
+            {
+                if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+                {
+                    // Get user IDs from bookings at their hotel
+                    var bookingUserIds = _context.Bookings
+                        .Include(b => b.Room)
+                            .ThenInclude(r => r.RoomType)
+                        .Where(b => accessibleHotelIds.Contains(b.Room.RoomType.HotelId))
+                        .Select(b => b.UserId)
+                        .Distinct();
+
+                    // Count users from accessible hotels (Manager/Staff assigned to hotel OR customers who booked there)
+                    usersQuery = usersQuery.Where(u => 
+                        (u.HotelId.HasValue && accessibleHotelIds.Contains(u.HotelId.Value)) ||
+                        (u.Role == UserRole.Customer && bookingUserIds.Contains(u.UserId))
+                    );
+                }
+                else
+                {
+                    // No hotel access - return 0
+                    usersQuery = usersQuery.Where(u => false);
+                }
+            }
+            // Admin can see all users, so no filtering needed
+
             var stats = new
             {
-                TotalUsers = _context.Users.Count(),
+                TotalUsers = usersQuery.Count(),
                 TotalHotels = hotelsQuery.Count(),
                 TotalRooms = roomsQuery.Count(),
                 TotalBookings = bookingsQuery.Count(),
@@ -460,13 +489,59 @@ namespace Assignment.Controllers
         [HttpGet]
         public async Task<IActionResult> EditUser(int id)
         {
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            
             var user = await _context.Users.FindAsync(id);
             if (user == null)
             {
                 return NotFound();
             }
 
-            ViewBag.Hotels = _context.Hotels.OrderBy(h => h.Name).ToList();
+            // Check if user has access to edit this user
+            // Admin can edit any user
+            // Manager/Staff can only edit users from their accessible hotels
+            if (role == UserRole.Manager || role == UserRole.Staff)
+            {
+                if (accessibleHotelIds != null)
+                {
+                    if (accessibleHotelIds.Count == 0)
+                    {
+                        TempData["Error"] = "You do not have access to edit this user.";
+                        return RedirectToAction("Users");
+                    }
+
+                    // Check if user is assigned to accessible hotel
+                    bool hasAccess = false;
+                    if (user.HotelId.HasValue && accessibleHotelIds.Contains(user.HotelId.Value))
+                    {
+                        hasAccess = true;
+                    }
+                    else if (user.Role == UserRole.Customer)
+                    {
+                        // Check if customer has bookings at accessible hotels
+                        hasAccess = await _context.Bookings
+                            .Include(b => b.Room)
+                                .ThenInclude(r => r.RoomType)
+                            .AnyAsync(b => b.UserId == user.UserId && 
+                                          accessibleHotelIds.Contains(b.Room.RoomType.HotelId));
+                    }
+
+                    if (!hasAccess)
+                    {
+                        TempData["Error"] = "You do not have access to edit this user.";
+                        return RedirectToAction("Users");
+                    }
+                }
+            }
+
+            var hotelsQuery = _context.Hotels.AsQueryable();
+            if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+            {
+                hotelsQuery = hotelsQuery.Where(h => accessibleHotelIds.Contains(h.HotelId));
+            }
+            
+            ViewBag.Hotels = await hotelsQuery.OrderBy(h => h.Name).ToListAsync();
             return View(user);
         }
 
@@ -479,6 +554,9 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+
             // Remove PasswordHash from validation since we handle it separately
             ModelState.Remove("PasswordHash");
 
@@ -486,6 +564,43 @@ namespace Assignment.Controllers
             if (existingUser == null)
             {
                 return NotFound();
+            }
+
+            // Check if user has access to edit this user
+            // Admin can edit any user
+            // Manager/Staff can only edit users from their accessible hotels
+            if (role == UserRole.Manager || role == UserRole.Staff)
+            {
+                if (accessibleHotelIds != null)
+                {
+                    if (accessibleHotelIds.Count == 0)
+                    {
+                        TempData["Error"] = "You do not have access to edit this user.";
+                        return RedirectToAction("Users");
+                    }
+
+                    // Check if user is assigned to accessible hotel
+                    bool hasAccess = false;
+                    if (existingUser.HotelId.HasValue && accessibleHotelIds.Contains(existingUser.HotelId.Value))
+                    {
+                        hasAccess = true;
+                    }
+                    else if (existingUser.Role == UserRole.Customer)
+                    {
+                        // Check if customer has bookings at accessible hotels
+                        hasAccess = await _context.Bookings
+                            .Include(b => b.Room)
+                                .ThenInclude(r => r.RoomType)
+                            .AnyAsync(b => b.UserId == existingUser.UserId && 
+                                          accessibleHotelIds.Contains(b.Room.RoomType.HotelId));
+                    }
+
+                    if (!hasAccess)
+                    {
+                        TempData["Error"] = "You do not have access to edit this user.";
+                        return RedirectToAction("Users");
+                    }
+                }
             }
 
             // Validate required fields
@@ -547,6 +662,21 @@ namespace Assignment.Controllers
                 {
                     ModelState.AddModelError("HotelId", "Selected hotel does not exist.");
                 }
+                else if (role == UserRole.Manager || role == UserRole.Staff)
+                {
+                    // Manager/Staff can only assign users to their accessible hotels
+                    if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+                    {
+                        if (!accessibleHotelIds.Contains(user.HotelId.Value))
+                        {
+                            ModelState.AddModelError("HotelId", "You do not have access to assign users to this hotel.");
+                        }
+                    }
+                    else
+                    {
+                        ModelState.AddModelError("HotelId", "You do not have access to assign users to hotels.");
+                    }
+                }
             }
             else
             {
@@ -574,7 +704,13 @@ namespace Assignment.Controllers
                 return RedirectToAction("Users");
             }
 
-            ViewBag.Hotels = _context.Hotels.OrderBy(h => h.Name).ToList();
+            var hotelsQueryForView = _context.Hotels.AsQueryable();
+            if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+            {
+                hotelsQueryForView = hotelsQueryForView.Where(h => accessibleHotelIds.Contains(h.HotelId));
+            }
+            
+            ViewBag.Hotels = await hotelsQueryForView.OrderBy(h => h.Name).ToListAsync();
             return View(user);
         }
 
