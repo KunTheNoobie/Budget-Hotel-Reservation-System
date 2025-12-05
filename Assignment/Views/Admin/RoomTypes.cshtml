@@ -3,6 +3,8 @@
     Displays list of all room types with pricing, occupancy, and amenities.
     Allows admins to create, edit, and manage room type configurations.
 *@
+@using Assignment.Helpers
+@using Assignment.Models
 @model List<Assignment.Models.RoomType>
 @{
     ViewData["Title"] = "Room Type Management";
@@ -11,7 +13,10 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Room Type Management</h2>
-        <a asp-action="CreateRoomType" class="btn btn-primary">Create New Room Type</a>
+        @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin || AuthenticationHelper.GetUserRole(Context) == UserRole.Manager)
+        {
+            <a asp-action="CreateRoomType" class="btn btn-primary">Create New Room Type</a>
+        }
     </div>
 
     @if (TempData["Success"] != null)
@@ -90,7 +95,16 @@
                         <tr>
                             <td colspan="6" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                No room types found. <a asp-action="CreateRoomType">Create your first room type</a> to get started.
+                                No room types found. 
+                                @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin || AuthenticationHelper.GetUserRole(Context) == UserRole.Manager)
+                                {
+                                    <a asp-action="CreateRoomType">Create your first room type</a>
+                                }
+                                else
+                                {
+                                    <span>Contact your administrator to add room types.</span>
+                                }
+                                to get started.
                             </td>
                         </tr>
                     }

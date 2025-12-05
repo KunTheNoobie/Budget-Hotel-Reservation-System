@@ -1,5 +1,6 @@
 using Assignment.Models;
 using Assignment.Models.Data;
+using Assignment.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -48,6 +49,15 @@ namespace Assignment.Controllers
         /// <returns>The room catalog view with filtered results.</returns>
         public async Task<IActionResult> Catalog(string searchTerm = "", int? roomTypeId = null, decimal? maxPrice = null, DateTime? checkIn = null, int? guests = null, int page = 1, int pageSize = 9)
         {
+            // Redirect Admin/Manager/Staff to admin panel
+            if (AuthenticationHelper.IsAuthenticated(HttpContext))
+            {
+                var role = AuthenticationHelper.GetUserRole(HttpContext);
+                if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
+                {
+                    return RedirectToAction("Index", "Admin");
+                }
+            }
             // Validate input parameters
             if (guests.HasValue && (guests.Value < 1 || guests.Value > 20))
             {

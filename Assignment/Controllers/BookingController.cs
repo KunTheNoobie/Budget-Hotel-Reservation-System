@@ -15,6 +15,7 @@ namespace Assignment.Controllers
     /// Manages booking creation, payment processing, booking history, cancellation,
     /// receipt generation, and QR code generation for booking confirmations.
     /// Requires authentication (Customer, Admin, Manager, or Staff roles).
+    /// Note: Only Customers can create bookings; Admin/Manager/Staff can view/manage bookings but cannot create them.
     /// </summary>
     [AuthorizeRole(UserRole.Customer, UserRole.Admin, UserRole.Manager, UserRole.Staff)]
     public class BookingController : Controller
@@ -35,21 +36,29 @@ namespace Assignment.Controllers
         private readonly PromotionValidationService _promotionValidation;
 
         /// <summary>
+        /// Service for automatically updating booking statuses.
+        /// </summary>
+        private readonly BookingStatusUpdateService _bookingStatusUpdate;
+
+        /// <summary>
         /// Initializes a new instance of the BookingController.
         /// </summary>
         /// <param name="context">Database context for data access.</param>
         /// <param name="logger">Logger instance for logging.</param>
         /// <param name="promotionValidation">Service for promotion validation.</param>
-        public BookingController(HotelDbContext context, ILogger<BookingController> logger, PromotionValidationService promotionValidation)
+        /// <param name="bookingStatusUpdate">Service for automatic booking status updates.</param>
+        public BookingController(HotelDbContext context, ILogger<BookingController> logger, PromotionValidationService promotionValidation, BookingStatusUpdateService bookingStatusUpdate)
         {
             _context = context;
             _logger = logger;
             _promotionValidation = promotionValidation;
+            _bookingStatusUpdate = bookingStatusUpdate;
         }
 
         /// <summary>
         /// Displays the booking creation page for a specific room type or package.
         /// Allows users to select dates, apply promotion codes, and proceed to payment.
+        /// Admin, Manager, and Staff cannot create bookings.
         /// </summary>
         /// <param name="roomTypeId">ID of the room type to book.</param>
         /// <param name="checkIn">Optional check-in date (defaults to tomorrow).</param>
@@ -63,6 +72,14 @@ namespace Assignment.Controllers
             if (userId == null)
             {
                 return RedirectToAction("Login", "Security");
+            }
+
+            // Prevent Admin, Manager, and Staff from creating bookings
+            var userRole = AuthenticationHelper.GetUserRole(HttpContext);
+            if (userRole == UserRole.Admin || userRole == UserRole.Manager || userRole == UserRole.Staff)
+            {
+                TempData["Error"] = "Administrators, Managers, and Staff cannot create bookings. Please use a customer account.";
+                return RedirectToAction("Index", "Home");
             }
 
             var roomType = await _context.RoomTypes
@@ -100,7 +117,7 @@ namespace Assignment.Controllers
                     // Get the room type from the package, not from the roomTypeId parameter
                     var packageRoomTypeId = package.PackageItems
                         .Where(pi => pi.RoomTypeId.HasValue)
-                        .Select(pi => pi.RoomTypeId.Value)
+                        .Select(pi => pi.RoomTypeId!.Value)
                         .FirstOrDefault();
                     
                     // If package has a room type, use it instead of the parameter
@@ -146,6 +163,14 @@ namespace Assignment.Controllers
                 return RedirectToAction("Login", "Security");
             }
 
+            // Prevent Admin, Manager, and Staff from creating bookings
+            var userRole = AuthenticationHelper.GetUserRole(HttpContext);
+            if (userRole == UserRole.Admin || userRole == UserRole.Manager || userRole == UserRole.Staff)
+            {
+                TempData["Error"] = "Administrators, Managers, and Staff cannot create bookings. Please use a customer account.";
+                return RedirectToAction("Index", "Home");
+            }
+
             if (checkIn >= checkOut)
             {
                 ModelState.AddModelError("", "Check-out date must be after check-in date.");
@@ -168,7 +193,7 @@ namespace Assignment.Controllers
                 {
                     var packageRoomTypeId = package.PackageItems
                         .Where(pi => pi.RoomTypeId.HasValue)
-                        .Select(pi => pi.RoomTypeId.Value)
+                        .Select(pi => pi.RoomTypeId!.Value)
                         .FirstOrDefault();
                     
                     if (packageRoomTypeId > 0)
@@ -237,7 +262,7 @@ namespace Assignment.Controllers
                         // Get the room type from the package
                         var packageRoomTypeId = package.PackageItems
                             .Where(pi => pi.RoomTypeId.HasValue)
-                            .Select(pi => pi.RoomTypeId.Value)
+                            .Select(pi => pi.RoomTypeId!.Value)
                             .FirstOrDefault();
                         
                         if (packageRoomTypeId > 0)
@@ -351,7 +376,7 @@ namespace Assignment.Controllers
                         // Get the room type from the package
                         var packageRoomTypeId = package.PackageItems
                             .Where(pi => pi.RoomTypeId.HasValue)
-                            .Select(pi => pi.RoomTypeId.Value)
+                            .Select(pi => pi.RoomTypeId!.Value)
                             .FirstOrDefault();
                         
                         if (packageRoomTypeId > 0)
@@ -730,6 +755,15 @@ namespace Assignment.Controllers
         public async Task<IActionResult> BookingConfirmation(int bookingId)
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);
+            var userRole = AuthenticationHelper.GetUserRole(HttpContext);
+            
+            // Only customers can view booking confirmation - Admin/Manager/Staff should use Admin panel
+            if (userRole != UserRole.Customer)
+            {
+                TempData["Error"] = "Administrators, Managers, and Staff cannot access customer booking features. Please use the Admin panel to view booking details.";
+                return RedirectToAction("Bookings", "Admin");
+            }
+            
             var booking = await _context.Bookings
                 .Include(b => b.User)
                 .Include(b => b.Room)
@@ -756,6 +790,24 @@ namespace Assignment.Controllers
             if (userId == null)
             {
                 return RedirectToAction("Login", "Security");
+            }
+
+            // Only customers can view their bookings - Admin/Manager/Staff should use Admin panel
+            var userRole = AuthenticationHelper.GetUserRole(HttpContext);
+            if (userRole != UserRole.Customer)
+            {
+                TempData["Error"] = "Administrators, Managers, and Staff cannot access customer booking features. Please use the Admin panel to manage bookings.";
+                return RedirectToAction("Index", "Admin");
+            }
+
+            // Automatically update booking statuses (check-in, check-out, no-show)
+            try
+            {
+                await _bookingStatusUpdate.UpdateBookingStatusesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error updating booking statuses automatically");
             }
 
             var bookings = await _context.Bookings
@@ -788,6 +840,15 @@ namespace Assignment.Controllers
         public async Task<IActionResult> BookingDetails(int id)
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);
+            var userRole = AuthenticationHelper.GetUserRole(HttpContext);
+            
+            // Only customers can view booking details - Admin/Manager/Staff should use Admin panel
+            if (userRole != UserRole.Customer)
+            {
+                TempData["Error"] = "Administrators, Managers, and Staff cannot access customer booking features. Please use the Admin panel to view booking details.";
+                return RedirectToAction("Bookings", "Admin");
+            }
+            
             // Review is linked to Booking, user info from Booking.User
             // Note: Review.Booking is automatically populated by EF, so we don't need to include it
             var booking = await _context.Bookings
@@ -798,7 +859,7 @@ namespace Assignment.Controllers
                 .Include(b => b.Reviews)
                 .FirstOrDefaultAsync(b => b.BookingId == id);
 
-            if (booking == null || (booking.UserId != userId && AuthenticationHelper.GetUserRole(HttpContext) != UserRole.Admin))
+            if (booking == null || booking.UserId != userId)
             {
                 return NotFound();
             }
@@ -848,6 +909,15 @@ namespace Assignment.Controllers
         public async Task<IActionResult> CancelBooking(int id)
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);
+            var userRole = AuthenticationHelper.GetUserRole(HttpContext);
+            
+            // Only customers can cancel bookings - Admin/Manager/Staff should use Admin panel
+            if (userRole != UserRole.Customer)
+            {
+                TempData["Error"] = "Administrators, Managers, and Staff cannot cancel bookings. Please use the Admin panel to manage bookings.";
+                return RedirectToAction("Bookings", "Admin");
+            }
+            
             var booking = await _context.Bookings
                 .Include(b => b.Reviews)
                 .FirstOrDefaultAsync(b => b.BookingId == id);
@@ -913,6 +983,15 @@ namespace Assignment.Controllers
         public async Task<IActionResult> ViewReceipt(int id)
         {
             var userId = AuthenticationHelper.GetUserId(HttpContext);
+            var userRole = AuthenticationHelper.GetUserRole(HttpContext);
+            
+            // Only customers can view receipts - Admin/Manager/Staff should use Admin panel
+            if (userRole != UserRole.Customer)
+            {
+                TempData["Error"] = "Administrators, Managers, and Staff cannot access customer booking features. Please use the Admin panel to view booking receipts.";
+                return RedirectToAction("Bookings", "Admin");
+            }
+            
             var booking = await _context.Bookings
                 .Include(b => b.User)
                 .Include(b => b.Room)

@@ -43,8 +43,21 @@
 
         <div class="mb-3">
             <label asp-for="Role" class="form-label"></label>
-            <select asp-for="Role" class="form-select" asp-items="Html.GetEnumSelectList<UserRole>()"></select>
+            <select asp-for="Role" class="form-select" asp-items="Html.GetEnumSelectList<UserRole>()" id="roleSelect"></select>
             <span asp-validation-for="Role" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3" id="hotelAssignmentGroup" style="display: none;">
+            <label asp-for="HotelId" class="form-label">Hotel Assignment</label>
+            <select asp-for="HotelId" class="form-select">
+                <option value="">-- Select Hotel --</option>
+                @foreach (var hotel in ViewBag.Hotels as List<Assignment.Models.Hotel> ?? new List<Assignment.Models.Hotel>())
+                {
+                    <option value="@hotel.HotelId" selected="@(Model.HotelId == hotel.HotelId)">@hotel.Name</option>
+                }
+            </select>
+            <span asp-validation-for="HotelId" class="text-danger"></span>
+            <small class="form-text text-muted">Required for Manager and Staff roles.</small>
         </div>
 
         <div class="mb-3 form-check">
@@ -66,5 +79,25 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        // Show/hide hotel assignment based on role selection
+        function updateHotelAssignmentVisibility() {
+            var hotelGroup = document.getElementById('hotelAssignmentGroup');
+            var roleSelect = document.getElementById('roleSelect');
+            var role = roleSelect.value;
+            if (role === 'Manager' || role === 'Staff') {
+                hotelGroup.style.display = 'block';
+                hotelGroup.querySelector('select').setAttribute('required', 'required');
+            } else {
+                hotelGroup.style.display = 'none';
+                hotelGroup.querySelector('select').removeAttribute('required');
+            }
+        }
+        
+        document.getElementById('roleSelect').addEventListener('change', updateHotelAssignmentVisibility);
+        
+        // Trigger on page load
+        updateHotelAssignmentVisibility();
+    </script>
 }
 

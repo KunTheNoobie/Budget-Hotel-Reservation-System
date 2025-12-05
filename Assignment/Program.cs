@@ -58,6 +58,9 @@ builder.Services.AddScoped<Assignment.Services.PromotionValidationService>();
 // Register EmailService as a scoped service for sending emails
 builder.Services.AddScoped<Assignment.Services.EmailService>();
 
+// Register BookingStatusUpdateService as a scoped service for automatic booking status updates
+builder.Services.AddScoped<Assignment.Services.BookingStatusUpdateService>();
+
 // Build the application
 var app = builder.Build();
 
@@ -141,6 +144,21 @@ using (var scope = app.Services.CreateScope())
         catch (Exception ex)
         {
             logger.LogWarning($"Could not clean up promotions on startup: {ex.Message}");
+        }
+
+        // Update booking statuses automatically on startup (check-in, check-out, no-show)
+        try
+        {
+            var bookingStatusUpdate = services.GetRequiredService<Assignment.Services.BookingStatusUpdateService>();
+            var updatedCount = bookingStatusUpdate.UpdateBookingStatusesAsync().GetAwaiter().GetResult();
+            if (updatedCount > 0)
+            {
+                logger.LogInformation($"Automatically updated {updatedCount} booking status(es) on startup.");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning($"Could not update booking statuses on startup: {ex.Message}");
         }
     }
     catch (Exception ex)

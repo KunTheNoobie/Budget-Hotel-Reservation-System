@@ -144,7 +144,19 @@ namespace Assignment.Models
         /// </summary>
         public DateTime? DeletedAt { get; set; }
 
+        /// <summary>
+        /// Hotel ID that the user is assigned to (for Manager and Staff roles).
+        /// Null for Admin (who can access all hotels) and Customer roles.
+        /// </summary>
+        public int? HotelId { get; set; }
+
         // ========== Navigation Properties ==========
+
+        /// <summary>
+        /// Navigation property - the hotel that this user is assigned to (for Manager/Staff).
+        /// </summary>
+        [ForeignKey("HotelId")]
+        public virtual Hotel? Hotel { get; set; }
 
         /// <summary>
         /// Navigation property - collection of bookings made by this user.

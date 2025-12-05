@@ -3,6 +3,8 @@
     Displays list of all users in the system with filtering, search, and pagination.
     Allows admins to view, edit, activate/deactivate, and manage user accounts.
 *@
+@using Assignment.Helpers
+@using Assignment.Models
 @model List<Assignment.Models.User>
 @{
     ViewData["Title"] = "User Management";
@@ -11,7 +13,10 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>User Management</h2>
-        <a asp-action="CreateUser" class="btn btn-primary">Create New User</a>
+        @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
+        {
+            <a asp-action="CreateUser" class="btn btn-primary">Create New User</a>
+        }
     </div>
 
     @if (TempData["Success"] != null)
@@ -109,7 +114,16 @@
                         <tr>
                             <td colspan="8" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                No users found. <a asp-action="CreateUser">Create your first user</a> to get started.
+                                No users found. 
+                                @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
+                                {
+                                    <a asp-action="CreateUser">Create your first user</a>
+                                }
+                                else
+                                {
+                                    <span>Contact your administrator to add users.</span>
+                                }
+                                to get started.
                             </td>
                         </tr>
                     }

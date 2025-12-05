@@ -43,6 +43,16 @@ namespace Assignment.Controllers
         /// <returns>The home page view with featured content.</returns>
         public async Task<IActionResult> Index()
         {
+            // Redirect Admin/Manager/Staff to admin panel
+            if (AuthenticationHelper.IsAuthenticated(HttpContext))
+            {
+                var role = AuthenticationHelper.GetUserRole(HttpContext);
+                if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
+                {
+                    return RedirectToAction("Index", "Admin");
+                }
+            }
+
             var allRooms = await _context.RoomTypes
                 .Include(rt => rt.Hotel)
                 .Include(rt => rt.RoomImages)
@@ -184,6 +194,16 @@ namespace Assignment.Controllers
 
         public async Task<IActionResult> Packages(int page = 1, int pageSize = 9)
         {
+            // Redirect Admin/Manager/Staff to admin panel
+            if (AuthenticationHelper.IsAuthenticated(HttpContext))
+            {
+                var role = AuthenticationHelper.GetUserRole(HttpContext);
+                if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
+                {
+                    return RedirectToAction("Index", "Admin");
+                }
+            }
+
             // Validate pagination parameters
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 9;
@@ -407,26 +427,71 @@ namespace Assignment.Controllers
 
         public IActionResult Privacy()
         {
+            // Redirect Admin/Manager/Staff to admin panel
+            if (AuthenticationHelper.IsAuthenticated(HttpContext))
+            {
+                var role = AuthenticationHelper.GetUserRole(HttpContext);
+                if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
+                {
+                    return RedirectToAction("Index", "Admin");
+                }
+            }
             return View();
         }
 
         public IActionResult About()
         {
+            // Redirect Admin/Manager/Staff to admin panel
+            if (AuthenticationHelper.IsAuthenticated(HttpContext))
+            {
+                var role = AuthenticationHelper.GetUserRole(HttpContext);
+                if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
+                {
+                    return RedirectToAction("Index", "Admin");
+                }
+            }
             return View();
         }
 
         public IActionResult Careers()
         {
+            // Redirect Admin/Manager/Staff to admin panel
+            if (AuthenticationHelper.IsAuthenticated(HttpContext))
+            {
+                var role = AuthenticationHelper.GetUserRole(HttpContext);
+                if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
+                {
+                    return RedirectToAction("Index", "Admin");
+                }
+            }
             return View();
         }
 
         public IActionResult Press()
         {
+            // Redirect Admin/Manager/Staff to admin panel
+            if (AuthenticationHelper.IsAuthenticated(HttpContext))
+            {
+                var role = AuthenticationHelper.GetUserRole(HttpContext);
+                if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
+                {
+                    return RedirectToAction("Index", "Admin");
+                }
+            }
             return View();
         }
 
         public IActionResult Blog()
         {
+            // Redirect Admin/Manager/Staff to admin panel
+            if (AuthenticationHelper.IsAuthenticated(HttpContext))
+            {
+                var role = AuthenticationHelper.GetUserRole(HttpContext);
+                if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
+                {
+                    return RedirectToAction("Index", "Admin");
+                }
+            }
             return View();
         }
 
@@ -481,16 +546,43 @@ namespace Assignment.Controllers
 
         public IActionResult HelpCenter()
         {
+            // Redirect Admin/Manager/Staff to admin panel
+            if (AuthenticationHelper.IsAuthenticated(HttpContext))
+            {
+                var role = AuthenticationHelper.GetUserRole(HttpContext);
+                if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
+                {
+                    return RedirectToAction("Index", "Admin");
+                }
+            }
             return View();
         }
 
         public IActionResult Contact()
         {
+            // Redirect Admin/Manager/Staff to admin panel
+            if (AuthenticationHelper.IsAuthenticated(HttpContext))
+            {
+                var role = AuthenticationHelper.GetUserRole(HttpContext);
+                if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
+                {
+                    return RedirectToAction("Index", "Admin");
+                }
+            }
             return View();
         }
 
         public IActionResult Terms()
         {
+            // Redirect Admin/Manager/Staff to admin panel
+            if (AuthenticationHelper.IsAuthenticated(HttpContext))
+            {
+                var role = AuthenticationHelper.GetUserRole(HttpContext);
+                if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
+                {
+                    return RedirectToAction("Index", "Admin");
+                }
+            }
             return View();
         }
 

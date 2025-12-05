@@ -3,6 +3,8 @@
     Displays list of all discount promotions and coupon codes.
     Allows admins to create, edit, activate/deactivate promotions and view usage statistics.
 *@
+@using Assignment.Helpers
+@using Assignment.Models
 @model List<Assignment.Models.Promotion>
 @{
     ViewData["Title"] = "Promotion Management";
@@ -11,9 +13,12 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Promotion Management</h2>
-        <a asp-action="CreatePromotion" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Create New Promotion
-        </a>
+        @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin || AuthenticationHelper.GetUserRole(Context) == UserRole.Manager)
+        {
+            <a asp-action="CreatePromotion" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create New Promotion
+            </a>
+        }
     </div>
 
     @if (TempData["Success"] != null)
@@ -184,7 +189,16 @@
                         <tr>
                             <td colspan="11" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                No promotions found. <a asp-action="CreatePromotion">Create your first promotion</a> to get started.
+                                No promotions found. 
+                                @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin || AuthenticationHelper.GetUserRole(Context) == UserRole.Manager)
+                                {
+                                    <a asp-action="CreatePromotion">Create your first promotion</a>
+                                }
+                                else
+                                {
+                                    <span>Contact your administrator to add promotions.</span>
+                                }
+                                to get started.
                             </td>
                         </tr>
                     }

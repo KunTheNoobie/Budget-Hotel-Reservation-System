@@ -10,6 +10,7 @@ A comprehensive web-based hotel reservation system built with ASP.NET Core MVC, 
 - [Installation & Setup](#installation--setup)
 - [Database Setup](#database-setup)
 - [Login Credentials](#login-credentials)
+- [Role-Based Access Control](#role-based-access-control)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
 - [Key Modules](#key-modules)
@@ -77,9 +78,11 @@ The Budget Hotel Reservation System is a full-featured web application designed 
 - Secure password reset with tokens
 - Login attempt tracking and blocking
 - Security logging
-- Role-based authorization
+- Role-based authorization with hotel-scoped access for Manager/Staff
 - Admin account protection (main admin cannot be deleted)
 - Security headers middleware
+- Separate UI layouts for Admin/Manager/Staff vs Customers
+- Automatic booking status updates (check-in, check-out, no-show)
 
 ### Additional Features
 
@@ -102,10 +105,13 @@ The Budget Hotel Reservation System is a full-featured web application designed 
 - ✅ **Review system** - Complete review and rating system
 - ✅ **Email confirmation simulation** - Booking confirmation emails (logged)
 - ✅ **Rate limiting** - Protection against spam on registration and contact forms
-- ✅ **Admin dashboard charts** - Visual statistics with Chart.js
+- ✅ **Admin dashboard charts** - Visual statistics with Chart.js (bar charts, revenue trends with multiple time periods)
 - ✅ **Export to CSV** - Export bookings data
 - ✅ **Package system** - Bundle deals with services
 - ✅ **Promotion system** - Discount codes with validation
+- ✅ **Role-based UI separation** - Separate admin panel for Admin/Manager/Staff
+- ✅ **Hotel-scoped access** - Manager/Staff can only see their assigned hotel's data
+- ✅ **Automatic booking status updates** - Auto check-in, check-out, and no-show handling
 
 ## 🚀 Installation & Setup
 
@@ -170,27 +176,30 @@ The application automatically creates the database and seeds initial data on fir
    - 3 Active Promotions
    - 2 Sample Bookings
 
-### Option 2: SQL Scripts (Comprehensive Sample Data)
+**Note**: For comprehensive sample data with all hotels having managers and staff, use Option 2 (SQL Scripts) instead.
 
-For a more extensive dataset (15+ records per table):
+### Option 2: SQL Scripts (Comprehensive Sample Data - RECOMMENDED)
 
-1. **Run the application once** to create the database structure
+For a more extensive dataset with all hotels having managers and staff assigned:
+
+1. **Run Entity Framework migrations** to create the database structure:
+   ```bash
+   cd Assignment
+   dotnet ef database update
+   ```
+
 2. **Open SQL Server Management Studio (SSMS)** or Azure Data Studio
 3. **Connect to your SQL Server instance** (LocalDB or SQL Server Express)
 4. **Select your database**: `BMIT2023_HotelReservation`
-5. **Run cleanup script** (optional, removes existing data):
+5. **Run the complete database script**:
    ```sql
-   -- Execute: Assignment/Scripts/01_ClearAllData.sql
+   -- Execute: Assignment/Scripts/03_CompleteNewDatabase.sql
    ```
-   ⚠️ **Warning**: This deletes all existing data irreversibly!
+   ⚠️ **Note**: This script clears existing data and inserts fresh sample data.
 
-6. **Run sample data script**:
-   ```sql
-   -- Execute: Assignment/Scripts/02_InsertSampleData.sql
-   ```
    This inserts:
-   - 15 Hotels
-   - 15 Users
+   - 15 Hotels (each with 1 Manager and 1 Staff assigned)
+   - 43 Users (1 Admin + 15 Managers + 15 Staff + 12 Customers)
    - 15 Amenities
    - 20 Room Types
    - 25 Rooms
@@ -199,31 +208,38 @@ For a more extensive dataset (15+ records per table):
    - 15 Services
    - 15 Packages
    - 30 Package Items
-   - 12 Promotions
+   - 15 Promotions
    - 15 Bookings
-   - 12 Reviews
+   - 15 Reviews
    - 12 Contact Messages
    - 12 Newsletter Subscriptions
 
+**Hotel Assignments**: Each of the 15 hotels has been assigned:
+- 1 Manager (manager1@hotel.com through manager15@hotel.com)
+- 1 Staff (staff1@hotel.com through staff15@hotel.com)
+
 7. **Set admin passwords** (if using SQL scripts):
    - After running SQL scripts, admin passwords are placeholders
-   - Run the application again - `DbInitializer` will recreate admin accounts with proper passwords
+   - Run the application once - `DbInitializer` will set proper passwords for admin accounts
    - Or use the password reset feature
 
 ## 🔐 Login Credentials
 
 ### Admin Accounts
 
-| Email | Password | Role | Access |
-|-------|----------|------|--------|
-| `admin@hotel.com` | `Admin123!` | Admin | Full system access |
-| `manager@hotel.com` | `Manager123!` | Manager | Full system access (same as Admin) |
-| `staff@hotel.com` | `Password123!` | Staff | Limited admin access |
+| Email | Password | Role | Access | Hotel Assignment |
+|-------|----------|------|--------|------------------|
+| `admin@hotel.com` | `Admin123!` | Admin | Full system access | None (sees all hotels) |
+| `manager1@hotel.com` - `manager15@hotel.com` | `Manager123!` | Manager | Hotel management | One hotel each (Hotel 1-15) |
+| `staff1@hotel.com` - `staff15@hotel.com` | `Password123!` | Staff | Limited admin access | One hotel each (Hotel 1-15) |
+
+**Note**: If you used the SQL script (`03_CompleteNewDatabase.sql`), all 15 hotels have managers and staff assigned. Each manager/staff can only see their assigned hotel's data.
 
 **Accessing Admin Panel:**
-1. Login with admin or manager account
-2. Click "Admin" dropdown in navigation bar
-3. Or navigate directly to `/Admin/Index`
+1. Login with admin, manager, or staff account
+2. You will be automatically redirected to the admin panel
+3. Use the role-specific dropdown menu (Admin/Manager/Staff) in the navigation bar
+4. Or navigate directly to `/Admin/Index`
 
 ### Customer Accounts
 
@@ -232,6 +248,210 @@ For a more extensive dataset (15+ records per table):
 | `ahmad@example.com` | `Ahmad123!` | Customer | Email Verified, Active | Has existing bookings |
 | `siti@example.com` | `Siti123!` | Customer | Email Verified, Active | Has pending bookings |
 | `charlie@example.com` | `Charlie123!` | Customer | Email NOT Verified, Active | Test email verification flow |
+
+## 🔐 Role-Based Access Control
+
+The system implements comprehensive role-based access control (RBAC) with separate UIs for administrative roles and customers. Each role has specific permissions and data access scopes.
+
+### Role Definitions
+
+#### Admin
+- **Hotel Assignment**: None (can see all hotels)
+- **Access Level**: Full system access
+- **Can Do**:
+  - ✅ Create/Edit/Delete Hotels
+  - ✅ Create/Edit/Delete Users
+  - ✅ Create/Edit/Delete Room Types
+  - ✅ Create/Edit/Delete Rooms
+  - ✅ Create/Edit/Delete Packages
+  - ✅ Create/Edit/Delete Promotions
+  - ✅ Create/Edit/Delete Amenities
+  - ✅ View/Manage all Bookings (all hotels)
+  - ✅ View/Manage all Reviews
+  - ✅ View/Manage Contact Messages
+  - ✅ View Dashboard (all hotels statistics)
+- **Cannot Do**:
+  - ❌ Create bookings (only customers can book)
+
+#### Manager
+- **Hotel Assignment**: One hotel (HotelId = 1-15)
+- **Access Level**: Full access scoped to assigned hotel
+- **Can Do**:
+  - ✅ View/Manage Users (only from their assigned hotel)
+  - ✅ View Hotels (only their assigned hotel)
+  - ✅ Create/Edit/Delete Room Types (only for their hotel)
+  - ✅ Create/Edit/Delete Rooms (only for their hotel)
+  - ✅ Create/Edit/Delete Packages (only for their hotel)
+  - ✅ Create/Edit/Delete Promotions
+  - ✅ View/Manage Bookings (only for their hotel)
+  - ✅ View/Manage Reviews (only for their hotel)
+  - ✅ View/Manage Amenities
+  - ✅ View Dashboard (only their hotel statistics)
+- **Cannot Do**:
+  - ❌ Create Hotels
+  - ❌ Create Users
+  - ❌ View Contact Messages
+  - ❌ Create bookings
+  - ❌ See other hotels' data
+
+#### Staff
+- **Hotel Assignment**: One hotel (HotelId = 1-15)
+- **Access Level**: Limited access scoped to assigned hotel
+- **Can Do**:
+  - ✅ View Users (only from their assigned hotel)
+  - ✅ View Hotels (only their assigned hotel)
+  - ✅ View Room Types (only for their hotel)
+  - ✅ View Rooms (only for their hotel)
+  - ✅ View Packages (only for their hotel)
+  - ✅ View Promotions
+  - ✅ View/Manage Bookings (only for their hotel)
+  - ✅ View Reviews (only for their hotel)
+  - ✅ View Amenities
+  - ✅ View Dashboard (only their hotel statistics)
+- **Cannot Do**:
+  - ❌ Create Hotels
+  - ❌ Create Users
+  - ❌ Create Room Types
+  - ❌ Create Rooms
+  - ❌ Create Packages
+  - ❌ Create Promotions
+  - ❌ View Contact Messages
+  - ❌ Create bookings
+  - ❌ See other hotels' data
+
+#### Customer
+- **Hotel Assignment**: None
+- **Access Level**: Customer-facing features only
+- **Can Do**:
+  - ✅ Browse Hotels
+  - ✅ Browse Packages
+  - ✅ View Room Details
+  - ✅ Create Bookings
+  - ✅ View Own Bookings
+  - ✅ Cancel Own Bookings
+  - ✅ View Receipts
+  - ✅ Submit Reviews
+  - ✅ Contact Support
+- **Cannot Do**:
+  - ❌ Access Admin Panel
+  - ❌ View other users' bookings
+  - ❌ Manage hotels/rooms/packages
+
+### UI Separation
+
+#### Admin/Manager/Staff UI
+- **Layout**: `_AdminLayout.cshtml` (separate from customer layout)
+- **Navigation**: Role-specific dropdown (Admin/Manager/Staff)
+- **Features**:
+  - No customer-facing navigation (Hotels, Packages links hidden)
+  - No footer links (About Us, Careers, Press, Blog, Help Center, Contact Us, Privacy Policy, Terms of Service)
+  - Admin panel navigation with role-based menu items
+  - Dashboard with hotel-specific statistics
+
+#### Customer UI
+- **Layout**: `_Layout.cshtml` (customer-facing)
+- **Navigation**: Hotels, Packages, My Bookings
+- **Features**:
+  - Full customer navigation
+  - Footer with all links
+  - Booking functionality
+  - Public pages (About, Careers, etc.)
+
+### Access Restrictions
+
+#### Controller-Level Restrictions
+
+**AdminController:**
+- `CreateUser`: Admin only
+- `CreateHotel`: Admin only
+- `CreateRoomType`: Admin + Manager only
+- `CreateRoom`: Admin + Manager only
+- `CreatePackage`: Admin + Manager only
+- `CreatePromotion`: Admin + Manager only
+- `ContactMessages`: Admin only
+- `Users`: Filtered by hotel for Manager/Staff
+- `Hotels`: Filtered by hotel for Manager/Staff
+- `Bookings`: Filtered by hotel for Manager/Staff
+- `Dashboard`: Filtered by hotel for Manager/Staff
+
+**HomeController:**
+- All customer-facing actions redirect Admin/Manager/Staff to Admin panel
+- Pages: Index (Home), Packages, About, Careers, Press, Blog, Help Center, Contact, Privacy, Terms
+
+**RoomController:**
+- `Catalog`: Redirects Admin/Manager/Staff to Admin panel
+
+**BookingController:**
+- `Create`: Redirects Admin/Manager/Staff to Home
+- `MyBookings`: Redirects Admin/Manager/Staff to Admin panel
+- All actions redirect Admin/Manager/Staff to Admin panel
+
+### Navigation Menu Structure
+
+**Admin Panel Menu (Admin Role):**
+- Dashboard
+- Users
+- Hotels
+- Room Types
+- Rooms
+- Bookings
+- Reviews
+- Amenities
+- Packages
+- Promotions
+- Contact Messages
+
+**Manager Panel Menu (Manager Role):**
+- Dashboard
+- Users (filtered)
+- Room Types (filtered)
+- Rooms (filtered)
+- Bookings (filtered)
+- Reviews (filtered)
+- Amenities
+- Packages (filtered)
+- Promotions
+
+**Staff Panel Menu (Staff Role):**
+- Dashboard
+- Users (filtered, view only)
+- Bookings (filtered)
+- Reviews (filtered, view only)
+- Amenities (view only)
+- Packages (filtered, view only)
+- Promotions (view only)
+
+### Database Structure
+
+**User Table:**
+- `HotelId`: Nullable integer
+  - Admin: `NULL` (can see all hotels)
+  - Manager: `1-15` (assigned hotel ID)
+  - Staff: `1-15` (assigned hotel ID)
+  - Customer: `NULL`
+
+**Sample Data:**
+- 15 Hotels: Each with unique ID (1-15)
+- 1 Admin: `admin@hotel.com` (HotelId = NULL)
+- 15 Managers: `manager1@hotel.com` through `manager15@hotel.com` (HotelId = 1-15)
+- 15 Staff: `staff1@hotel.com` through `staff15@hotel.com` (HotelId = 1-15)
+- 12 Customers: Various emails (HotelId = NULL)
+
+### Implementation Files
+
+**Layouts:**
+- `Views/Shared/_AdminLayout.cshtml` - Admin/Manager/Staff layout
+- `Views/Shared/_Layout.cshtml` - Customer layout
+
+**Controllers:**
+- `Controllers/AdminController.cs` - Role-based restrictions
+- `Controllers/HomeController.cs` - Redirects for Admin/Manager/Staff
+- `Controllers/RoomController.cs` - Redirects for Admin/Manager/Staff
+- `Controllers/BookingController.cs` - Booking restrictions
+
+**Views:**
+- All Admin views updated with role-based "Create" button visibility
+- `Views/Admin/_ViewStart.cshtml` - Sets admin layout
 
 ## 📁 Project Structure
 

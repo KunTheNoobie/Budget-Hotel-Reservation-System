@@ -35,16 +35,54 @@ namespace Assignment.Controllers
         private readonly IWebHostEnvironment _environment;
 
         /// <summary>
+        /// Service for automatically updating booking statuses.
+        /// </summary>
+        private readonly BookingStatusUpdateService _bookingStatusUpdate;
+
+        /// <summary>
         /// Initializes a new instance of the AdminController.
         /// </summary>
         /// <param name="context">Database context for data access.</param>
         /// <param name="logger">Logger instance for logging.</param>
         /// <param name="environment">Web host environment for file operations.</param>
-        public AdminController(HotelDbContext context, ILogger<AdminController> logger, IWebHostEnvironment environment)
+        /// <param name="bookingStatusUpdate">Service for automatic booking status updates.</param>
+        public AdminController(HotelDbContext context, ILogger<AdminController> logger, IWebHostEnvironment environment, BookingStatusUpdateService bookingStatusUpdate)
         {
             _context = context;
             _logger = logger;
             _environment = environment;
+            _bookingStatusUpdate = bookingStatusUpdate;
+        }
+
+        /// <summary>
+        /// Gets the hotel IDs that the current user can access.
+        /// Admin can access all hotels, Manager/Staff can only access their assigned hotel.
+        /// </summary>
+        /// <returns>List of hotel IDs the user can access, or null if user can access all hotels.</returns>
+        private List<int>? GetUserAccessibleHotelIds()
+        {
+            var userId = AuthenticationHelper.GetUserId(HttpContext);
+            if (userId == null) return null;
+
+            var user = _context.Users.Find(userId.Value);
+            if (user == null) return null;
+
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            
+            // Admin can access all hotels
+            if (role == UserRole.Admin)
+            {
+                return null; // null means all hotels
+            }
+
+            // Manager and Staff can only access their assigned hotel
+            if ((role == UserRole.Manager || role == UserRole.Staff) && user.HotelId.HasValue)
+            {
+                return new List<int> { user.HotelId.Value };
+            }
+
+            // Customer or unassigned Manager/Staff - return empty list (no access)
+            return new List<int>();
         }
 
         /// <summary>
@@ -74,50 +112,174 @@ namespace Assignment.Controllers
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
         }
 
-        public IActionResult Index()
+        public IActionResult Index(string period = "7days")
         {
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
+            
+            // Build base query for bookings filtered by accessible hotels
+            var bookingsQuery = _context.Bookings
+                .Include(b => b.Room)
+                    .ThenInclude(r => r.RoomType)
+                        .ThenInclude(rt => rt.Hotel)
+                .AsQueryable();
+
+            // Filter by accessible hotels if not admin
+            if (accessibleHotelIds != null)
+            {
+                if (accessibleHotelIds.Count == 0)
+                {
+                    // User has no hotel access - return empty stats
+                    var emptyStats = new
+                    {
+                        TotalUsers = 0,
+                        TotalHotels = 0,
+                        TotalRooms = 0,
+                        TotalBookings = 0,
+                        PendingBookings = 0,
+                        ConfirmedBookings = 0
+                    };
+                    ViewBag.Stats = emptyStats;
+                    ViewBag.HotelLabels = new string[0];
+                    ViewBag.HotelData = new int[0];
+                    ViewBag.RevenueLabels = new string[0];
+                    ViewBag.RevenueData = new decimal[0];
+                    ViewBag.Period = period;
+                    return View();
+                }
+                else
+                {
+                    bookingsQuery = bookingsQuery.Where(b => accessibleHotelIds.Contains(b.Room.RoomType.HotelId));
+                }
+            }
+
+            // Calculate stats filtered by accessible hotels
+            var hotelsQuery = _context.Hotels.AsQueryable();
+            if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+            {
+                hotelsQuery = hotelsQuery.Where(h => accessibleHotelIds.Contains(h.HotelId));
+            }
+
+            var roomsQuery = _context.Rooms
+                .Include(r => r.RoomType)
+                .AsQueryable();
+            if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+            {
+                roomsQuery = roomsQuery.Where(r => accessibleHotelIds.Contains(r.RoomType.HotelId));
+            }
+
             var stats = new
             {
                 TotalUsers = _context.Users.Count(),
-                TotalHotels = _context.Hotels.Count(),
-                TotalRooms = _context.Rooms.Count(),
-                TotalBookings = _context.Bookings.Count(),
-                PendingBookings = _context.Bookings.Count(b => b.Status == BookingStatus.Pending),
-                ConfirmedBookings = _context.Bookings.Count(b => b.Status == BookingStatus.Confirmed)
+                TotalHotels = hotelsQuery.Count(),
+                TotalRooms = roomsQuery.Count(),
+                TotalBookings = bookingsQuery.Count(),
+                PendingBookings = bookingsQuery.Count(b => b.Status == BookingStatus.Pending),
+                ConfirmedBookings = bookingsQuery.Count(b => b.Status == BookingStatus.Confirmed)
             };
 
             // Data for Charts
-            // 1. Bookings by Hotel
-            var bookingsByHotel = _context.Bookings
-                .Include(b => b.Room)
-                .ThenInclude(r => r.RoomType)
-                .ThenInclude(rt => rt.Hotel)
+            // 1. Bookings by Hotel (Bar Chart)
+            var bookingsByHotel = bookingsQuery
                 .GroupBy(b => b.Room.RoomType.Hotel.Name)
                 .Select(g => new { HotelName = g.Key, Count = g.Count() })
+                .OrderByDescending(x => x.Count)
                 .ToList();
 
             ViewBag.HotelLabels = bookingsByHotel.Select(x => x.HotelName).ToArray();
             ViewBag.HotelData = bookingsByHotel.Select(x => x.Count).ToArray();
 
-            // 2. Revenue Trend (Last 7 Days)
-            var last7Days = Enumerable.Range(0, 7).Select(i => DateTime.Today.AddDays(-i)).Reverse().ToList();
+            // 2. Revenue Trend with period selector
             var revenueData = new List<decimal>();
             var dateLabels = new List<string>();
+            DateTime startDate;
+            string dateFormat;
 
-            foreach (var date in last7Days)
+            switch (period.ToLower())
             {
-                var dailyRevenue = _context.Bookings
-                    .Where(b => b.PaymentDate.HasValue && 
-                               b.PaymentDate.Value.Date == date && 
-                               b.PaymentStatus == PaymentStatus.Completed)
-                    .Sum(b => b.PaymentAmount ?? 0);
-                
-                revenueData.Add(dailyRevenue);
-                dateLabels.Add(date.ToString("MMM dd"));
+                case "month":
+                    startDate = DateTime.Today.AddMonths(-1);
+                    dateFormat = "MMM dd";
+                    for (var date = startDate; date <= DateTime.Today; date = date.AddDays(1))
+                    {
+                        var dailyRevenue = bookingsQuery
+                            .Where(b => b.PaymentDate.HasValue && 
+                                       b.PaymentDate.Value.Date == date && 
+                                       b.PaymentStatus == PaymentStatus.Completed)
+                            .Sum(b => b.PaymentAmount ?? 0);
+                        revenueData.Add(dailyRevenue);
+                        dateLabels.Add(date.ToString(dateFormat));
+                    }
+                    break;
+                case "year":
+                    startDate = DateTime.Today.AddYears(-1);
+                    dateFormat = "MMM yyyy";
+                    for (var date = startDate; date <= DateTime.Today; date = date.AddMonths(1))
+                    {
+                        var monthStart = new DateTime(date.Year, date.Month, 1);
+                        var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+                        var monthlyRevenue = bookingsQuery
+                            .Where(b => b.PaymentDate.HasValue && 
+                                       b.PaymentDate.Value.Date >= monthStart && 
+                                       b.PaymentDate.Value.Date <= monthEnd && 
+                                       b.PaymentStatus == PaymentStatus.Completed)
+                            .Sum(b => b.PaymentAmount ?? 0);
+                        revenueData.Add(monthlyRevenue);
+                        dateLabels.Add(date.ToString(dateFormat));
+                    }
+                    break;
+                case "alltime":
+                    var allBookings = bookingsQuery
+                        .Where(b => b.PaymentDate.HasValue && b.PaymentStatus == PaymentStatus.Completed)
+                        .OrderBy(b => b.PaymentDate)
+                        .ToList();
+                    
+                    if (allBookings.Any())
+                    {
+                        var firstBooking = allBookings.First();
+                        var lastBooking = allBookings.Last();
+                        
+                        if (firstBooking.PaymentDate.HasValue && lastBooking.PaymentDate.HasValue)
+                        {
+                            var firstDate = firstBooking.PaymentDate.Value.Date;
+                            var lastDate = lastBooking.PaymentDate.Value.Date;
+                            dateFormat = "MMM yyyy";
+                            
+                            for (var date = new DateTime(firstDate.Year, firstDate.Month, 1); 
+                                 date <= lastDate; 
+                                 date = date.AddMonths(1))
+                            {
+                                var monthStart = date;
+                                var monthEnd = date.AddMonths(1).AddDays(-1);
+                                var monthlyRevenue = allBookings
+                                    .Where(b => b.PaymentDate.HasValue && 
+                                               b.PaymentDate.Value.Date >= monthStart && 
+                                               b.PaymentDate.Value.Date <= monthEnd)
+                                    .Sum(b => b.PaymentAmount ?? 0);
+                                revenueData.Add(monthlyRevenue);
+                                dateLabels.Add(date.ToString(dateFormat));
+                            }
+                        }
+                    }
+                    break;
+                default: // 7days
+                    var last7Days = Enumerable.Range(0, 7).Select(i => DateTime.Today.AddDays(-i)).Reverse().ToList();
+                    dateFormat = "MMM dd";
+                    foreach (var date in last7Days)
+                    {
+                        var dailyRevenue = bookingsQuery
+                            .Where(b => b.PaymentDate.HasValue && 
+                                       b.PaymentDate.Value.Date == date && 
+                                       b.PaymentStatus == PaymentStatus.Completed)
+                            .Sum(b => b.PaymentAmount ?? 0);
+                        revenueData.Add(dailyRevenue);
+                        dateLabels.Add(date.ToString(dateFormat));
+                    }
+                    break;
             }
 
             ViewBag.RevenueLabels = dateLabels.ToArray();
             ViewBag.RevenueData = revenueData.ToArray();
+            ViewBag.Period = period;
 
             ViewBag.Stats = stats;
             return View();
@@ -127,25 +289,43 @@ namespace Assignment.Controllers
 
         public async Task<IActionResult> Users(string searchTerm = "", int page = 1, int pageSize = 10)
         {
-            // Validate search term
-            if (!string.IsNullOrEmpty(searchTerm))
+            ValidateSearchParameters(ref searchTerm, ref page, ref pageSize);
+
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
+            var query = _context.Users.AsQueryable();
+
+            // Admin can see all users
+            // Manager/Staff can only see users from their assigned hotel (including customers who booked there)
+            if (role == UserRole.Manager || role == UserRole.Staff)
             {
-                if (searchTerm.Length > 200)
+                if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
                 {
-                    ModelState.AddModelError("SearchTerm", "Search term cannot exceed 200 characters.");
-                    searchTerm = searchTerm.Substring(0, 200);
+                    // Get user IDs from bookings at their hotel
+                    var bookingUserIds = await _context.Bookings
+                        .Include(b => b.Room)
+                            .ThenInclude(r => r.RoomType)
+                        .Where(b => accessibleHotelIds.Contains(b.Room.RoomType.HotelId))
+                        .Select(b => b.UserId)
+                        .Distinct()
+                        .ToListAsync();
+
+                    // Also include Manager/Staff from their hotel
+                    query = query.Where(u => 
+                        (u.HotelId.HasValue && accessibleHotelIds.Contains(u.HotelId.Value)) ||
+                        (u.Role == UserRole.Customer && bookingUserIds.Contains(u.UserId))
+                    );
                 }
-                if (!System.Text.RegularExpressions.Regex.IsMatch(searchTerm, @"^[a-zA-Z0-9\s@.-]+$"))
+                else
                 {
-                    ModelState.AddModelError("SearchTerm", "Search term contains invalid characters.");
+                    // No hotel access - return empty
+                    ViewBag.SearchTerm = searchTerm;
+                    ViewBag.CurrentPage = 1;
+                    ViewBag.TotalPages = 0;
+                    ViewBag.PageSize = pageSize;
+                    return View(new List<User>());
                 }
             }
-
-            // Validate pagination
-            if (page < 1) page = 1;
-            if (pageSize < 1 || pageSize > 100) pageSize = 10;
-
-            var query = _context.Users.AsQueryable();
 
             if (!string.IsNullOrEmpty(searchTerm))
             {
@@ -170,6 +350,15 @@ namespace Assignment.Controllers
         [HttpGet]
         public IActionResult CreateUser()
         {
+            // Only Admin can create users
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role != UserRole.Admin)
+            {
+                TempData["Error"] = "You do not have permission to create users.";
+                return RedirectToAction("Users");
+            }
+
+            ViewBag.Hotels = _context.Hotels.OrderBy(h => h.Name).ToList();
             return View();
         }
 
@@ -177,6 +366,14 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateUser(User user, string password)
         {
+            // Only Admin can create users
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role != UserRole.Admin)
+            {
+                TempData["Error"] = "You do not have permission to create users.";
+                return RedirectToAction("Users");
+            }
+
             // Remove PasswordHash from validation since we handle it separately
             ModelState.Remove("PasswordHash");
 
@@ -228,6 +425,24 @@ namespace Assignment.Controllers
                 }
             }
 
+            // Validate hotel assignment for Manager/Staff roles
+            if (user.Role == UserRole.Manager || user.Role == UserRole.Staff)
+            {
+                if (!user.HotelId.HasValue)
+                {
+                    ModelState.AddModelError("HotelId", "Hotel assignment is required for Manager and Staff roles.");
+                }
+                else if (!await _context.Hotels.AnyAsync(h => h.HotelId == user.HotelId.Value))
+                {
+                    ModelState.AddModelError("HotelId", "Selected hotel does not exist.");
+                }
+            }
+            else
+            {
+                // Clear hotel assignment for Admin and Customer roles
+                user.HotelId = null;
+            }
+
             if (ModelState.IsValid)
             {
                 user.PasswordHash = PasswordService.HashPassword(password);
@@ -238,6 +453,7 @@ namespace Assignment.Controllers
                 return RedirectToAction("Users");
             }
 
+            ViewBag.Hotels = _context.Hotels.OrderBy(h => h.Name).ToList();
             return View(user);
         }
 
@@ -250,6 +466,7 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
+            ViewBag.Hotels = _context.Hotels.OrderBy(h => h.Name).ToList();
             return View(user);
         }
 
@@ -319,6 +536,24 @@ namespace Assignment.Controllers
                 }
             }
 
+            // Validate hotel assignment for Manager/Staff roles
+            if (user.Role == UserRole.Manager || user.Role == UserRole.Staff)
+            {
+                if (!user.HotelId.HasValue)
+                {
+                    ModelState.AddModelError("HotelId", "Hotel assignment is required for Manager and Staff roles.");
+                }
+                else if (!await _context.Hotels.AnyAsync(h => h.HotelId == user.HotelId.Value))
+                {
+                    ModelState.AddModelError("HotelId", "Selected hotel does not exist.");
+                }
+            }
+            else
+            {
+                // Clear hotel assignment for Admin and Customer roles
+                user.HotelId = null;
+            }
+
             if (ModelState.IsValid)
             {
                 existingUser.FullName = user.FullName;
@@ -327,6 +562,7 @@ namespace Assignment.Controllers
                 existingUser.Role = user.Role;
                 existingUser.IsActive = user.IsActive;
                 existingUser.IsEmailVerified = user.IsEmailVerified;
+                existingUser.HotelId = user.HotelId; // Update hotel assignment
 
                 if (!string.IsNullOrEmpty(newPassword) && newPassword.Length >= 8)
                 {
@@ -338,6 +574,7 @@ namespace Assignment.Controllers
                 return RedirectToAction("Users");
             }
 
+            ViewBag.Hotels = _context.Hotels.OrderBy(h => h.Name).ToList();
             return View(user);
         }
 
@@ -413,7 +650,26 @@ namespace Assignment.Controllers
         {
             ValidateSearchParameters(ref searchTerm, ref page, ref pageSize);
 
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
             var query = _context.Hotels.AsQueryable();
+
+            // Filter by accessible hotels if not admin
+            if (accessibleHotelIds != null)
+            {
+                if (accessibleHotelIds.Count == 0)
+                {
+                    // User has no hotel access
+                    ViewBag.SearchTerm = searchTerm;
+                    ViewBag.CurrentPage = 1;
+                    ViewBag.TotalPages = 0;
+                    ViewBag.PageSize = pageSize;
+                    return View(new List<Hotel>());
+                }
+                else
+                {
+                    query = query.Where(h => accessibleHotelIds.Contains(h.HotelId));
+                }
+            }
 
             if (!string.IsNullOrEmpty(searchTerm))
             {
@@ -438,6 +694,13 @@ namespace Assignment.Controllers
         [HttpGet]
         public IActionResult CreateHotel()
         {
+            // Only Admin can create hotels
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role != UserRole.Admin)
+            {
+                TempData["Error"] = "You do not have permission to create hotels.";
+                return RedirectToAction("Hotels");
+            }
             return View();
         }
 
@@ -445,6 +708,14 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateHotel(Hotel hotel, IFormFile? imageFile, string? imageUrl)
         {
+            // Only Admin can create hotels
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role != UserRole.Admin)
+            {
+                TempData["Error"] = "You do not have permission to create hotels.";
+                return RedirectToAction("Hotels");
+            }
+
             // Check for duplicate hotel name (including deleted hotels)
             if (await _context.Hotels.IgnoreQueryFilters().AnyAsync(h => h.Name == hotel.Name && !h.IsDeleted))
             {
@@ -757,7 +1028,23 @@ namespace Assignment.Controllers
         [HttpGet]
         public async Task<IActionResult> CreateRoomType()
         {
-            ViewBag.Hotels = await _context.Hotels.OrderBy(h => h.Name).ToListAsync();
+            // Only Admin and Manager can create room types
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role == UserRole.Staff)
+            {
+                TempData["Error"] = "You do not have permission to create room types.";
+                return RedirectToAction("RoomTypes");
+            }
+
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
+            var hotelsQuery = _context.Hotels.AsQueryable();
+            
+            if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+            {
+                hotelsQuery = hotelsQuery.Where(h => accessibleHotelIds.Contains(h.HotelId));
+            }
+            
+            ViewBag.Hotels = await hotelsQuery.OrderBy(h => h.Name).ToListAsync();
             ViewBag.Amenities = await _context.Amenities.OrderBy(a => a.Name).ToListAsync();
             return View();
         }
@@ -766,6 +1053,14 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateRoomType(RoomType roomType, IFormFile? imageFile, string? imageUrl, int[]? selectedAmenities)
         {
+            // Only Admin and Manager can create room types
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role == UserRole.Staff)
+            {
+                TempData["Error"] = "You do not have permission to create room types.";
+                return RedirectToAction("RoomTypes");
+            }
+
             // Validate room type name
             if (string.IsNullOrWhiteSpace(roomType.Name))
             {
@@ -860,7 +1155,15 @@ namespace Assignment.Controllers
                 return RedirectToAction("RoomTypes");
             }
 
-            ViewBag.Hotels = await _context.Hotels.OrderBy(h => h.Name).ToListAsync();
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
+            var hotelsQuery = _context.Hotels.AsQueryable();
+            
+            if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+            {
+                hotelsQuery = hotelsQuery.Where(h => accessibleHotelIds.Contains(h.HotelId));
+            }
+            
+            ViewBag.Hotels = await hotelsQuery.OrderBy(h => h.Name).ToListAsync();
             ViewBag.Amenities = await _context.Amenities.OrderBy(a => a.Name).ToListAsync();
             return View(roomType);
         }
@@ -868,6 +1171,7 @@ namespace Assignment.Controllers
         [HttpGet]
         public async Task<IActionResult> EditRoomType(int id)
         {
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
             var roomType = await _context.RoomTypes
                 .Include(rt => rt.RoomTypeAmenities)
                     .ThenInclude(rta => rta.Amenity)
@@ -879,7 +1183,23 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            ViewBag.Hotels = await _context.Hotels.OrderBy(h => h.Name).ToListAsync();
+            // Check if user has access to this room type's hotel
+            if (accessibleHotelIds != null)
+            {
+                if (accessibleHotelIds.Count == 0 || !accessibleHotelIds.Contains(roomType.HotelId))
+                {
+                    TempData["Error"] = "You do not have access to edit this room type.";
+                    return RedirectToAction("RoomTypes");
+                }
+            }
+
+            var hotelsQuery = _context.Hotels.AsQueryable();
+            if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+            {
+                hotelsQuery = hotelsQuery.Where(h => accessibleHotelIds.Contains(h.HotelId));
+            }
+            
+            ViewBag.Hotels = await hotelsQuery.OrderBy(h => h.Name).ToListAsync();
             ViewBag.Amenities = await _context.Amenities.OrderBy(a => a.Name).ToListAsync();
             return View(roomType);
         }
@@ -891,6 +1211,24 @@ namespace Assignment.Controllers
             if (id != roomType.RoomTypeId)
             {
                 return NotFound();
+            }
+
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
+            
+            // Check if user has access to edit this room type
+            var existingRoomTypeCheck = await _context.RoomTypes.FindAsync(id);
+            if (existingRoomTypeCheck == null)
+            {
+                return NotFound();
+            }
+            
+            if (accessibleHotelIds != null)
+            {
+                if (accessibleHotelIds.Count == 0 || !accessibleHotelIds.Contains(existingRoomTypeCheck.HotelId))
+                {
+                    TempData["Error"] = "You do not have access to edit this room type.";
+                    return RedirectToAction("RoomTypes");
+                }
             }
 
             // Validate room type name
@@ -923,6 +1261,10 @@ namespace Assignment.Controllers
             else if (!await _context.Hotels.AnyAsync(h => h.HotelId == roomType.HotelId))
             {
                 ModelState.AddModelError("HotelId", "Selected hotel does not exist.");
+            }
+            else if (accessibleHotelIds != null && accessibleHotelIds.Count > 0 && !accessibleHotelIds.Contains(roomType.HotelId))
+            {
+                ModelState.AddModelError("HotelId", "You do not have access to assign this room type to the selected hotel.");
             }
 
             if (ModelState.IsValid)
@@ -1004,7 +1346,13 @@ namespace Assignment.Controllers
                 return RedirectToAction("RoomTypes");
             }
 
-            ViewBag.Hotels = await _context.Hotels.OrderBy(h => h.Name).ToListAsync();
+            var hotelsQueryForView = _context.Hotels.AsQueryable();
+            if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+            {
+                hotelsQueryForView = hotelsQueryForView.Where(h => accessibleHotelIds.Contains(h.HotelId));
+            }
+            
+            ViewBag.Hotels = await hotelsQueryForView.OrderBy(h => h.Name).ToListAsync();
             ViewBag.Amenities = await _context.Amenities.OrderBy(a => a.Name).ToListAsync();
             return View(roomType);
         }
@@ -1013,8 +1361,27 @@ namespace Assignment.Controllers
         {
             ValidateSearchParameters(ref searchTerm, ref page, ref pageSize);
 
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
             // Build query - global query filter automatically excludes deleted items
             var query = _context.RoomTypes.AsQueryable();
+
+            // Filter by accessible hotels if not admin
+            if (accessibleHotelIds != null)
+            {
+                if (accessibleHotelIds.Count == 0)
+                {
+                    // User has no hotel access
+                    ViewBag.SearchTerm = searchTerm;
+                    ViewBag.CurrentPage = 1;
+                    ViewBag.TotalPages = 0;
+                    ViewBag.PageSize = pageSize;
+                    return View(new List<RoomType>());
+                }
+                else
+                {
+                    query = query.Where(rt => accessibleHotelIds.Contains(rt.HotelId));
+                }
+            }
 
             if (!string.IsNullOrEmpty(searchTerm))
             {
@@ -1068,7 +1435,27 @@ namespace Assignment.Controllers
         {
             ValidateSearchParameters(ref searchTerm, ref page, ref pageSize);
             
-            var query = _context.Rooms.Include(r => r.RoomType).AsQueryable();
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
+            var query = _context.Rooms.Include(r => r.RoomType).ThenInclude(rt => rt.Hotel).AsQueryable();
+
+            // Filter by accessible hotels if not admin
+            if (accessibleHotelIds != null)
+            {
+                if (accessibleHotelIds.Count == 0)
+                {
+                    // User has no hotel access
+                    ViewBag.SearchTerm = searchTerm;
+                    ViewBag.CurrentPage = 1;
+                    ViewBag.TotalPages = 0;
+                    ViewBag.PageSize = pageSize;
+                    ViewBag.RoomTypes = new List<RoomType>();
+                    return View(new List<Room>());
+                }
+                else
+                {
+                    query = query.Where(r => accessibleHotelIds.Contains(r.RoomType.HotelId));
+                }
+            }
 
             if (!string.IsNullOrEmpty(searchTerm))
             {
@@ -1086,7 +1473,14 @@ namespace Assignment.Controllers
             ViewBag.CurrentPage = page;
             ViewBag.TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
             ViewBag.PageSize = pageSize;
-            ViewBag.RoomTypes = await _context.RoomTypes.ToListAsync();
+            
+            // Filter room types by accessible hotels
+            var roomTypesQuery = _context.RoomTypes.Include(rt => rt.Hotel).AsQueryable();
+            if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+            {
+                roomTypesQuery = roomTypesQuery.Where(rt => accessibleHotelIds.Contains(rt.HotelId));
+            }
+            ViewBag.RoomTypes = await roomTypesQuery.ToListAsync();
 
             return View(rooms);
         }
@@ -1094,7 +1488,23 @@ namespace Assignment.Controllers
         [HttpGet]
         public async Task<IActionResult> CreateRoom()
         {
-            ViewBag.RoomTypes = await _context.RoomTypes.ToListAsync();
+            // Only Admin and Manager can create rooms
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role == UserRole.Staff)
+            {
+                TempData["Error"] = "You do not have permission to create rooms.";
+                return RedirectToAction("Rooms");
+            }
+
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
+            var roomTypesQuery = _context.RoomTypes.Include(rt => rt.Hotel).AsQueryable();
+            
+            if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+            {
+                roomTypesQuery = roomTypesQuery.Where(rt => accessibleHotelIds.Contains(rt.HotelId));
+            }
+            
+            ViewBag.RoomTypes = await roomTypesQuery.ToListAsync();
             return View();
         }
 
@@ -1102,6 +1512,14 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateRoom(Room room)
         {
+            // Only Admin and Manager can create rooms
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role == UserRole.Staff)
+            {
+                TempData["Error"] = "You do not have permission to create rooms.";
+                return RedirectToAction("Rooms");
+            }
+
             // Trim room number to avoid whitespace issues
             if (!string.IsNullOrWhiteSpace(room.RoomNumber))
             {
@@ -1119,6 +1537,19 @@ namespace Assignment.Controllers
             {
                 ModelState.AddModelError("RoomTypeId", "Please select a room type.");
             }
+            else
+            {
+                // Check if user has access to the room type's hotel
+                var accessibleHotelIds = GetUserAccessibleHotelIds();
+                var roomType = await _context.RoomTypes.FindAsync(room.RoomTypeId);
+                if (roomType != null && accessibleHotelIds != null)
+                {
+                    if (accessibleHotelIds.Count == 0 || !accessibleHotelIds.Contains(roomType.HotelId))
+                    {
+                        ModelState.AddModelError("RoomTypeId", "You do not have access to create rooms for this room type's hotel.");
+                    }
+                }
+            }
 
             if (ModelState.IsValid)
             {
@@ -1128,20 +1559,47 @@ namespace Assignment.Controllers
                 return RedirectToAction("Rooms");
             }
 
-            ViewBag.RoomTypes = await _context.RoomTypes.ToListAsync();
+            var accessibleHotelIdsForView = GetUserAccessibleHotelIds();
+            var roomTypesQuery = _context.RoomTypes.Include(rt => rt.Hotel).AsQueryable();
+            if (accessibleHotelIdsForView != null && accessibleHotelIdsForView.Count > 0)
+            {
+                roomTypesQuery = roomTypesQuery.Where(rt => accessibleHotelIdsForView.Contains(rt.HotelId));
+            }
+            ViewBag.RoomTypes = await roomTypesQuery.ToListAsync();
             return View(room);
         }
 
         [HttpGet]
         public async Task<IActionResult> EditRoom(int id)
         {
-            var room = await _context.Rooms.FindAsync(id);
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
+            var room = await _context.Rooms
+                .Include(r => r.RoomType)
+                    .ThenInclude(rt => rt.Hotel)
+                .FirstOrDefaultAsync(r => r.RoomId == id);
+            
             if (room == null)
             {
                 return NotFound();
             }
 
-            ViewBag.RoomTypes = await _context.RoomTypes.ToListAsync();
+            // Check if user has access to this room's hotel
+            if (accessibleHotelIds != null)
+            {
+                if (accessibleHotelIds.Count == 0 || !accessibleHotelIds.Contains(room.RoomType.HotelId))
+                {
+                    TempData["Error"] = "You do not have access to edit this room.";
+                    return RedirectToAction("Rooms");
+                }
+            }
+
+            var roomTypesQuery = _context.RoomTypes.Include(rt => rt.Hotel).AsQueryable();
+            if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+            {
+                roomTypesQuery = roomTypesQuery.Where(rt => accessibleHotelIds.Contains(rt.HotelId));
+            }
+            
+            ViewBag.RoomTypes = await roomTypesQuery.ToListAsync();
             return View(room);
         }
 
@@ -1171,6 +1629,19 @@ namespace Assignment.Controllers
             {
                 ModelState.AddModelError("RoomTypeId", "Please select a room type.");
             }
+            else
+            {
+                // Check if user has access to the room type's hotel
+                var accessibleHotelIds = GetUserAccessibleHotelIds();
+                var roomType = await _context.RoomTypes.FindAsync(room.RoomTypeId);
+                if (roomType != null && accessibleHotelIds != null)
+                {
+                    if (accessibleHotelIds.Count == 0 || !accessibleHotelIds.Contains(roomType.HotelId))
+                    {
+                        ModelState.AddModelError("RoomTypeId", "You do not have access to assign this room to the selected room type's hotel.");
+                    }
+                }
+            }
 
             if (ModelState.IsValid)
             {
@@ -1178,6 +1649,18 @@ namespace Assignment.Controllers
                 if (existingRoom == null)
                 {
                     return NotFound();
+                }
+                
+                // Check if user has access to edit this room
+                var accessibleHotelIdsForCheck = GetUserAccessibleHotelIds();
+                var existingRoomType = await _context.RoomTypes.FindAsync(existingRoom.RoomTypeId);
+                if (existingRoomType != null && accessibleHotelIdsForCheck != null)
+                {
+                    if (accessibleHotelIdsForCheck.Count == 0 || !accessibleHotelIdsForCheck.Contains(existingRoomType.HotelId))
+                    {
+                        TempData["Error"] = "You do not have access to edit this room.";
+                        return RedirectToAction("Rooms");
+                    }
                 }
 
                 existingRoom.RoomNumber = room.RoomNumber;
@@ -1189,7 +1672,13 @@ namespace Assignment.Controllers
                 return RedirectToAction("Rooms");
             }
 
-            ViewBag.RoomTypes = await _context.RoomTypes.ToListAsync();
+            var accessibleHotelIdsForViewBag = GetUserAccessibleHotelIds();
+            var roomTypesQueryForViewBag = _context.RoomTypes.Include(rt => rt.Hotel).AsQueryable();
+            if (accessibleHotelIdsForViewBag != null && accessibleHotelIdsForViewBag.Count > 0)
+            {
+                roomTypesQueryForViewBag = roomTypesQueryForViewBag.Where(rt => accessibleHotelIdsForViewBag.Contains(rt.HotelId));
+            }
+            ViewBag.RoomTypes = await roomTypesQueryForViewBag.ToListAsync();
             return View(room);
         }
 
@@ -1282,11 +1771,42 @@ namespace Assignment.Controllers
         {
             ValidateSearchParameters(ref searchTerm, ref page, ref pageSize);
 
+            // Automatically update booking statuses (check-in, check-out, no-show)
+            try
+            {
+                await _bookingStatusUpdate.UpdateBookingStatusesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error updating booking statuses automatically");
+            }
+
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
             var query = _context.Bookings
                 .Include(b => b.User)
                 .Include(b => b.Room)
                     .ThenInclude(r => r.RoomType)
+                        .ThenInclude(rt => rt.Hotel)
                 .AsQueryable();
+
+            // Filter by accessible hotels if not admin
+            if (accessibleHotelIds != null)
+            {
+                if (accessibleHotelIds.Count == 0)
+                {
+                    // User has no hotel access
+                    ViewBag.SearchTerm = searchTerm;
+                    ViewBag.Status = status;
+                    ViewBag.CurrentPage = 1;
+                    ViewBag.TotalPages = 0;
+                    ViewBag.PageSize = pageSize;
+                    return View(new List<Booking>());
+                }
+                else
+                {
+                    query = query.Where(b => accessibleHotelIds.Contains(b.Room.RoomType.HotelId));
+                }
+            }
 
             if (!string.IsNullOrEmpty(searchTerm))
             {
@@ -1383,6 +1903,14 @@ namespace Assignment.Controllers
         [HttpGet]
         public async Task<IActionResult> ContactMessages(int page = 1, int pageSize = 10)
         {
+            // Only Admin can view contact messages
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role != UserRole.Admin)
+            {
+                TempData["Error"] = "You do not have permission to view contact messages.";
+                return RedirectToAction("Index");
+            }
+
             var query = _context.ContactMessages.OrderBy(m => m.MessageId).AsQueryable();
 
             var totalCount = await query.CountAsync();
@@ -1685,10 +2213,23 @@ namespace Assignment.Controllers
         [HttpGet]
         public async Task<IActionResult> CreatePackage()
         {
-            ViewBag.RoomTypes = await _context.RoomTypes
-                .Include(rt => rt.Hotel)
-                .OrderBy(rt => rt.RoomTypeId)
-                .ToListAsync();
+            // Only Admin and Manager can create packages
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role == UserRole.Staff)
+            {
+                TempData["Error"] = "You do not have permission to create packages.";
+                return RedirectToAction("Packages");
+            }
+
+            var accessibleHotelIds = GetUserAccessibleHotelIds();
+            var roomTypesQuery = _context.RoomTypes.Include(rt => rt.Hotel).AsQueryable();
+            
+            if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+            {
+                roomTypesQuery = roomTypesQuery.Where(rt => accessibleHotelIds.Contains(rt.HotelId));
+            }
+            
+            ViewBag.RoomTypes = await roomTypesQuery.OrderBy(rt => rt.RoomTypeId).ToListAsync();
             ViewBag.Services = await _context.Services
                 .OrderBy(s => s.ServiceId)
                 .ToListAsync();
@@ -1700,6 +2241,14 @@ namespace Assignment.Controllers
         public async Task<IActionResult> CreatePackage(Package package, IFormFile? imageFile, string? imageUrl, 
             int? roomTypeId, int? serviceId, int roomQuantity = 1, int serviceQuantity = 1)
         {
+            // Only Admin and Manager can create packages
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role == UserRole.Staff)
+            {
+                TempData["Error"] = "You do not have permission to create packages.";
+                return RedirectToAction("Packages");
+            }
+
             // Validate package name
             if (string.IsNullOrWhiteSpace(package.Name))
             {
@@ -2368,6 +2917,13 @@ namespace Assignment.Controllers
         [HttpGet]
         public IActionResult CreatePromotion()
         {
+            // Only Admin and Manager can create promotions
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role == UserRole.Staff)
+            {
+                TempData["Error"] = "You do not have permission to create promotions.";
+                return RedirectToAction("Promotions");
+            }
             return View();
         }
 
@@ -2375,6 +2931,14 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreatePromotion(Promotion promotion)
         {
+            // Only Admin and Manager can create promotions
+            var role = AuthenticationHelper.GetUserRole(HttpContext);
+            if (role == UserRole.Staff)
+            {
+                TempData["Error"] = "You do not have permission to create promotions.";
+                return RedirectToAction("Promotions");
+            }
+
             if (promotion.StartDate >= promotion.EndDate)
             {
                 ModelState.AddModelError("EndDate", "End date must be after start date.");

@@ -11,6 +11,17 @@
 <div class="container-fluid">
     <h2 class="mb-4">Booking Management</h2>
 
+    <div class="alert alert-info alert-dismissible fade show mb-3">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Automatic Status Updates:</strong> Booking statuses are automatically updated based on dates:
+        <ul class="mb-0 mt-2">
+            <li><strong>Check-in:</strong> Confirmed bookings automatically change to "CheckedIn" on the check-in date</li>
+            <li><strong>Check-out:</strong> CheckedIn bookings automatically change to "CheckedOut" after the check-out date</li>
+            <li><strong>No-show:</strong> Confirmed bookings that haven't been checked in by the day after check-in date are marked as "NoShow"</li>
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
     @if (TempData["Success"] != null)
     {
         <div class="alert alert-success alert-dismissible fade show">
@@ -82,18 +93,26 @@
                                     <td style="position: relative;">
                                         <a asp-action="BookingDetails" asp-route-id="@booking.BookingId" class="btn btn-sm btn-info">Details</a>
                                         <div class="btn-group dropend">
-                                            <button type="button" class="btn btn-sm btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <button type="button" class="btn btn-sm btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Note: Check-in, Check-out, and No-show are updated automatically based on dates">
                                                 Update Status
                                             </button>
                                             <ul class="dropdown-menu dropdown-menu-end">
                                                 @foreach (var status in Enum.GetValues(typeof(BookingStatus)))
                                                 {
+                                                    var statusEnum = (BookingStatus)status;
+                                                    var isAutoStatus = statusEnum == BookingStatus.CheckedIn || 
+                                                                      statusEnum == BookingStatus.CheckedOut || 
+                                                                      statusEnum == BookingStatus.NoShow;
                                                     <li>
                                                         <form asp-action="UpdateBookingStatus" method="post" class="d-inline">
                                                             @Html.AntiForgeryToken()
                                                             <input type="hidden" name="id" value="@booking.BookingId" />
                                                             <input type="hidden" name="status" value="@status" />
-                                                            <button type="submit" class="dropdown-item">@status</button>
+                                                            <button type="submit" class="dropdown-item @(isAutoStatus ? "text-muted" : "")" 
+                                                                    @(isAutoStatus ? "disabled" : "") 
+                                                                    title="@(isAutoStatus ? "This status is updated automatically based on dates" : "")">
+                                                                @status @(isAutoStatus ? "(Auto)" : "")
+                                                            </button>
                                                         </form>
                                                     </li>
                                                 }

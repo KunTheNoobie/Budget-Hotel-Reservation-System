@@ -3,6 +3,8 @@
     Displays list of all hotels with their details, location, and status.
     Allows admins to create, edit, and manage hotel information.
 *@
+@using Assignment.Helpers
+@using Assignment.Models
 @model List<Assignment.Models.Hotel>
 @{
     ViewData["Title"] = "Hotel Management";
@@ -11,7 +13,10 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Hotel Management</h2>
-        <a asp-action="CreateHotel" class="btn btn-primary">Create New Hotel</a>
+        @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
+        {
+            <a asp-action="CreateHotel" class="btn btn-primary">Create New Hotel</a>
+        }
     </div>
 
     @if (TempData["Success"] != null)
@@ -85,7 +90,16 @@
                         <tr>
                             <td colspan="8" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                No hotels found. <a asp-action="CreateHotel">Create your first hotel</a> to get started.
+                                No hotels found. 
+                                @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
+                                {
+                                    <a asp-action="CreateHotel">Create your first hotel</a>
+                                }
+                                else
+                                {
+                                    <span>Contact your administrator to add hotels.</span>
+                                }
+                                to get started.
                             </td>
                         </tr>
                     }
