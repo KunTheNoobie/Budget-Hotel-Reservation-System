@@ -1,0 +1,83 @@
+@* 
+    Email Verification View
+    Displays email verification page where users can verify their email address.
+    Users can click verification link or manually enter verification token.
+*@
+@{
+    ViewData["Title"] = "Verify Email";
+    var userId = ViewBag.UserId as int?;
+    var email = ViewBag.Email as string;
+    var token = ViewBag.Token as string;
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center">
+                    <h3><i class="bi bi-shield-check"></i> Verify Email</h3>
+                </div>
+                <div class="card-body text-center">
+                    
+                    @if (TempData["SuccessMessage"] != null)
+                    {
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
+                        </div>
+                    }
+                    @if (TempData["WarningMessage"] != null)
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> @TempData["WarningMessage"]
+                        </div>
+                    }
+                    @if (ViewBag.Error != null)
+                    {
+                        <div class="alert alert-danger">
+                            <i class="bi bi-x-circle"></i> @ViewBag.Error
+                        </div>
+                    }
+
+                    <div class="mb-4">
+                        <img src="https://cdn-icons-png.flaticon.com/512/646/646094.png" width="80" alt="Email Icon" />
+                    </div>
+
+                    <p>We've sent a 6-digit verification code to:</p>
+                    <p class="fw-bold">@email</p>
+
+                    <form asp-action="VerifyEmail" method="post">
+                        <input type="hidden" name="userId" value="@userId" />
+                        
+                        <div class="mb-4">
+                            <label class="form-label text-muted">Enter Verification Code</label>
+                            <input type="text" 
+                                   name="otpCode" 
+                                   class="form-control text-center form-control-lg" 
+                                   placeholder="000000" 
+                                   maxlength="6" 
+                                   required 
+                                   style="letter-spacing: 10px; font-weight: bold; font-size: 24px;" 
+                                   autocomplete="off"/>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">Verify Account</button>
+                        </div>
+                    </form>
+
+                    <hr />
+                    <p class="small text-muted">
+                        Already verified? <a asp-action="Login">Login here</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Auto-focus the input
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelector("input[name='otpCode']").focus();
+    });
+</script>

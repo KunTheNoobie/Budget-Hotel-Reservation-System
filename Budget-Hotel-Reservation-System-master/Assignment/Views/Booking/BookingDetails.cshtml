@@ -1,0 +1,388 @@
+@* 
+    Booking Details View
+    Displays comprehensive information about a specific booking including room details,
+    dates, pricing, payment information, and status. Allows cancellation for eligible bookings.
+*@
+@model Assignment.Models.Booking
+@{
+    ViewData["Title"] = "Booking Details";
+}
+
+<div class="container mt-4">
+    <h2>Booking Details</h2>
+
+    <div class="card">
+        <div class="card-body">
+            <h4>Booking #@Model.BookingId</h4>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <h5>Room Information</h5>
+                    <p><strong>Room Number:</strong> @Model.Room.RoomNumber</p>
+                    <p><strong>Room Type:</strong> @Model.Room.RoomType.Name</p>
+                    <p><strong>Occupancy:</strong> @Model.Room.RoomType.Occupancy person(s)</p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Booking Dates</h5>
+                    <p><strong>Check-In:</strong> @Model.CheckInDate.ToString("MM/dd/yyyy")</p>
+                    <p><strong>Check-Out:</strong> @Model.CheckOutDate.ToString("MM/dd/yyyy")</p>
+                    <p><strong>Nights:</strong> @((Model.CheckOutDate - Model.CheckInDate).Days)</p>
+                    <p><strong>Booking Date:</strong> @Model.BookingDate.ToString("MM/dd/yyyy HH:mm")</p>
+                </div>
+            </div>
+
+            <hr />
+
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Pricing</h5>
+                    @{
+                        var nights = (Model.CheckOutDate - Model.CheckInDate).Days;
+                        var basePrice = Model.Room.RoomType.BasePrice * nights;
+                        var isPackageBooking = Model.TotalPrice != basePrice && 
+                                              (Model.Promotion == null || Model.TotalPrice > basePrice);
+                        var package = ViewBag.Package as Assignment.Models.Package;
+                        var packageServices = ViewBag.PackageServices as List<Assignment.Models.PackageItem> ?? new List<Assignment.Models.PackageItem>();
+                    }
+                    
+                    @if (isPackageBooking && package != null)
+                    {
+                        var roomPrice = Model.Room.RoomType.BasePrice * nights;
+                        var servicesTotal = packageServices.Sum(pi => pi.Service != null ? (pi.Service.Price * pi.Quantity) : 0);
+                        
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <tr>
+                                    <td>Room (@nights night(s) × RM @Model.Room.RoomType.BasePrice.ToString("F2")):</td>
+                                    <td class="text-end">RM @roomPrice.ToString("F2")</td>
+                                </tr>
+                                @if (packageServices.Any())
+                                {
+                                    @foreach (var serviceItem in packageServices)
+                                    {
+                                        if (serviceItem.Service != null)
+                                        {
+                                            var serviceTotal = serviceItem.Service.Price * serviceItem.Quantity;
+                                            <tr>
+                                                <td class="ps-3">
+                                                    <small>• @serviceItem.Service.Name
+                                                    @if (serviceItem.Quantity > 1)
+                                                    {
+                                                        <text> (x@(serviceItem.Quantity))</text>
+                                                    }
+                                                    </small>
+                                                </td>
+                                                <td class="text-end"><small>RM @serviceTotal.ToString("F2")</small></td>
+                                            </tr>
+                                        }
+                                    }
+                                    <tr>
+                                        <td><strong>Services Total:</strong></td>
+                                        <td class="text-end"><strong>RM @servicesTotal.ToString("F2")</strong></td>
+                                    </tr>
+                                }
+                                <tr class="table-active">
+                                    <td><strong>Package Total:</strong></td>
+                                    <td class="text-end"><strong class="text-primary">RM @Model.TotalPrice.ToString("F2")</strong></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <p class="mt-2"><small class="text-muted"><i class="bi bi-box-seam me-1"></i>Package: @package.Name</small></p>
+                    }
+                    else
+                    {
+                        <p><strong>Total Price:</strong> RM @Model.TotalPrice.ToString("F2")</p>
+                        @if (Model.Promotion != null)
+                        {
+                            <p><strong>Promotion Applied:</strong> @Model.Promotion.Code</p>
+                        }
+                    }
+                </div>
+                <div class="col-md-6">
+                    <h5>Status</h5>
+                    <p><strong>Booking Status:</strong> <span class="badge bg-primary">@Model.Status</span></p>
+                    @if (Model.PaymentAmount.HasValue)
+                    {
+                        <p><strong>Payment Status:</strong> <span class="badge bg-success">@Model.PaymentStatus</span></p>
+                        <p><strong>Payment Method:</strong> @(Model.PaymentMethod?.ToString() ?? "N/A")</p>
+                    }
+                </div>
+            </div>
+
+            @if (Model.Status == Assignment.Models.BookingStatus.Cancelled)
+            {
+                <div class="alert alert-danger mt-3">
+                    <h5>Cancellation Details</h5>
+                    <p><strong>Date:</strong> @Model.CancellationDate?.ToString("MM/dd/yyyy HH:mm")</p>
+                    <p><strong>Reason:</strong> @Model.CancellationReason</p>
+                    @if (Model.RefundAmount > 0)
+                    {
+                        <p><strong>Refund Amount:</strong> RM @Model.RefundAmount?.ToString("F2")</p>
+                    }
+                </div>
+            }
+
+            @{
+                var canReview = ViewBag.CanReview as bool? ?? false;
+                var hasReview = ViewBag.HasReview as bool? ?? false;
+                var existingReview = ViewBag.ExistingReview as Assignment.Models.Review;
+            }
+
+            @if (hasReview && existingReview != null)
+            {
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <div class="card border-success">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0"><i class="bi bi-star-fill me-2"></i>Your Review</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="me-3 position-relative" style="width: 50px; height: 50px; flex-shrink: 0;">
+                                        @{
+                                            var currentUser = Model.User;
+                                        }
+                                        @if (!string.IsNullOrEmpty(currentUser?.ProfilePictureUrl))
+                                        {
+                                            <img src="@currentUser.ProfilePictureUrl" alt="@currentUser.FullName" 
+                                                 class="rounded-circle review-avatar-img" style="width: 50px; height: 50px; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1;" 
+                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                            <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle review-avatar-fallback" style="display: none; width: 50px; height: 50px; font-weight: bold; font-size: 1.2rem; position: absolute; top: 0; left: 0; z-index: 0;">
+                                                @(currentUser.FullName?.Substring(0, 1).ToUpper() ?? "U")
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 50px; height: 50px; font-weight: bold; font-size: 1.2rem;">
+                                                @(currentUser?.FullName?.Substring(0, 1).ToUpper() ?? "U")
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="mb-2">
+                                            @for (int i = 1; i <= 5; i++)
+                                            {
+                                                <i class="bi bi-star@(i <= existingReview.Rating ? "-fill text-warning" : "")"></i>
+                                            }
+                                            <span class="ms-2 text-muted">@existingReview.ReviewDate.ToString("MMM dd, yyyy")</span>
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(existingReview.Comment))
+                                        {
+                                            <p class="mb-0">@existingReview.Comment</p>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (canReview)
+            {
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-star me-2"></i>Leave a Review</h5>
+                            </div>
+                            <div class="card-body">
+                                <form asp-controller="Review" asp-action="Create" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="bookingId" value="@Model.BookingId" />
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Rating <span class="text-danger">*</span></label>
+                                        <div class="rating-stars" id="ratingStars">
+                                            <input type="hidden" name="rating" id="ratingValue" value="" required />
+                                            <div class="stars-container">
+                                                <span class="star" data-rating="1"><i class="bi bi-star"></i></span>
+                                                <span class="star" data-rating="2"><i class="bi bi-star"></i></span>
+                                                <span class="star" data-rating="3"><i class="bi bi-star"></i></span>
+                                                <span class="star" data-rating="4"><i class="bi bi-star"></i></span>
+                                                <span class="star" data-rating="5"><i class="bi bi-star"></i></span>
+                                            </div>
+                                        </div>
+                                        <small class="text-muted d-block mt-2">Click on a star to select your rating</small>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="comment" class="form-label">Your Review (Optional)</label>
+                                        <textarea name="comment" id="comment" class="form-control" rows="4" placeholder="Share your experience..." maxlength="500"></textarea>
+                                        <small class="form-text text-muted">Maximum 500 characters</small>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-send me-2"></i>Submit Review
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <a asp-action="ViewReceipt" asp-route-id="@Model.BookingId" class="btn btn-primary">
+                        <i class="bi bi-receipt"></i> View Receipt
+                    </a>
+                <a asp-action="MyBookings" class="btn btn-secondary">Back to My Bookings</a>
+                </div>
+                <div class="col-md-6 text-end">
+                @* Only show Cancel button for Pending bookings without reviews *@
+                @{
+                    var hasReviewForDetails = Model.Reviews != null && Model.Reviews.Any();
+                }
+                @if (Model.Status == Assignment.Models.BookingStatus.Pending && 
+                     !hasReviewForDetails &&
+                     Model.CheckInDate >= DateTime.Today)
+                {
+                    <form asp-action="CancelBooking" asp-route-id="@Model.BookingId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to cancel this booking?');">
+                        <button type="submit" class="btn btn-danger">Cancel Booking</button>
+                    </form>
+                }
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>QR Code</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <div id="qrcode" class="d-flex justify-content-center"></div>
+                            <p class="text-muted mt-3">Scan this QR code to view booking details</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function generateQRCode() {
+            var qrCodeData = "BookingID:@Model.BookingId|User:@Model.User.Email|Room:@Model.Room.RoomNumber|CheckIn:@Model.CheckInDate.ToString("yyyy-MM-dd")|CheckOut:@Model.CheckOutDate.ToString("yyyy-MM-dd")";
+            var qrcodeElement = document.getElementById("qrcode");
+            if (qrcodeElement && typeof QRCode !== 'undefined') {
+                // Clear any existing content
+                qrcodeElement.innerHTML = '';
+                try {
+                    var qrcode = new QRCode(qrcodeElement, {
+                        text: qrCodeData,
+                        width: 200,
+                        height: 200,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                } catch (e) {
+                    console.error('QR Code generation error:', e);
+                    qrcodeElement.innerHTML = '<p class="text-danger">Failed to generate QR code. Please refresh the page.</p>';
+                }
+            }
+        }
+        
+        $(document).ready(function() {
+            // Handle avatar image loading errors
+            $('.review-avatar-img').on('error', function() {
+                $(this).hide();
+                $(this).siblings('.review-avatar-fallback').show();
+            }).on('load', function() {
+                // Ensure fallback is hidden when image loads successfully
+                $(this).siblings('.review-avatar-fallback').hide();
+            });
+
+            // Check if QRCode library is already loaded
+            if (typeof QRCode !== 'undefined') {
+                generateQRCode();
+            } else {
+                // Load the library and then generate
+                var script = document.createElement('script');
+                // Try multiple CDNs for better reliability
+                var cdns = [
+                    'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js',
+                    'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+                    'https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js'
+                ];
+                
+                function tryLoadCDN(index) {
+                    if (index >= cdns.length) {
+                        document.getElementById("qrcode").innerHTML = '<p class="text-danger">Failed to load QR code library. Please check your internet connection.</p>';
+                        return;
+                    }
+                    
+                    var script = document.createElement('script');
+                    script.src = cdns[index];
+                    script.onload = function() {
+                        generateQRCode();
+                    };
+                    script.onerror = function() {
+                        tryLoadCDN(index + 1);
+                    };
+                    document.head.appendChild(script);
+                }
+                
+                tryLoadCDN(0);
+            }
+        });
+
+        // Simple and reliable star rating
+        document.addEventListener('DOMContentLoaded', function() {
+            var ratingStars = document.getElementById('ratingStars');
+            var ratingValue = document.getElementById('ratingValue');
+            
+            if (ratingStars && ratingValue) {
+                var stars = ratingStars.querySelectorAll('.star');
+                var selectedRating = 0;
+                
+                // Function to update star display
+                function updateStars(rating) {
+                    stars.forEach(function(star, index) {
+                        var starNum = index + 1;
+                        var icon = star.querySelector('i');
+                        
+                        if (starNum <= rating) {
+                            star.classList.add('active');
+                            if (icon) {
+                                icon.classList.remove('bi-star');
+                                icon.classList.add('bi-star-fill');
+                            }
+                        } else {
+                            star.classList.remove('active');
+                            if (icon) {
+                                icon.classList.remove('bi-star-fill');
+                                icon.classList.add('bi-star');
+                            }
+                        }
+                    });
+                }
+                
+                // Click handler
+                stars.forEach(function(star) {
+                    star.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        selectedRating = parseInt(this.getAttribute('data-rating'));
+                        ratingValue.value = selectedRating;
+                        updateStars(selectedRating);
+                    });
+                    
+                    // Hover effect
+                    star.addEventListener('mouseenter', function() {
+                        var hoverRating = parseInt(this.getAttribute('data-rating'));
+                        updateStars(hoverRating);
+                    });
+                });
+                
+                // Reset on mouse leave
+                ratingStars.addEventListener('mouseleave', function() {
+                    updateStars(selectedRating);
+                });
+            }
+        });
+    </script>
+}
+

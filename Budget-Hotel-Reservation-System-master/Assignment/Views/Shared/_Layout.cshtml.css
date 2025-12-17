@@ -1,0 +1,144 @@
+﻿/* 
+    Scoped CSS for _Layout.cshtml
+    This file contains styles specific to the main layout template.
+    Styles defined here are scoped to the layout view and its components.
+    
+    Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
+    for details on configuring this project to bundle and minify static web assets.
+*/
+
+/* Navbar Brand Styling
+   Ensures the navbar brand text wraps properly and is centered */
+a.navbar-brand {
+  white-space: normal;
+  text-align: center;
+  word-break: break-all;
+}
+
+/* Global Link Styling
+   Sets the default color for all anchor tags */
+a {
+  color: #0077cc;
+}
+
+/* Primary Button Styling
+   Defines the appearance of primary action buttons */
+.btn-primary {
+  color: #fff;
+  background-color: #1b6ec2;
+  border-color: #1861ac;
+}
+
+/* Active Navigation Pills
+   Styles for active navigation items in pill-style navigation */
+.nav-pills .nav-link.active, .nav-pills .show > .nav-link {
+  color: #fff;
+  background-color: #1b6ec2;
+  border-color: #1861ac;
+}
+
+/* Border Utility Classes
+   Provides top and bottom border utilities for content separation */
+.border-top {
+  border-top: 1px solid #e5e5e5;
+}
+.border-bottom {
+  border-bottom: 1px solid #e5e5e5;
+}
+
+/* Box Shadow Utility
+   Adds subtle shadow effect for card-like elements */
+.box-shadow {
+  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
+}
+
+/* Accept Policy Button
+   Styles for cookie policy or terms acceptance buttons */
+button.accept-policy {
+  font-size: 1rem;
+  line-height: inherit;
+}
+
+/* Sticky Footer Implementation
+   Uses flexbox to ensure footer stays at the bottom of the page
+   and doesn't overlap content when page is shorter than viewport */
+html, body {
+  height: 100%;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Main Content Area
+   Allows main content to grow and push footer down to bottom */
+main[role="main"] {
+  flex: 1 0 auto; /* allow main content to grow and push footer down */
+}
+
+/* Footer Container
+   Styles for the main footer element with spacing and colors */
+.footer {
+  position: relative; /* normal document flow */
+  bottom: auto;
+  width: 100%;
+  white-space: normal;
+  line-height: normal;
+  padding: 2.5rem 0;
+  background: transparent;
+  color: #6c757d;
+}
+
+/* Footer Links Container
+   Flexbox layout for footer links, stacks vertically on mobile */
+.footer .footer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-start;
+  padding-bottom: 1rem;
+}
+
+/* Footer Links - Desktop Layout
+   Switches to horizontal layout on larger screens */
+@media (min-width: 768px) {
+  .footer .footer-links {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+/* Footer Navigation List
+   Styles for the footer navigation menu with flexbox layout */
+.footer-nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Footer Navigation Links
+   Styles for individual links within the footer navigation */
+.footer-nav li a {
+  color: #6c757d;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+/* Footer Bottom Section
+   Separates the bottom section of footer with a border */
+.footer-bottom {
+  border-top: 1px solid #e9ecef;
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+/* Footer Text Sizing
+   Keeps footer text slightly smaller for better visual hierarchy */
+.footer small, .footer p {
+  font-size: 0.9rem;
+}

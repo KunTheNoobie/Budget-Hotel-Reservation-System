@@ -1,0 +1,234 @@
+@* 
+    Admin Promotions Management View
+    Displays list of all discount promotions and coupon codes.
+    Allows admins to create, edit, activate/deactivate promotions and view usage statistics.
+*@
+@using Assignment.Helpers
+@using Assignment.Models
+@model List<Assignment.Models.Promotion>
+@using System.Security.Claims
+@{
+    var role = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+}
+@{
+    ViewData["Title"] = "Promotion Management";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Promotion Management</h2>
+        @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
+        {
+            <a asp-action="CreatePromotion" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create New Promotion
+            </a>
+        }
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Info"] != null)
+    {
+        <div class="alert alert-info alert-dismissible fade show">
+            @TempData["Info"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-body">
+
+            <form method="get" class="mb-3">
+                <div class="row">
+                    <div class="col-md-6">
+                        <input type="text" name="searchTerm" value="@ViewBag.SearchTerm" class="form-control" placeholder="Search by promotion code or description..." />
+                    </div>
+                    <div class="col-md-6">
+                        <button type="submit" class="btn btn-secondary">Search</button>
+                        <a asp-action="Promotions" class="btn btn-outline-secondary">Clear</a>
+                    </div>
+                </div>
+            </form>
+
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Code</th>
+                        <th>Description</th>
+                        <th>Type</th>
+                        <th>Value</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Protection</th>
+                        <th>Usage</th>
+                        <th>Status</th>
+                        @if(role == "Admin")
+                        {
+                            <th>Actions</th>    
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        @foreach (var promo in Model)
+                        {
+                        var protectionMethods = new List<string>();
+                        if (promo.LimitPerPhoneNumber) protectionMethods.Add("Phone");
+                        if (promo.LimitPerPaymentCard) protectionMethods.Add("Card");
+                        if (promo.LimitPerUserAccount) protectionMethods.Add("Account");
+                        if (promo.LimitPerDevice) protectionMethods.Add("Device");
+                        
+                        <tr>
+                            <td>@promo.PromotionId</td>
+                            <td><strong>@promo.Code</strong></td>
+                            <td>@(promo.Description ?? "N/A")</td>
+                            <td>
+                                <span class="badge @(promo.Type == Assignment.Models.DiscountType.Percentage ? "bg-info" : "bg-success")">
+                                    @promo.Type
+                                </span>
+                            </td>
+                            <td>
+                                @if (promo.Type == Assignment.Models.DiscountType.Percentage)
+                                {
+                                    <text>@promo.Value%</text>
+                                }
+                                else
+                                {
+                                    <text>RM @promo.Value.ToString("F2")</text>
+                                }
+                            </td>
+                            <td>@promo.StartDate.ToString("MM/dd/yyyy")</td>
+                            <td>@promo.EndDate.ToString("MM/dd/yyyy")</td>
+                            <td>
+                                @if (protectionMethods.Any())
+                                {
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach (var method in protectionMethods)
+                                        {
+                                            <span class="badge bg-warning text-dark" title="Protected by @method">@method</span>
+                                        }
+                                    </div>
+                                    @if (promo.MaxTotalUses.HasValue)
+                                    {
+                                        <small class="text-muted d-block">Max: @promo.MaxTotalUses uses</small>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">None</span>
+                                }
+                            </td>
+                            <td>
+                                @{
+                                    var usageCountsDict = ViewBag.UsageCountsDict as Dictionary<int, int> ?? new Dictionary<int, int>();
+                                    var usageCount = usageCountsDict.GetValueOrDefault(promo.PromotionId, 0);
+                                    var maxUses = promo.MaxTotalUses;
+                                }
+                                <div>
+                                    <strong>@usageCount</strong>
+                                    @if (maxUses.HasValue)
+                                    {
+                                        <text>/ @maxUses</text>
+                                        @if (usageCount >= maxUses.Value)
+                                        {
+                                            <span class="badge bg-danger ms-1">Max Reached</span>
+                                        }
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                @{
+                                    var isExpired = promo.EndDate < DateTime.Now;
+                                    var isNotStarted = promo.StartDate > DateTime.Now;
+                                    var isMaxedOut = maxUses.HasValue && usageCount >= maxUses.Value;
+                                    var isCurrentlyActive = promo.IsActive && !isExpired && !isNotStarted && !isMaxedOut;
+                                }
+                                <span class="badge @(isCurrentlyActive ? "bg-success" : "bg-secondary")">
+                                    @if (isExpired)
+                                    {
+                                        <text>Expired</text>
+                                    }
+                                    else if (isNotStarted)
+                                    {
+                                        <text>Not Started</text>
+                                    }
+                                    else if (isMaxedOut)
+                                    {
+                                        <text>Max Usage</text>
+                                    }
+                                    else if (promo.IsActive)
+                                    {
+                                        <text>Active</text>
+                                    }
+                                    else
+                                    {
+                                        <text>Inactive</text>
+                                    }
+                                </span>
+                            </td>
+                                @if (role == "Admin")
+                                {
+                                 <td>
+                                    <a asp-action="EditPromotion" asp-route-id="@promo.PromotionId" class="btn btn-sm btn-primary">Edit</a>
+                                            <form asp-action="DeletePromotion" asp-route-id="@promo.PromotionId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this promotion?');">
+                                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                            </form>
+                                </td>   
+                                }
+                        </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="11" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                No promotions found. 
+                                @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin || AuthenticationHelper.GetUserRole(Context) == UserRole.Manager)
+                                {
+                                    <a asp-action="CreatePromotion">Create your first promotion</a>
+                                }
+                                else
+                                {
+                                    <span>Contact your administrator to add promotions.</span>
+                                }
+                                to get started.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (ViewBag.TotalPages > 1)
+            {
+                <nav>
+                    <ul class="pagination">
+                        @for (int i = 1; i <= ViewBag.TotalPages; i++)
+                        {
+                            <li class="page-item @(i == ViewBag.CurrentPage ? "active" : "")">
+                                <a class="page-link" href="?page=@i&searchTerm=@ViewBag.SearchTerm">@i</a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+            }
+        </div>
+    </div>
+</div>
+

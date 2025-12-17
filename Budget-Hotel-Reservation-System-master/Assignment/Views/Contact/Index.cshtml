@@ -1,0 +1,63 @@
+@* 
+    Contact Form View
+    Displays the contact form for users to send inquiries, feedback, or support requests.
+    Includes rate limiting protection to prevent spam submissions.
+*@
+@model Assignment.Models.ContactMessage
+@{
+    ViewData["Title"] = "Contact Us";
+}
+
+<section class="gradient-hero hero-shell">
+    <div class="container text-center">
+        <h1 class="display-4 fw-bold text-white mb-3">Get in Touch</h1>
+        <p class="lead text-white-50">We're here to help with your booking inquiries and feedback.</p>
+    </div>
+</section>
+
+<div class="container section-spacer" style="margin-top: -100px;">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-5">
+                    @if (TempData["Success"] != null)
+                    {
+                        <div class="alert alert-success mb-4">
+                            <i class="bi bi-check-circle-fill me-2"></i>@TempData["Success"]
+                        </div>
+                    }
+
+                    <form asp-action="Send" method="post">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="Name" class="form-label">Your Name</label>
+                                <input asp-for="Name" class="form-control" placeholder="John Doe" />
+                                <span asp-validation-for="Name" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Email" class="form-label">Email Address</label>
+                                <input asp-for="Email" class="form-control" placeholder="john@example.com" />
+                                <span asp-validation-for="Email" class="text-danger"></span>
+                            </div>
+                            <div class="col-12">
+                                <label asp-for="Subject" class="form-label">Subject</label>
+                                <input asp-for="Subject" class="form-control" placeholder="Booking Inquiry" />
+                                <span asp-validation-for="Subject" class="text-danger"></span>
+                            </div>
+                            <div class="col-12">
+                                <label asp-for="Message" class="form-label">Message</label>
+                                <textarea asp-for="Message" class="form-control" rows="5" placeholder="How can we help you?"></textarea>
+                                <span asp-validation-for="Message" class="text-danger"></span>
+                            </div>
+                            <div class="col-12 mt-4">
+                                <button type="submit" class="btn btn-primary w-100 py-3">
+                                    <i class="bi bi-send-fill me-2"></i>Send Message
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,96 @@
+@* 
+    Admin Booking Details View
+    Displays comprehensive booking information for administrative review.
+    Shows booking details, payment information, and allows status management.
+*@
+@model Assignment.Models.Booking
+@{
+    ViewData["Title"] = "Booking Details";
+}
+
+<div class="container mt-4">
+    <h2>Booking Details</h2>
+
+    <div class="card">
+        <div class="card-body">
+            <h4>Booking #@Model.BookingId</h4>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <h5>Customer Information</h5>
+                    <p><strong>Name:</strong> @Model.User?.FullName</p>
+                    <p><strong>Email:</strong> @Model.User?.Email</p>
+                    <p><strong>Phone:</strong> @(Model.User?.PhoneNumber ?? "N/A")</p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Room Information</h5>
+                    <p><strong>Room Number:</strong> @Model.Room?.RoomNumber</p>
+                    <p><strong>Room Type:</strong> @Model.Room?.RoomType?.Name</p>
+                    <p><strong>Occupancy:</strong> @Model.Room?.RoomType?.Occupancy person(s)</p>
+                </div>
+            </div>
+
+            <hr />
+
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Booking Dates</h5>
+                    <p><strong>Check-In:</strong> @Model.CheckInDate.ToString("MM/dd/yyyy")</p>
+                    <p><strong>Check-Out:</strong> @Model.CheckOutDate.ToString("MM/dd/yyyy")</p>
+                    <p><strong>Nights:</strong> @((Model.CheckOutDate - Model.CheckInDate).Days)</p>
+                    <p><strong>Booking Date:</strong> @Model.BookingDate.ToString("MM/dd/yyyy HH:mm")</p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Pricing</h5>
+                    <p><strong>Total Price:</strong> RM @Model.TotalPrice.ToString("F2")</p>
+                    @if (Model.Promotion != null)
+                    {
+                        <p><strong>Promotion Applied:</strong> @Model.Promotion.Code</p>
+                        <p><strong>Discount:</strong> 
+                            @if (Model.Promotion.Type == Assignment.Models.DiscountType.Percentage)
+                            {
+                                <text>@Model.Promotion.Value.ToString("F0")%</text>
+                            }
+                            else
+                            {
+                                <text>RM @Model.Promotion.Value.ToString("F2")</text>
+                            }
+                        </p>
+                    }
+                </div>
+            </div>
+
+            <hr />
+
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Status</h5>
+                    <p><strong>Booking Status:</strong> <span class="badge bg-primary">@Model.Status</span></p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Payment Information</h5>
+                    @if (Model.PaymentAmount.HasValue)
+                    {
+                        <p><strong>Payment Status:</strong> <span class="badge bg-success">@Model.PaymentStatus</span></p>
+                        <p><strong>Payment Method:</strong> @(Model.PaymentMethod?.ToString() ?? "N/A")</p>
+                        <p><strong>Transaction ID:</strong> @(Model.TransactionId ?? "N/A")</p>
+                        @if (Model.PaymentDate.HasValue)
+                        {
+                            <p><strong>Payment Date:</strong> @Model.PaymentDate.Value.ToString("MM/dd/yyyy HH:mm")</p>
+                        }
+                        <p><strong>Amount Paid:</strong> RM @Model.PaymentAmount.Value.ToString("F2")</p>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No payment information available.</p>
+                    }
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <a asp-action="Bookings" class="btn btn-secondary">Back to Bookings</a>
+            </div>
+        </div>
+    </div>
+</div>
+

@@ -1,0 +1,46 @@
+@* 
+    Admin Create Amenity View
+    Displays form for creating a new amenity that can be associated with room types.
+    Includes fields for amenity name and image upload.
+*@
+@model Assignment.Models.Amenity
+@{
+    ViewData["Title"] = "Create Amenity";
+}
+
+<div class="container">
+    <h2>Create New Amenity</h2>
+
+    <form asp-action="CreateAmenity" method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="All" class="text-danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control" maxlength="100" required />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Image</label>
+            <div class="mb-2">
+                <input type="file" name="imageFile" class="form-control" accept="image/*" />
+                <small class="form-text text-muted">Upload an image file (JPG, PNG, GIF, etc.)</small>
+            </div>
+            <div class="text-muted mb-2">OR</div>
+            <div>
+                <input type="url" name="imageUrl" class="form-control" placeholder="https://example.com/image.jpg" />
+                <small class="form-text text-muted">Enter a full URL to an image for this amenity</small>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Create</button>
+            <a asp-action="Amenities" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+

@@ -1,0 +1,101 @@
+@* 
+    Admin Create User View
+    Displays form for creating a new user account with role assignment.
+    Includes fields for email, password, name, phone, and role selection.
+*@
+@model Assignment.Models.User
+@{
+    ViewData["Title"] = "Create User";
+}
+
+<div class="container">
+    <h2>Create New User</h2>
+
+    <form asp-action="CreateUser" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="text-danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="FullName" class="form-label"></label>
+            <input asp-for="FullName" class="form-control" maxlength="100" required />
+            <span asp-validation-for="FullName" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" type="email" maxlength="100" required />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label for="password" class="form-label">Password</label>
+            <input type="password" name="password" id="password" class="form-control" required minlength="8" />
+            <small class="form-text text-muted">Password must be at least 8 characters.</small>
+            <span class="text-danger field-validation-valid" data-valmsg-for="Password" data-valmsg-replace="true"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="PhoneNumber" class="form-label"></label>
+            <input asp-for="PhoneNumber" class="form-control" pattern="^(\+?[0-9]{1,4}[-]?[0-9]{2,4}[-]?[0-9]{3,4}[-]?[0-9]{3,4}|[0-9]{7,15})$" title="Phone number format: +60-12-345-6789, 012-345-6789, or 0123456789" />
+            <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+            <small class="form-text text-muted">Format: +60-12-345-6789, 012-345-6789, or similar (optional)</small>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Role" class="form-label"></label>
+            <select asp-for="Role" class="form-select" asp-items="Html.GetEnumSelectList<UserRole>()" id="roleSelect"></select>
+            <span asp-validation-for="Role" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3" id="hotelAssignmentGroup" style="display: none;">
+            <label asp-for="HotelId" class="form-label">Hotel Assignment</label>
+            <select asp-for="HotelId" class="form-select">
+                <option value="">-- Select Hotel --</option>
+                @foreach (var hotel in ViewBag.Hotels as List<Assignment.Models.Hotel> ?? new List<Assignment.Models.Hotel>())
+                {
+                    <option value="@hotel.HotelId">@hotel.Name</option>
+                }
+            </select>
+            <span asp-validation-for="HotelId" class="text-danger"></span>
+            <small class="form-text text-muted">Required for Manager and Staff roles.</small>
+        </div>
+
+        <div class="mb-3 form-check">
+            <input asp-for="IsActive" class="form-check-input" />
+            <label asp-for="IsActive" class="form-check-label"></label>
+        </div>
+
+        <div class="mb-3 form-check">
+            <input asp-for="IsEmailVerified" class="form-check-input" />
+            <label asp-for="IsEmailVerified" class="form-check-label"></label>
+        </div>
+
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Create</button>
+            <a asp-action="Users" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        // Show/hide hotel assignment based on role selection
+        document.getElementById('roleSelect').addEventListener('change', function() {
+            var hotelGroup = document.getElementById('hotelAssignmentGroup');
+            var role = this.value;
+            if (role === '1' || role === '2') {
+                hotelGroup.style.display = 'block';
+                hotelGroup.querySelector('select').setAttribute('required', 'required');
+            } else {
+                hotelGroup.style.display = 'none';
+                hotelGroup.querySelector('select').removeAttribute('required');
+                hotelGroup.querySelector('select').value = '';
+            }
+        });
+        
+        // Trigger on page load
+        document.getElementById('roleSelect').dispatchEvent(new Event('change'));
+    </script>
+}
+

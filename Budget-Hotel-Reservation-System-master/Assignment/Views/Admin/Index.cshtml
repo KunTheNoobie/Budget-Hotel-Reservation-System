@@ -1,0 +1,278 @@
+@* 
+    Admin Dashboard View
+    Displays comprehensive statistics and charts for system administrators.
+    Shows user counts, booking statistics, revenue trends, and booking distribution by hotel.
+    Uses Chart.js for data visualization.
+*@
+@using System.Security.Claims
+@{
+    var role = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value ?? "User";
+    ViewData["Title"] = $"{role} Dashboard";
+    var stats = ViewBag.Stats as dynamic;
+}
+
+<div class="container-fluid">
+    <h2 class="mb-4">@role&nbsp;Dashboard</h2>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Total Users</h5>
+                    <h2>@stats.TotalUsers</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">Total Hotels</h5>
+                    <h2>@stats.TotalHotels</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h5 class="card-title">Total Rooms</h5>
+                    <h2>@stats.TotalRooms</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">Total Bookings</h5>
+                    <h2>@stats.TotalBookings</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5>Bookings by Hotel</h5>
+                </div>
+                <div class="card-body" style="position: relative; height: 300px;">
+                    <canvas id="hotelChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>Revenue Trend</h5>
+                    <div>
+                        <select id="periodSelector" class="form-select form-select-sm" style="width: auto; display: inline-block;">
+                            @{
+                                var currentPeriod = ViewBag.Period as string ?? "7days";
+                            }
+                            @if (currentPeriod == "7days")
+                            {
+                                <option value="7days" selected>7 Days</option>
+                            }
+                            else
+                            {
+                                <option value="7days">7 Days</option>
+                            }
+                            @if (currentPeriod == "month")
+                            {
+                                <option value="month" selected>Month</option>
+                            }
+                            else
+                            {
+                                <option value="month">Month</option>
+                            }
+                            @if (currentPeriod == "year")
+                            {
+                                <option value="year" selected>Year</option>
+                            }
+                            else
+                            {
+                                <option value="year">Year</option>
+                            }
+                            @if (currentPeriod == "alltime")
+                            {
+                                <option value="alltime" selected>All Time</option>
+                            }
+                            else
+                            {
+                                <option value="alltime">All Time</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body" style="position: relative; height: 300px;">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Booking Status</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Pending:</strong> @stats.PendingBookings</p>
+                    <p><strong>Confirmed:</strong> @stats.ConfirmedBookings</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Hotel Chart (Bar Chart)
+        var hotelCtx = document.getElementById('hotelChart').getContext('2d');
+        var hotelChart = new Chart(hotelCtx, {
+            type: 'bar',
+            data: {
+                labels: @Html.Raw(Json.Serialize(ViewBag.HotelLabels)),
+                datasets: [{
+                    label: 'Bookings',
+                    data: @Html.Raw(Json.Serialize(ViewBag.HotelData)),
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(153, 102, 255, 0.7)',
+                        'rgba(255, 159, 64, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)',
+                        'rgba(255, 159, 64, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+
+        // Revenue Chart
+        var revenueCtx = document.getElementById('revenueChart').getContext('2d');
+        var revenueChart = new Chart(revenueCtx, {
+            type: 'line',
+            data: {
+                labels: @Html.Raw(Json.Serialize(ViewBag.RevenueLabels)),
+                datasets: [{
+                    label: 'Revenue (RM)',
+                    data: @Html.Raw(Json.Serialize(ViewBag.RevenueData)),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Period selector change handler
+        document.getElementById('periodSelector').addEventListener('change', function() {
+            var period = this.value;
+            window.location.href = '@Url.Action("Index", "Admin")?period=' + period;
+        });
+    </script>
+
+    <div class="mt-4">
+        <h4>Quick Links</h4>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <a asp-action="Users" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-people"></i><br />Users
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Hotels" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-building"></i><br />Hotels
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="RoomTypes" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-door-open"></i><br />Room Types
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Rooms" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-house"></i><br />Rooms
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Bookings" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-calendar-check"></i><br />Bookings
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Reviews" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-star"></i><br />Reviews
+                </a>
+            </div>
+            @if (role != "Staff")
+            {
+                <div class="col-md-3">
+                    <a asp-action="Amenities" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-list-check"></i><br />Amenities
+                    </a>
+                </div>    
+            }
+            <div class="col-md-3">
+                <a asp-action="Services" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-gear"></i><br />Services
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Packages" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-box-seam"></i><br />Packages
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Promotions" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-tag"></i><br />Promotions
+                </a>
+            </div>
+            @if (role != "Staff" && role != "Manager")
+            {
+                <div class="col-md-3">
+                <a asp-action="ContactMessages" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-envelope"></i><br />Contact Messages
+                </a>
+            </div>
+            }
+
+        </div>
+    </div>
+</div>
+

@@ -1,0 +1,64 @@
+@* 
+    Booking Confirmation View
+    Displays confirmation message after a successful booking is created.
+    Shows booking details, QR code for check-in, and booking ID.
+    Includes option to view receipt or return to home.
+*@
+@model Assignment.Models.Booking
+@{
+    ViewData["Title"] = "Booking Confirmation";
+}
+
+<div class="container mt-4">
+    <div class="card border-success">
+        <div class="card-header bg-success text-white text-center">
+            <h3><i class="bi bi-check-circle"></i> Booking Confirmed!</h3>
+        </div>
+        <div class="card-body">
+            @if (TempData["EmailSent"] != null)
+            {
+                <div class="alert alert-info alert-dismissible fade show">
+                    <i class="bi bi-envelope-check me-2"></i>@TempData["EmailSent"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            <h4>Booking #@Model.BookingId</h4>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <h5>Booking Details</h5>
+                    <p><strong>Room:</strong> @Model.Room.RoomNumber (@Model.Room.RoomType.Name)</p>
+                    <p><strong>Check-In:</strong> @Model.CheckInDate.ToString("MM/dd/yyyy")</p>
+                    <p><strong>Check-Out:</strong> @Model.CheckOutDate.ToString("MM/dd/yyyy")</p>
+                    <p><strong>Nights:</strong> @((Model.CheckOutDate - Model.CheckInDate).Days)</p>
+                    <p><strong>Status:</strong> <span class="badge bg-success">@Model.Status</span></p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Payment Information</h5>
+                    @if (Model.PaymentAmount.HasValue)
+                    {
+                        <p><strong>Amount Paid:</strong> RM @Model.PaymentAmount.Value.ToString("F2")</p>
+                        <p><strong>Payment Method:</strong> @(Model.PaymentMethod?.ToString() ?? "N/A")</p>
+                        <p><strong>Payment Status:</strong> <span class="badge bg-success">@Model.PaymentStatus</span></p>
+                        <p><strong>Transaction ID:</strong> @(Model.TransactionId ?? "N/A")</p>
+                    }
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-6 text-center">
+                    <h5>QR Code</h5>
+                    <img src="@Url.Action("QRCode", "Booking", new { id = Model.BookingId })" alt="QR Code" class="img-fluid" style="max-width: 200px;" />
+                    <p class="mt-2"><small>Scan this QR code at check-in</small></p>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <a asp-action="BookingDetails" asp-route-id="@Model.BookingId" class="btn btn-primary">View Booking Details</a>
+                <a asp-action="MyBookings" class="btn btn-secondary">My Bookings</a>
+                <a asp-controller="Booking" asp-action="ViewReceipt" asp-route-id="@Model.BookingId" class="btn btn-info">View Receipt</a>
+            </div>
+        </div>
+    </div>
+</div>
+

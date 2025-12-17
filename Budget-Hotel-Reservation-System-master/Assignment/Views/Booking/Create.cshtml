@@ -1,0 +1,382 @@
+@* 
+    Booking Creation View
+    Displays the booking form for creating a new reservation.
+    Supports both regular room bookings and package bookings.
+    Includes date selection, promotion code application, and price calculation.
+*@
+@{
+    ViewData["Title"] = "Create Booking";
+    var roomType = ViewBag.RoomType as Assignment.Models.RoomType;
+    var checkIn = ViewBag.CheckIn as DateTime? ?? DateTime.Today.AddDays(1);
+    var checkOut = ViewBag.CheckOut as DateTime? ?? DateTime.Today.AddDays(2);
+    var promotions = ViewBag.Promotions as List<Assignment.Models.Promotion> ?? new List<Assignment.Models.Promotion>();
+    var package = ViewBag.Package as Assignment.Models.Package;
+    var isPackageBooking = ViewBag.IsPackageBooking as bool? ?? false;
+    var packageServices = ViewBag.PackageServices as List<Assignment.Models.PackageItem> ?? new List<Assignment.Models.PackageItem>();
+    var packageRoomItems = ViewBag.PackageRoomItems as List<Assignment.Models.PackageItem> ?? new List<Assignment.Models.PackageItem>();
+}
+
+<div class="container mt-4">
+    <h2>Create Booking</h2>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    @if (isPackageBooking && package != null)
+                    {
+                        <div class="alert alert-info mb-3">
+                            <h5 class="mb-2"><i class="bi bi-box-seam me-2"></i>Package Booking: @package.Name</h5>
+                            <p class="mb-0">@package.Description</p>
+                        </div>
+                        
+                        @if (packageServices.Any())
+                        {
+                            <div class="mb-3">
+                                <h6><i class="bi bi-check-circle-fill text-success me-2"></i>Package Includes:</h6>
+                                <ul class="list-unstyled">
+                                    @foreach (var serviceItem in packageServices)
+                                    {
+                                        if (serviceItem.Service != null)
+                                        {
+                                            <li class="mb-1">
+                                                <i class="bi bi-check text-success me-2"></i>
+                                                <strong>@serviceItem.Service.Name</strong>
+                                                @if (serviceItem.Quantity > 1)
+                                                {
+                                                    <span class="badge bg-info">x@(serviceItem.Quantity)</span>
+                                                }
+                                                <span class="text-muted">
+                                                    (RM @serviceItem.Service.Price.ToString("F2")
+                                                    @if (serviceItem.Quantity > 1)
+                                                    {
+                                                        <text> × @(serviceItem.Quantity) = RM @((serviceItem.Service.Price * serviceItem.Quantity).ToString("F2"))</text>
+                                                    })
+                                                </span>
+                                            </li>
+                                        }
+                                    }
+                                </ul>
+                            </div>
+                        }
+                        
+                        <hr />
+                    }
+                    
+                    <h4>@roomType.Name</h4>
+                    <p><strong>Price per night:</strong> RM @roomType.BasePrice.ToString("F2")</p>
+                    <p><strong>Occupancy:</strong> @roomType.Occupancy person(s)</p>
+
+                    <form asp-action="Create" method="post">
+                        <input type="hidden" name="roomTypeId" value="@roomType.RoomTypeId" />
+                        @if (isPackageBooking && package != null)
+                        {
+                            <input type="hidden" name="packageId" value="@package.PackageId" />
+                        }
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="checkIn" class="form-label">Check-In Date</label>
+                                <input type="date" id="checkIn" name="checkIn" class="form-control" value="@checkIn.ToString("yyyy-MM-dd")" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="checkOut" class="form-label">Check-Out Date</label>
+                                <input type="date" id="checkOut" name="checkOut" class="form-control" value="@checkOut.ToString("yyyy-MM-dd")" required />
+                            </div>
+                        </div>
+
+                        @* Only show promotion code dropdown for non-package bookings *@
+                        @if (!isPackageBooking)
+                        {
+                            <div class="mb-3">
+                                <label for="promotionId" class="form-label">Promotion Code (Optional)</label>
+                                <select id="promotionId" name="promotionId" class="form-select">
+                                    <option value="">None</option>
+                                @if (promotions.Any())
+                                {
+                                    @foreach (var promo in promotions)
+                                    {
+                                        <option value="@promo.PromotionId">@promo.Code - @(promo.Description ?? promo.Code)</option>
+                                    }
+                                }
+                                </select>
+                                <small class="form-text text-muted">Select a promotion code to apply a discount</small>
+                                @if (!promotions.Any())
+                                {
+                                    <small class="form-text text-muted">No active promotions available at this time</small>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            @* Hidden field to ensure no promotion is submitted for package bookings *@
+                            <input type="hidden" name="promotionId" value="" />
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Package Booking:</strong> Promotions cannot be applied to package bookings as the package price already includes special discounts and bundled services.
+                            </div>
+                        }
+
+                        <div id="availabilityCheck" class="mb-3"></div>
+
+                        <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+                        <button type="submit" class="btn btn-primary" id="submitBtn">Continue to Payment</button>
+                        <a asp-controller="Room" asp-action="Catalog" class="btn btn-secondary">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card sticky-top" style="top: 20px;">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Booking Summary</h5>
+                </div>
+                <div class="card-body">
+                    @if (isPackageBooking && package != null)
+                    {
+                        <div class="mb-3">
+                            <h6 class="text-primary"><i class="bi bi-box-seam me-2"></i>Package: @package.Name</h6>
+                            <p class="mb-1 text-muted small">@package.Description</p>
+                        </div>
+                        <hr />
+                    }
+                    <div class="mb-3">
+                        <p class="mb-1"><strong>Room:</strong> @roomType.Name</p>
+                        <p class="mb-1"><strong>Price per night:</strong> RM @roomType.BasePrice.ToString("F2")</p>
+                        <p class="mb-1"><strong>Occupancy:</strong> @roomType.Occupancy person(s)</p>
+                    </div>
+                    <hr />
+                    <div id="priceBreakdown">
+                        <p id="nights" class="mb-1">Nights: <span id="nightsValue">Calculating...</span></p>
+                        @if (isPackageBooking && package != null)
+                        {
+                            var nights = (checkOut - checkIn).Days;
+                            var roomPrice = roomType.BasePrice * nights;
+                            var servicesTotal = packageServices.Sum(pi => pi.Service != null ? (pi.Service.Price * pi.Quantity) : 0);
+                            
+                            <div class="mb-2">
+                                <p class="mb-1"><strong>Room (@nights night(s)):</strong> <span class="text-end">RM @roomPrice.ToString("F2")</span></p>
+                                @if (packageServices.Any())
+                                {
+                                    <div class="ms-3 small">
+                                        @foreach (var serviceItem in packageServices)
+                                        {
+                                            if (serviceItem.Service != null)
+                                            {
+                                                var serviceTotal = serviceItem.Service.Price * serviceItem.Quantity;
+                                                <p class="mb-0 text-muted">
+                                                    • @serviceItem.Service.Name
+                                                    @if (serviceItem.Quantity > 1)
+                                                    {
+                                                        <text> (x@(serviceItem.Quantity))</text>
+                                                    }
+                                                    : RM @serviceTotal.ToString("F2")
+                                                </p>
+                                            }
+                                        }
+                                    </div>
+                                    <p class="mb-1 mt-1"><strong>Services Total:</strong> <span class="text-end">RM @servicesTotal.ToString("F2")</span></p>
+                                }
+                                <hr class="my-2" />
+                                <p class="mb-1"><strong>Package Price:</strong> <span class="text-primary">RM @package.TotalPrice.ToString("F2")</span></p>
+                            </div>
+                        }
+                        else
+                        {
+                        <p id="basePrice" class="mb-1">Base Price: <span id="basePriceValue">RM @roomType.BasePrice.ToString("F2")</span></p>
+                        }
+                        <p id="promotionInfo" class="mb-1 text-muted" style="display: none;">Promotion: <span id="promotionName"></span></p>
+                        <p id="discount" class="mb-1 text-success">Discount: <span id="discountValue">RM0.00</span></p>
+                        <hr />
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong>Total:</strong>
+                            <span id="totalPrice" class="price-display">RM @(isPackageBooking && package != null ? package.TotalPrice.ToString("F2") : roomType.BasePrice.ToString("F2"))</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            var isPackageBooking = @(isPackageBooking ? "true" : "false");
+            var packagePrice = @(isPackageBooking && package != null ? package.TotalPrice : 0);
+            var basePricePerNight = @roomType.BasePrice;
+            var promotions = @Html.Raw(Json.Serialize(promotions.Select(p => new { p.PromotionId, p.Code, p.Description, p.Type, p.Value })));
+            
+            function calculatePrice() {
+                var checkIn = new Date($('#checkIn').val());
+                var checkOut = new Date($('#checkOut').val());
+                var selectedPromoId = $('#promotionId').val();
+                
+                if (!checkIn || !checkOut || checkOut <= checkIn) {
+                    return;
+                }
+                
+                    var nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+                $('#nightsValue').text(nights);
+                
+                if (isPackageBooking && packagePrice > 0) {
+                    // For package bookings, use package price (promotions don't apply)
+                    var total = packagePrice;
+                    var discount = 0;
+                    
+                    // Promotions don't apply to package bookings
+                    $('#promotionInfo').hide();
+                    $('#discountValue').text('RM0.00');
+                    $('#totalPrice').text('RM' + total.toFixed(2));
+                } else {
+                    // Regular room booking
+                    var basePrice = basePricePerNight * nights;
+                    var discount = 0;
+                    
+                    if (selectedPromoId) {
+                        var promo = promotions.find(p => p.promotionId == parseInt(selectedPromoId));
+                        if (promo) {
+                            if (promo.type === 0) { // Percentage
+                                discount = basePrice * (promo.value / 100);
+                            } else { // FixedAmount
+                                discount = promo.value;
+                            }
+                            // Ensure discount doesn't exceed base price
+                            if (discount > basePrice) discount = basePrice;
+                            
+                            $('#promotionInfo').show();
+                            $('#promotionName').text(promo.code);
+                        }
+                    } else {
+                        $('#promotionInfo').hide();
+                    }
+                    
+                    var total = basePrice - discount;
+                    
+                    $('#basePriceValue').text('RM' + basePrice.toFixed(2));
+                    $('#discountValue').text('RM' + discount.toFixed(2));
+                    $('#totalPrice').text('RM' + total.toFixed(2));
+                }
+            }
+            
+            // Set minimum dates for date inputs
+            var today = new Date().toISOString().split('T')[0];
+            var checkInInput = $('#checkIn');
+            var checkOutInput = $('#checkOut');
+            
+            // Set min attribute if not already set or if current value is in the past
+            if (!checkInInput.attr('min') || checkInInput.val() < today) {
+                checkInInput.attr('min', today);
+            }
+            if (!checkOutInput.attr('min') || checkOutInput.val() < today) {
+                checkOutInput.attr('min', today);
+            }
+
+            // Update check-out minimum date when check-in changes
+            checkInInput.on('change', function() {
+                var checkInValue = $(this).val();
+                if (checkInValue) {
+                    var checkInDate = new Date(checkInValue);
+                    checkInDate.setDate(checkInDate.getDate() + 1);
+                    var minCheckOut = checkInDate.toISOString().split('T')[0];
+                    checkOutInput.attr('min', minCheckOut);
+                    
+                    // If check-out is before new minimum, update it
+                    var checkOutValue = checkOutInput.val();
+                    if (checkOutValue && checkOutValue < minCheckOut) {
+                        checkOutInput.val(minCheckOut);
+                    }
+                }
+                // Clear availability message when dates change
+                $('#availabilityCheck').html('');
+                calculatePrice();
+            });
+
+            checkOutInput.on('change', function() {
+                // Clear availability message when dates change
+                $('#availabilityCheck').html('');
+                calculatePrice();
+            });
+            
+            $('#promotionId').on('change', calculatePrice);
+            calculatePrice();
+            
+            // Check availability function - only called when button is clicked or form is submitted
+            function checkAvailability() {
+                var checkIn = checkInInput.val();
+                var checkOut = checkOutInput.val();
+                var roomTypeId = @roomType.RoomTypeId;
+                
+                if (!checkIn || !checkOut) {
+                    $('#availabilityCheck').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Please select both dates.</div>');
+                    $('#submitBtn').prop('disabled', true);
+                    return;
+                }
+                
+                var checkInDate = new Date(checkIn);
+                var checkOutDate = new Date(checkOut);
+                
+                if (checkInDate < new Date(today)) {
+                    $('#availabilityCheck').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Check-in date cannot be in the past.</div>');
+                    $('#submitBtn').prop('disabled', true);
+                    return;
+                }
+                
+                if (checkOutDate <= checkInDate) {
+                    $('#availabilityCheck').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Check-out date must be after check-in date.</div>');
+                    $('#submitBtn').prop('disabled', true);
+                    return;
+                }
+                
+                // Show loading state
+                $('#availabilityCheck').html('<div class="alert alert-info"><i class="bi bi-hourglass-split me-2"></i>Checking availability...</div>');
+                
+                $.ajax({
+                    url: '@Url.Action("CheckAvailability", "Room")',
+                    type: 'POST',
+                    data: {
+                        roomTypeId: roomTypeId,
+                        checkIn: checkIn,
+                        checkOut: checkOut
+                    },
+                    success: function(response) {
+                        if (response.available && response.count > 0) {
+                            $('#availabilityCheck').html('<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Available! ' + response.count + ' room(s) available for the selected dates.</div>');
+                            $('#submitBtn').prop('disabled', false);
+                        } else {
+                            var message = response.message || 'No rooms available for the selected dates.';
+                            $('#availabilityCheck').html('<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>' + message + '</div>');
+                            $('#submitBtn').prop('disabled', true);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Availability check error:', error);
+                        $('#availabilityCheck').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Error checking availability. Please try again.</div>');
+                        $('#submitBtn').prop('disabled', false);
+                    }
+                });
+            }
+            
+            // Check availability when form is submitted (for validation)
+            $('form').on('submit', function(e) {
+                var checkIn = checkInInput.val();
+                var checkOut = checkOutInput.val();
+                
+                if (!checkIn || !checkOut) {
+                    e.preventDefault();
+                    $('#availabilityCheck').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Please select both dates.</div>');
+                    return false;
+                }
+                
+                // If availability hasn't been checked, check it now
+                if ($('#availabilityCheck').html().trim() === '') {
+                    e.preventDefault();
+                    checkAvailability();
+                    return false;
+                }
+            });
+        });
+    </script>
+}
+

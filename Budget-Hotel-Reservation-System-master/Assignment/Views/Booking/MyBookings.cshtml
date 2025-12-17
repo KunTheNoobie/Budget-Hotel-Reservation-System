@@ -1,0 +1,182 @@
+@* 
+    My Bookings View
+    Displays a list of all bookings made by the authenticated user.
+    Shows booking status, dates, room information, and provides links to view details or cancel.
+    Includes filtering and sorting options.
+*@
+@model List<Assignment.Models.Booking>
+@{
+    ViewData["Title"] = "My Bookings";
+}
+
+<div class="container mt-4">
+    <h2>My Bookings</h2>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (Model.Any())
+    {
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Booking ID</th>
+                        <th>Room</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Total Price</th>
+                        <th>Status</th>
+                        <th>Payment</th>
+                        <th>Review</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var booking in Model)
+                    {
+                        var reviewStatus = ViewBag.BookingReviewStatus as Dictionary<int, dynamic>;
+                        var canReview = reviewStatus != null && reviewStatus.ContainsKey(booking.BookingId) && reviewStatus[booking.BookingId].CanReview;
+                        var hasReview = reviewStatus != null && reviewStatus.ContainsKey(booking.BookingId) && reviewStatus[booking.BookingId].HasReview;
+                        var existingReview = booking.Reviews?.FirstOrDefault();
+                        
+                        // Fallback: check reviews directly if ViewBag is not available
+                        if (existingReview != null && !hasReview)
+                        {
+                            hasReview = true;
+                        }
+                        
+                        <tr>
+                            <td>#@booking.BookingId</td>
+                            <td>@booking.Room.RoomNumber<br /><small>@booking.Room.RoomType.Name</small></td>
+                            <td>@booking.CheckInDate.ToString("dd/MM/yyyy")</td>
+                            <td>@booking.CheckOutDate.ToString("dd/MM/yyyy")</td>
+                            <td>RM @booking.TotalPrice.ToString("F2")</td>
+                            <td>
+                                <span class="badge @(booking.Status == Assignment.Models.BookingStatus.Confirmed ? "bg-success" : booking.Status == Assignment.Models.BookingStatus.Cancelled ? "bg-danger" : "bg-warning")">
+                                    @booking.Status
+                                </span>
+                                @if (booking.Status == Assignment.Models.BookingStatus.Cancelled)
+                                {
+                                    <div class="mt-1 small text-muted">
+                                        Reason: @booking.CancellationReason
+                                        @if (booking.RefundAmount > 0)
+                                        {
+                                            <br />
+                                            <span>Refund: RM @booking.RefundAmount?.ToString("F2")</span>
+                                        }
+                                    </div>
+                                }
+                            </td>
+                            <td>
+                                @if (booking.PaymentAmount.HasValue)
+                                {
+                                    <span class="badge bg-success">@booking.PaymentStatus</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning">Pending</span>
+                                }
+                            </td>
+                            <td>
+                                @if (hasReview && existingReview != null)
+                                {
+                                    <div class="d-flex align-items-center">
+                                        @for (int i = 1; i <= 5; i++)
+                                        {
+                                            <i class="bi bi-star@(i <= existingReview.Rating ? "-fill text-warning" : "") small"></i>
+                                        }
+                                    </div>
+                                    <small class="text-muted d-block">Reviewed</small>
+                                }
+                                else if (canReview)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#reviewModal@booking.BookingId">
+                                        <i class="bi bi-star me-1"></i>Review
+                                    </button>
+                                    
+                                    <!-- Review Modal -->
+                                    <div class="modal fade" id="reviewModal@booking.BookingId" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Leave a Review</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <form asp-controller="Review" asp-action="Create" method="post">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="bookingId" value="@booking.BookingId" />
+                                                    <div class="modal-body">
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Rating</label>
+                                                            <div class="rating-input">
+                                                                @for (int i = 5; i >= 1; i--)
+                                                                {
+                                                                    <input type="radio" name="rating" id="rating@(booking.BookingId)_@i" value="@i" @(i == 5 ? "checked" : "") required />
+                                                                    <label for="rating@(booking.BookingId)_@i" class="star-label">
+                                                                        <i class="bi bi-star-fill"></i>
+                                                                    </label>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label for="comment@booking.BookingId" class="form-label">Your Review (Optional)</label>
+                                                            <textarea name="comment" id="comment@booking.BookingId" class="form-control" rows="4" placeholder="Share your experience..." maxlength="500"></textarea>
+                                                            <small class="form-text text-muted">Maximum 500 characters</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <button type="submit" class="btn btn-primary">
+                                                            <i class="bi bi-send me-2"></i>Submit Review
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">N/A</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="BookingDetails" asp-route-id="@booking.BookingId" class="btn btn-sm btn-info">Details</a>
+                                @* Only show Cancel button for Pending bookings without reviews *@
+                                @if (booking.Status == Assignment.Models.BookingStatus.Pending && 
+                                     !hasReview &&
+                                     booking.CheckInDate >= DateTime.Today)
+                                {
+                                    <form asp-action="CancelBooking" asp-route-id="@booking.BookingId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to cancel this booking?');">
+                                        <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            You have no bookings yet. <a asp-controller="Room" asp-action="Catalog">Browse rooms</a> to make a booking.
+        </div>
+    }
+</div>
+

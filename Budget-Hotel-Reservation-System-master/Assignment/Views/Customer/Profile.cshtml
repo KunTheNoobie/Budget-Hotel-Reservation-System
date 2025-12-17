@@ -1,0 +1,101 @@
+@* 
+    Customer Profile View
+    Displays the authenticated user's profile information including personal details,
+    booking history summary, and account statistics. Provides link to edit profile.
+*@
+@model Assignment.Models.User
+@{
+    ViewData["Title"] = "My Profile";
+}
+
+<div class="container mt-4">
+    <h2>My Profile</h2>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-body">
+            <div class="row">
+            <div class="row">
+                <div class="col-md-4 text-center mb-4">
+                    <div class="mb-3">
+                        @if (!string.IsNullOrEmpty(Model.ProfilePictureUrl))
+                        {
+                            <img src="@Model.ProfilePictureUrl" alt="Profile Picture" class="rounded-circle img-thumbnail" style="width: 150px; height: 150px; object-fit: cover;">
+                        }
+                        else
+                        {
+                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto" style="width: 150px; height: 150px;">
+                                <i class="bi bi-person fs-1 text-muted"></i>
+                            </div>
+                        }
+                    </div>
+                    <p class="text-muted">To change your profile picture, please use the Edit Profile page.</p>
+                </div>
+
+                <div class="col-md-8">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Personal Information</h5>
+                            <p><strong>Full Name:</strong> @Model.FullName</p>
+                            <p><strong>Email:</strong> @Model.Email</p>
+                            <p><strong>Phone Number:</strong> @(Model.DecryptedPhoneNumber ?? "Not provided")</p>
+                            <p><strong>Role:</strong> @Model.Role</p>
+                        </div>
+                <div class="col-md-6">
+                    <h5>Account Status</h5>
+                    <p><strong>Email Verified:</strong> 
+                        @if (Model.IsEmailVerified)
+                        {
+                            <span class="badge bg-success">Verified</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning">Not Verified</span>
+                        }
+                    </p>
+                    <p><strong>Account Status:</strong> 
+                        @if (Model.IsActive)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Inactive</span>
+                        }
+                    </p>
+                    <p><strong>Member Since:</strong> @Model.CreatedAt.ToString("MM/dd/yyyy")</p>
+                </div>
+            </div>
+            
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h5>Profile Details</h5>
+                    <p><strong>Bio:</strong> @(Model.Bio ?? "No bio provided")</p>
+                    <p><strong>Preferred Language:</strong> @Model.PreferredLanguage</p>
+                    <p><strong>Theme:</strong> @Model.Theme</p>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <a asp-action="EditProfile" class="btn btn-primary">Edit Profile</a>
+                <a asp-controller="Booking" asp-action="MyBookings" class="btn btn-secondary">My Bookings</a>
+            </div>
+        </div>
+    </div>
+</div>
+

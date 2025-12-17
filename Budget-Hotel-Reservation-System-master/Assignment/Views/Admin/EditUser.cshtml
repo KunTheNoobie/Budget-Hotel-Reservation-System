@@ -1,0 +1,114 @@
+@* 
+    Admin Edit User View
+    Displays form for editing an existing user account.
+    Allows modification of user details, role, and account status (active/inactive).
+*@
+@model Assignment.Models.User
+@using System.Security.Claims
+@{
+    var role = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+}
+@{
+    ViewData["Title"] = "Edit User";
+}
+
+<div class="container">
+    <h2>Edit User</h2>
+
+    <form asp-action="EditUser" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="UserId" />
+        <div asp-validation-summary="All" class="text-danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="FullName" class="form-label"></label>
+            <input asp-for="FullName" class="form-control" maxlength="100" required />
+            <span asp-validation-for="FullName" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" type="email" maxlength="100" required />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label for="newPassword" class="form-label">New Password (leave blank to keep current)</label>
+            <input type="password" name="newPassword" id="newPassword" class="form-control" />
+            <small class="form-text text-muted">Leave blank to keep current password. Must be at least 8 characters with uppercase, lowercase, number, and special character (&#64;&#36;!%*?&amp;) if changing.</small>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="PhoneNumber" class="form-label"></label>
+            <input asp-for="PhoneNumber" class="form-control" pattern="^(\+?[0-9]{1,4}[-]?[0-9]{2,4}[-]?[0-9]{3,4}[-]?[0-9]{3,4}|[0-9]{7,15})$" title="Phone number format: +60-12-345-6789, 012-345-6789, or 0123456789" />
+            <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+            <small class="form-text text-muted">Format: +60-12-345-6789, 012-345-6789, or similar (optional)</small>
+        </div>
+        @if (role == "Admin" || role == "Manager")
+{
+    <div class="mb-3">
+        <label asp-for="Role" class="form-label"></label>
+        <select asp-for="Role" class="form-select" asp-items="Html.GetEnumSelectList<UserRole>()" id="roleSelect"></select>
+        <span asp-validation-for="Role" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3" id="hotelAssignmentGroup" style="display: none;">
+        <label asp-for="HotelId" class="form-label">Hotel Assignment</label>
+        <select asp-for="HotelId" class="form-select">
+            <option value="">-- Select Hotel --</option>
+            @foreach (var hotel in ViewBag.Hotels as List<Assignment.Models.Hotel> ?? new List<Assignment.Models.Hotel>())
+            {
+                <option value="@hotel.HotelId" selected="@(Model.HotelId == hotel.HotelId)">@hotel.Name</option>
+            }
+        </select>
+        <span asp-validation-for="HotelId" class="text-danger"></span>
+        <small class="form-text text-muted">Required for Manager and Staff roles.</small>
+    </div>
+}
+else
+{
+    @* Hidden fields to preserve role and hotel for Staff/Customer *@
+    <input type="hidden" asp-for="Role" value="@Model.Role" />
+    <input type="hidden" asp-for="HotelId" value="@Model.HotelId" />
+}
+        <div class="mb-3 form-check">
+            <input asp-for="IsActive" class="form-check-input" />
+            <label asp-for="IsActive" class="form-check-label"></label>
+        </div>
+
+        <div class="mb-3 form-check">
+            <input asp-for="IsEmailVerified" class="form-check-input" />
+            <label asp-for="IsEmailVerified" class="form-check-label"></label>
+        </div>
+        
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Update</button>
+            <a asp-action="Users" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        // Show/hide hotel assignment based on role selection
+        function updateHotelAssignmentVisibility() {
+            var hotelGroup = document.getElementById('hotelAssignmentGroup');
+            var roleSelect = document.getElementById('roleSelect');
+            var role = roleSelect.value;
+            if (role === '1' || role === '2') {
+                hotelGroup.style.display = 'block';
+                hotelGroup.querySelector('select').setAttribute('required', 'required');
+            } else {
+                hotelGroup.style.display = 'none';
+                hotelGroup.querySelector('select').removeAttribute('required');
+            }
+        }
+        
+        document.getElementById('roleSelect').addEventListener('change', updateHotelAssignmentVisibility);
+        
+        // Trigger on page load
+        updateHotelAssignmentVisibility();
+    </script>
+}
+

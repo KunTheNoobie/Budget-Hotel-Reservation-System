@@ -1,0 +1,208 @@
+@* 
+    Edit Profile View
+    Displays form for editing user profile information including name, email, phone number,
+    profile picture, bio, language preference, and theme. Includes image preview functionality.
+*@
+@model Assignment.Models.User
+@{
+    ViewData["Title"] = "Edit Profile";
+}
+
+<div class="container mt-4">
+    <h2>Edit Profile</h2>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <form asp-action="EditProfile" method="post" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="UserId" />
+
+        <div class="card">
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-4 text-center">
+                        <div class="mb-3">
+                            <label class="form-label">Profile Picture</label>
+                            <div id="imagePreview" class="mb-3" style="display: none;">
+                                <img id="previewImg" src="" alt="Preview" class="rounded-circle img-thumbnail" style="width: 150px; height: 150px; object-fit: cover;">
+                            </div>
+                            <div id="currentImageContainer" class="mb-3" style="display: @(string.IsNullOrEmpty(Model.ProfilePictureUrl) ? "none" : "block");">
+                                <div class="position-relative d-inline-block">
+                                    <img src="@Model.ProfilePictureUrl" alt="Profile Picture" class="rounded-circle img-thumbnail" id="currentImage" style="width: 150px; height: 150px; object-fit: cover;" onerror="this.onerror=null; this.src=''; this.style.display='none';">
+                                    <button type="button" class="btn btn-sm btn-danger rounded-circle" style="position: absolute; top: 0; right: 0; width: 30px; height: 30px; padding: 0; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="Remove profile picture" onclick="removeProfilePicture()">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="placeholderContainer" class="mb-3" style="display: @(string.IsNullOrEmpty(Model.ProfilePictureUrl) ? "block" : "none");">
+                                <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto" style="width: 150px; height: 150px;">
+                                    <i class="bi bi-person fs-1 text-muted"></i>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label">Upload New Image File</label>
+                                <input type="file" name="profilePicture" id="profilePictureFile" class="form-control" accept="image/*" onchange="previewImage(this)" />
+                                <small class="form-text text-muted">Supported formats: JPG, PNG, GIF, WebP</small>
+                            </div>
+                            <input type="hidden" id="deleteImage" name="deleteImage" value="false" />
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label asp-for="FullName" class="form-label">
+                                Full Name
+                                <span asp-validation-for="FullName" class="text-danger"></span>
+                            </label>
+                            <input asp-for="FullName" class="form-control" required maxlength="100" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Email" class="form-label">
+                                Email
+                                <span asp-validation-for="Email" class="text-danger"></span>
+                            </label>
+                            <input asp-for="Email" class="form-control" type="email" readonly style="background-color: #e9ecef;" />
+                            <small class="form-text text-muted">Email cannot be changed. Please contact support if you need to change your email.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="PhoneNumber" class="form-label">
+                        Phone Number
+                        <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+                    </label>
+                    <input asp-for="PhoneNumber" class="form-control" pattern="^(\+?[0-9]{1,4}[-]?[0-9]{2,4}[-]?[0-9]{3,4}[-]?[0-9]{3,4}|[0-9]{7,15})$" title="Phone number format: +60-12-345-6789, 012-345-6789, or 0123456789" />
+                    <small class="form-text text-muted">Format: +60-12-345-6789, 012-345-6789, or similar (optional)</small>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Bio" class="form-label">
+                        Bio
+                        <span asp-validation-for="Bio" class="text-danger"></span>
+                    </label>
+                    <textarea asp-for="Bio" class="form-control" rows="3" maxlength="500"></textarea>
+                    <small class="form-text text-muted">Maximum 500 characters</small>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="PreferredLanguage" class="form-label">
+                            Preferred Language
+                            <span asp-validation-for="PreferredLanguage" class="text-danger"></span>
+                        </label>
+                        <select asp-for="PreferredLanguage" class="form-select">
+                            <option value="en-US">English (US)</option>
+                            <option value="en-GB">English (UK)</option>
+                            <option value="ms-MY">Bahasa Malaysia</option>
+                            <option value="zh-CN">Chinese (Simplified)</option>
+                            <option value="zh-TW">Chinese (Traditional)</option>
+                            <option value="ja-JP">Japanese</option>
+                            <option value="ko-KR">Korean</option>
+                            <option value="th-TH">Thai</option>
+                            <option value="vi-VN">Vietnamese</option>
+                            <option value="id-ID">Indonesian</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Theme" class="form-label">
+                            Theme
+                            <span asp-validation-for="Theme" class="text-danger"></span>
+                        </label>
+                        <select asp-for="Theme" class="form-select">
+                            <option value="Default">Default</option>
+                            <option value="Dark">Dark</option>
+                            <option value="Light">Light</option>
+                            <option value="Auto">Auto (System)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="newPassword" class="form-label">
+                        New Password (leave blank to keep current)
+                        @if (ViewData["NewPasswordError"] != null)
+                        {
+                            <span class="text-danger">@ViewData["NewPasswordError"]</span>
+                        }
+                        else if (ViewData.ModelState.ContainsKey("NewPassword") && ViewData.ModelState["NewPassword"]?.Errors?.Count > 0)
+                        {
+                            <span class="text-danger">@ViewData.ModelState["NewPassword"].Errors[0].ErrorMessage</span>
+                        }
+                    </label>
+                    <div class="input-group">
+                        <input type="password" name="newPassword" id="newPassword" class="form-control" />
+                        <button type="button" class="btn btn-outline-secondary border" id="togglePassword" onclick="togglePasswordVisibility()">
+                            <i class="bi bi-eye" id="passwordIcon"></i>
+                        </button>
+                    </div>
+                    <small class="form-text text-muted">Leave blank to keep current password. Must be at least 8 characters with uppercase, lowercase, number, and special character (&#64;&#36;!%*?&amp;) if changing.</small>
+                </div>
+
+                <div class="mb-3">
+                    <button type="submit" class="btn btn-primary">Update Profile</button>
+                    <a asp-action="Profile" class="btn btn-secondary">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('newPassword');
+            const passwordIcon = document.getElementById('passwordIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                passwordIcon.classList.remove('bi-eye');
+                passwordIcon.classList.add('bi-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                passwordIcon.classList.remove('bi-eye-slash');
+                passwordIcon.classList.add('bi-eye');
+            }
+        }
+
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('previewImg').src = e.target.result;
+                    document.getElementById('imagePreview').style.display = 'block';
+                    // Hide current image and placeholder, show preview above upload section
+                    document.getElementById('currentImageContainer').style.display = 'none';
+                    document.getElementById('placeholderContainer').style.display = 'none';
+                    // Clear delete flag if uploading new image
+                    document.getElementById('deleteImage').value = 'false';
+                };
+                reader.readAsDataURL(input.files[0]);
+            } else {
+                // If no file selected, hide preview
+                document.getElementById('imagePreview').style.display = 'none';
+            }
+        }
+
+        function removeProfilePicture() {
+            if (confirm('Are you sure you want to remove your profile picture?')) {
+                document.getElementById('deleteImage').value = 'true';
+                // Hide current image, show placeholder
+                document.getElementById('currentImageContainer').style.display = 'none';
+                document.getElementById('placeholderContainer').style.display = 'block';
+                // Clear file input and preview
+                document.getElementById('profilePictureFile').value = '';
+                document.getElementById('imagePreview').style.display = 'none';
+            }
+        }
+    </script>
+}
+

@@ -1,0 +1,443 @@
+﻿@* 
+    Home Page View
+    Main landing page displaying featured rooms, packages, statistics, and search functionality.
+    Includes hero section, search box, featured rooms carousel, packages section, and customer reviews.
+*@
+@model Assignment.ViewModels.Home.HomeViewModel
+@{
+    ViewData["Title"] = "Find Your Perfect Budget Stay";
+}
+
+<!-- Hero Section with Background -->
+<div class="hero-section-modern">
+    <div class="hero-overlay"></div>
+    <div class="container hero-content">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="hero-title-modern">Discover Your Perfect Budget Stay</h1>
+                <p class="hero-subtitle-modern">Quality accommodation without breaking the bank. Search thousands of wallet-friendly hotels across Malaysia.</p>
+                <div class="hero-stats mt-4">
+                    <div class="stat-item">
+                        <div class="stat-number">@Model.Stats.HotelCount.ToString("N0")+</div>
+                        <div class="stat-label">Hotels</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">@Model.Stats.HappyGuests.ToString("N0")+</div>
+                        <div class="stat-label">Happy Guests</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">@Model.Stats.AverageRating.ToString("0.0")★</div>
+                        <div class="stat-label">Avg Rating</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Search Box -->
+<div class="container search-box-container-modern">
+    <div class="search-box-modern">
+        <form asp-controller="Room" asp-action="Catalog" method="get" class="search-form" id="searchForm">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label-modern"><i class="bi bi-geo-alt-fill me-2"></i>Destination</label>
+                    <div class="input-wrapper">
+                        <input type="text" name="searchTerm" id="searchTerm" class="form-control-modern" placeholder="City, hotel or region" list="destinations" maxlength="200" pattern="^[a-zA-Z0-9\s,.-]+$" title="Only letters, numbers, spaces, commas, periods, and hyphens are allowed">
+                        <datalist id="destinations">
+                            @foreach(var dest in Model.Destinations)
+                            {
+                                <option value="@dest">@dest</option>
+                            }
+                        </datalist>
+                        <div class="invalid-feedback">Please enter a valid search term (2-200 characters, alphanumeric only)</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label-modern"><i class="bi bi-calendar-event me-2"></i>Check-in</label>
+                    <div class="input-wrapper">
+                        <input type="date" name="checkIn" id="checkIn" class="form-control-modern" value="@DateTime.Now.ToString("yyyy-MM-dd")" min="@DateTime.Now.ToString("yyyy-MM-dd")" required>
+                        <div class="invalid-feedback">Please select a valid check-in date (today or later)</div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label-modern"><i class="bi bi-people me-2"></i>Guests</label>
+                    <div class="input-wrapper">
+                        <input type="number" name="guests" id="guests" class="form-control-modern" value="2" min="1" max="20" required>
+                        <div class="invalid-feedback">Number of guests must be between 1 and 20</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label-modern d-block">&nbsp;</label>
+                    <button type="submit" class="btn-search-modern w-100">
+                        <i class="bi bi-search me-2"></i>SEARCH DEALS
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Featured Deals Section -->
+<div class="section-modern">
+    <div class="container">
+        <div class="section-header-modern">
+            <span class="section-badge">🔥 Popular This Week</span>
+            <h2 class="section-title-modern">Featured Deals</h2>
+            <p class="section-subtitle">Handpicked stays with authentic reviews and the best nightly rates</p>
+        </div>
+        
+        <div class="row g-4">
+            @{
+                var discountMultipliers = new[] { 1.25m, 1.30m, 1.35m, 1.40m, 1.28m, 1.33m, 1.38m, 1.32m, 1.27m, 1.36m, 1.29m, 1.34m, 1.31m, 1.37m, 1.26m };
+                int roomIndex = 0;
+            }
+            @foreach (var room in Model.FeaturedRooms)
+            {
+                var multiplier = discountMultipliers[roomIndex % discountMultipliers.Length];
+                var referencePrice = room.BasePrice * multiplier;
+                var savings = Math.Round((referencePrice - room.BasePrice) / referencePrice * 100);
+                Model.ReviewData.TryGetValue(room.RoomTypeId, out var reviewInfo);
+                roomIndex++;
+
+                <div class="col-md-6 col-lg-4">
+                    <div class="deal-card">
+                        <div class="deal-image-wrapper">
+                            @if (room.RoomImages.Any())
+                            {
+                                <img src="@room.RoomImages.First().ImageUrl" class="deal-image" alt="@room.Name">
+                            }
+                            else
+                            {
+                                <div class="deal-image-placeholder">
+                                    <i class="bi bi-image text-muted"></i>
+                                </div>
+                            }
+                            <div class="deal-badges">
+                                <span class="badge-featured">⭐ Featured</span>
+                                @if (savings > 0)
+                                {
+                                    <span class="badge-save">Save @savings%</span>
+                                }
+                            </div>
+                            <div class="deal-overlay">
+                                <a asp-controller="Room" asp-action="Details" asp-route-id="@room.RoomTypeId" class="btn-quick-view">Quick View</a>
+                            </div>
+                        </div>
+                        <div class="deal-content">
+                            <div class="deal-header">
+                                <h5 class="deal-title">@room.Name</h5>
+                                <div class="deal-rating">
+                                    <i class="bi bi-star-fill"></i>
+                                    <span>@((reviewInfo?.AverageRating ?? Model.Stats.AverageRating).ToString("0.0"))</span>
+                                </div>
+                            </div>
+                            <p class="deal-location">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                @(room.Hotel?.City ?? "Malaysia"), @(room.Hotel?.Country ?? "Malaysia")
+                            </p>
+                            <p class="deal-description">@(room.Description?.Length > 100 ? room.Description.Substring(0, 100) + "..." : room.Description)</p>
+                            
+                            @if ((reviewInfo?.ReviewCount ?? 0) > 0)
+                            {
+                                <div class="deal-reviews">
+                                    <i class="bi bi-chat-dots"></i>
+                                    <span>@reviewInfo!.ReviewCount.ToString("N0") verified review@(reviewInfo.ReviewCount == 1 ? "" : "s")</span>
+                                </div>
+                            }
+                            
+                            <div class="deal-footer">
+                                <div class="deal-price">
+                                    <span class="price-old">RM @referencePrice.ToString("F0")</span>
+                                    <span class="price-new">RM @room.BasePrice.ToString("F0")</span>
+                                    <span class="price-period">per night</span>
+                                </div>
+                                <a asp-controller="Room" asp-action="Details" asp-route-id="@room.RoomTypeId" class="btn-deal">View Deal</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Stay Packages Section -->
+<section class="section-modern bg-gradient-light">
+    <div class="container">
+        <div class="section-header-modern">
+            <span class="section-badge">📦 Exclusive Bundles</span>
+            <h2 class="section-title-modern">Stay Packages</h2>
+            <p class="section-subtitle">Curated combinations of rooms and services for every style of traveler</p>
+        </div>
+        
+        @if (Model.Packages != null && Model.Packages.Any())
+        {
+            <div class="row g-4">
+                @foreach (var package in Model.Packages)
+                {
+                    <div class="col-md-6 col-lg-4">
+                        <div class="package-card-modern">
+                            @if (!string.IsNullOrEmpty(package.ImageUrl))
+                            {
+                                <div class="package-image-wrapper">
+                                    <img src="@package.ImageUrl" class="package-image" alt="@package.Name">
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="package-image-placeholder">
+                                    <i class="bi bi-box-seam"></i>
+                                </div>
+                            }
+                            <div class="package-content">
+                                <h5 class="package-title">@package.Name</h5>
+                                <p class="package-description">@package.Description</p>
+                                @if (package.Highlights.Any())
+                                {
+                                    <ul class="package-highlights">
+                                        @foreach (var highlight in package.Highlights.Take(4))
+                                        {
+                                            <li>
+                                                <i class="bi bi-check-circle-fill"></i>
+                                                <span>@highlight</span>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                                <div class="package-footer">
+                                    <div class="package-price">
+                                        <span class="package-price-amount">RM @package.TotalPrice.ToString("F0")</span>
+                                        <span class="package-price-label">per stay</span>
+                                    </div>
+                                    <a asp-controller="Home" asp-action="PackageDetails" asp-route-id="@package.PackageId" class="btn-deal">View Deal</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-5">
+                <p class="text-muted">Packages are being updated. Please check back soon!</p>
+            </div>
+        }
+    </div>
+</section>
+
+<!-- Signature Services Section -->
+<section class="section-modern">
+    <div class="container">
+        <div class="section-header-modern">
+            <span class="section-badge">✨ Premium Services</span>
+            <h2 class="section-title-modern">Signature Services</h2>
+            <p class="section-subtitle">Upgrade your stay with premium add-ons curated for Malaysian getaways</p>
+        </div>
+        
+        @if (Model.HighlightedServices != null && Model.HighlightedServices.Any())
+        {
+            <div class="row g-4">
+                @foreach (var service in Model.HighlightedServices)
+                {
+                    <div class="col-md-6 col-lg-3">
+                        <div class="service-card-modern">
+                            <div class="service-icon-wrapper">
+                                <i class="bi bi-stars service-icon"></i>
+                            </div>
+                            <h5 class="service-title">@service.Name</h5>
+                            <p class="service-description">@(service.Description ?? "Premium service to enhance your stay experience.")</p>
+                            <div class="service-price-wrapper">
+                                <span class="service-price">RM @service.Price.ToString("F0")</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-5">
+                <p class="text-muted">Services are being updated. Please check back soon!</p>
+            </div>
+        }
+    </div>
+</section>
+
+<!-- Customer Reviews Section -->
+<section class="section-modern bg-light">
+    <div class="container">
+        <div class="section-header-modern">
+            <span class="section-badge">💬 What Our Guests Say</span>
+            <h2 class="section-title-modern">Customer Reviews</h2>
+            <p class="section-subtitle">Real experiences from our valued guests</p>
+        </div>
+        
+        @if (Model.CustomerReviews != null && Model.CustomerReviews.Any())
+        {
+            <div class="row g-4">
+                @foreach (var review in Model.CustomerReviews)
+                {
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="me-3 position-relative" style="width: 50px; height: 50px; flex-shrink: 0;">
+                                        @if (!string.IsNullOrEmpty(review.Booking?.User?.ProfilePictureUrl))
+                                        {
+                                            <img src="@review.Booking.User.ProfilePictureUrl" alt="@(review.Booking?.User?.FullName ?? "Guest")" 
+                                                 class="rounded-circle review-avatar-img" style="width: 50px; height: 50px; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1;" 
+                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                            <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle review-avatar-fallback" style="display: none; width: 50px; height: 50px; font-weight: bold; font-size: 1.2rem; position: absolute; top: 0; left: 0; z-index: 0;">
+                                                @(review.Booking?.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 50px; height: 50px; font-weight: bold; font-size: 1.2rem;">
+                                                @(review.Booking?.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                            </div>
+                                        }
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">@(review.Booking?.User?.FullName ?? "Guest")</h6>
+                                        <small class="text-muted">@review.ReviewDate.ToString("MMM dd, yyyy")</small>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        <i class="bi bi-star@(i <= review.Rating ? "-fill text-warning" : "")"></i>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(review.Comment))
+                                {
+                                    <p class="card-text text-muted mb-0">@review.Comment</p>
+                                }
+                                else
+                                {
+                                    <p class="card-text text-muted mb-0 fst-italic">Rated @review.Rating out of 5 stars</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-5">
+                <p class="text-muted">No reviews yet. Be the first to share your experience!</p>
+            </div>
+        }
+    </div>
+</section>
+
+<!-- Trust Indicators -->
+<div class="trust-section">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-md-3 col-6">
+                <div class="trust-item">
+                    <i class="bi bi-shield-check trust-icon"></i>
+                    <h6>Secure Booking</h6>
+                    <p>100% secure payment</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="trust-item">
+                    <i class="bi bi-clock-history trust-icon"></i>
+                    <h6>24/7 Support</h6>
+                    <p>Always here to help</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="trust-item">
+                    <i class="bi bi-arrow-counterclockwise trust-icon"></i>
+                    <h6>Free Cancellation</h6>
+                    <p>Cancel anytime</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="trust-item">
+                    <i class="bi bi-award trust-icon"></i>
+                    <h6>Best Price Guarantee</h6>
+                    <p>Lowest rates guaranteed</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Handle avatar image loading errors
+            $('.review-avatar-img').on('error', function() {
+                $(this).hide();
+                $(this).siblings('.review-avatar-fallback').show();
+            }).on('load', function() {
+                // Ensure fallback is hidden when image loads successfully
+                $(this).siblings('.review-avatar-fallback').hide();
+            });
+
+            $('#searchForm').on('submit', function(e) {
+                var isValid = true;
+                var searchTerm = $('#searchTerm').val().trim();
+                var checkIn = $('#checkIn').val();
+                var guests = parseInt($('#guests').val());
+
+                // Validate search term (if provided, must be at least 2 characters)
+                if (searchTerm && searchTerm.length > 0) {
+                    if (searchTerm.length < 2) {
+                        $('#searchTerm').addClass('is-invalid');
+                        isValid = false;
+                    } else if (!/^[a-zA-Z0-9\s,.-]+$/.test(searchTerm)) {
+                        $('#searchTerm').addClass('is-invalid');
+                        isValid = false;
+                    } else {
+                        $('#searchTerm').removeClass('is-invalid');
+                    }
+                } else {
+                    $('#searchTerm').removeClass('is-invalid');
+                }
+
+                // Validate check-in date
+                if (!checkIn) {
+                    $('#checkIn').addClass('is-invalid');
+                    isValid = false;
+                } else {
+                    var checkInDate = new Date(checkIn);
+                    var today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    if (checkInDate < today) {
+                        $('#checkIn').addClass('is-invalid');
+                        isValid = false;
+                    } else {
+                        $('#checkIn').removeClass('is-invalid');
+                    }
+                }
+
+                // Validate guests
+                if (!guests || guests < 1 || guests > 20) {
+                    $('#guests').addClass('is-invalid');
+                    isValid = false;
+                } else {
+                    $('#guests').removeClass('is-invalid');
+                }
+
+                if (!isValid) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+
+            // Remove invalid class on input
+            $('#searchTerm, #checkIn, #guests').on('input change', function() {
+                $(this).removeClass('is-invalid');
+            });
+        });
+    </script>
+}
+

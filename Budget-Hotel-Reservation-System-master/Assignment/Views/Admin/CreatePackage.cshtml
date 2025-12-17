@@ -1,0 +1,109 @@
+@* 
+    Admin Create Package View
+    Displays form for creating a new stay package that bundles rooms and services.
+    Includes package name, description, pricing, image upload, and selection of included items.
+*@
+@model Assignment.Models.Package
+@{
+    ViewData["Title"] = "Create Package";
+    var roomTypes = ViewBag.RoomTypes as List<Assignment.Models.RoomType> ?? new List<Assignment.Models.RoomType>();
+    var services = ViewBag.Services as List<Assignment.Models.Service> ?? new List<Assignment.Models.Service>();
+}
+
+<div class="container">
+    <h2>Create New Package</h2>
+
+    <form asp-action="CreatePackage" method="post" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="text-danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label">Package Name</label>
+            <input asp-for="Name" class="form-control" placeholder="e.g., Kuala Lumpur City Explorer" maxlength="150" required />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Description" class="form-label">Description</label>
+            <textarea asp-for="Description" class="form-control" rows="4" placeholder="Describe the package..." maxlength="1000"></textarea>
+            <span asp-validation-for="Description" class="text-danger"></span>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="TotalPrice" class="form-label">Total Price (RM)</label>
+                <input asp-for="TotalPrice" class="form-control" type="number" step="0.01" min="0" required />
+                <span asp-validation-for="TotalPrice" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="form-check mt-4">
+                    <input asp-for="IsActive" class="form-check-input" />
+                    <label asp-for="IsActive" class="form-check-label">Active</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Package Image</label>
+            <div class="mb-2">
+                <input type="file" name="imageFile" class="form-control" accept="image/*" />
+                <small class="form-text text-muted">Upload an image file</small>
+            </div>
+            <div class="mb-2">
+                <span class="text-muted">OR</span>
+            </div>
+            <div>
+                <input type="text" name="imageUrl" class="form-control" placeholder="Enter image URL" />
+                <small class="form-text text-muted">Provide an image URL</small>
+            </div>
+        </div>
+
+        <hr class="my-4">
+        <h5 class="mb-3">Package Items</h5>
+        <p class="text-muted">Add at least one room type or service to the package.</p>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Room Type (Optional)</label>
+                <select name="roomTypeId" class="form-select">
+                    <option value="">-- Select Room Type --</option>
+                    @foreach (var rt in roomTypes)
+                    {
+                        <option value="@rt.RoomTypeId">@rt.Name - @rt.Hotel?.Name (@rt.BasePrice.ToString("F2")/night)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Room Quantity</label>
+                <input type="number" name="roomQuantity" class="form-control" min="1" value="1" />
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Service (Optional)</label>
+                <select name="serviceId" class="form-select">
+                    <option value="">-- Select Service --</option>
+                    @foreach (var service in services)
+                    {
+                        <option value="@service.ServiceId">@service.Name (RM @service.Price.ToString("F2"))</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Service Quantity</label>
+                <input type="number" name="serviceQuantity" class="form-control" min="1" value="1" />
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Create Package</button>
+            <a asp-action="Packages" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+

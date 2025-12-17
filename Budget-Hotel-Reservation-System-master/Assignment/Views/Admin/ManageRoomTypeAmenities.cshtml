@@ -1,0 +1,113 @@
+@* 
+    Admin Manage Room Type Amenities View
+    Displays interface for managing which amenities are associated with a specific room type.
+    Allows adding and removing amenities from a room type through checkboxes.
+*@
+@model Assignment.Models.RoomType
+@{
+    ViewData["Title"] = "Manage Room Type Amenities";
+    var allAmenities = ViewBag.AllAmenities as List<Assignment.Models.Amenity>;
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Manage Amenities - @Model.Name</h2>
+        <a asp-action="RoomTypes" class="btn btn-secondary">Back to Room Types</a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row">
+        <!-- Current Amenities -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Current Amenities (@Model.RoomTypeAmenities.Count)</h5>
+                </div>
+                <div class="card-body">
+                    @if (Model.RoomTypeAmenities.Any())
+                    {
+                        <ul class="list-group">
+                            @foreach (var rta in Model.RoomTypeAmenities)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <i class="bi bi-check-circle text-success me-2"></i>
+                                        @rta.Amenity.Name
+                                    </span>
+                                    <form asp-action="RemoveAmenityFromRoomType" method="post" class="d-inline" onsubmit="return confirm('Remove this amenity?');">
+                                        <input type="hidden" name="roomTypeId" value="@Model.RoomTypeId" />
+                                        <input type="hidden" name="amenityId" value="@rta.AmenityId" />
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-x-circle"></i> Remove
+                                        </button>
+                                    </form>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No amenities assigned yet.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Available Amenities -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Add Amenities</h5>
+                </div>
+                <div class="card-body">
+                    @if (allAmenities != null && allAmenities.Any())
+                    {
+                        <ul class="list-group">
+                            @foreach (var amenity in allAmenities)
+                            {
+                                var isAssigned = Model.RoomTypeAmenities.Any(rta => rta.AmenityId == amenity.AmenityId);
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>@amenity.Name</span>
+                                    @if (isAssigned)
+                                    {
+                                        <span class="badge bg-success">Already Added</span>
+                                    }
+                                    else
+                                    {
+                                        <form asp-action="AddAmenityToRoomType" method="post" class="d-inline">
+                                            <input type="hidden" name="roomTypeId" value="@Model.RoomTypeId" />
+                                            <input type="hidden" name="amenityId" value="@amenity.AmenityId" />
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                <i class="bi bi-plus-circle"></i> Add
+                                            </button>
+                                        </form>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No amenities available. <a asp-action="CreateAmenity">Create one</a> first.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

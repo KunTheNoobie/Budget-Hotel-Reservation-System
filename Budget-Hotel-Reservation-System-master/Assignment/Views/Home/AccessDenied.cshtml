@@ -1,0 +1,26 @@
+@* 
+    Access Denied Page View
+    Displays when a user tries to access a resource they don't have permission for.
+    Shows error message and provides navigation options.
+*@
+@{
+    ViewData["Title"] = "Access Denied";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white text-center">
+                    <h3><i class="bi bi-shield-exclamation"></i> Access Denied</h3>
+                </div>
+                <div class="card-body text-center">
+                    <p class="lead">You do not have permission to access this resource.</p>
+                    <p>Please contact an administrator if you believe this is an error.</p>
+                    <a asp-controller="Home" asp-action="Index" class="btn btn-primary">Go to Home</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

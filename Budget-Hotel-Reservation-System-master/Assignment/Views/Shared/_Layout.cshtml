@@ -1,0 +1,239 @@
+@* 
+    Main Layout File
+    Defines the common structure for all pages including navigation, footer, and shared scripts.
+    Includes responsive navigation bar, loading indicators, toast notification container, and footer.
+    This layout is applied to all views unless overridden.
+*@
+@using Assignment.Helpers
+@using Assignment.Models
+@inject Assignment.Models.Data.HotelDbContext DbContext
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - BudgetHotel | Affordable Hotel Reservations</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/Assignment.styles.css" asp-append-version="true" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        :root {
+            --font-sans: 'Inter', sans-serif;
+            --font-heading: 'Outfit', sans-serif;
+        }
+        body {
+            font-family: var(--font-sans);
+        }
+        h1, h2, h3, h4, h5, h6, .navbar-brand {
+            font-family: var(--font-heading);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark">
+            <div class="container">
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                    BudgetStay
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse" id="navbarContent">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        @if (AuthenticationHelper.IsAuthenticated(Context))
+                        {
+                            var userRole = AuthenticationHelper.GetUserRole(Context);
+                            @if (userRole == UserRole.Customer)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-area="" asp-controller="Room" asp-action="Catalog">Hotels</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Packages">Packages</a>
+                                </li>
+                            }
+                        }
+                        else
+                        {
+                        <li class="nav-item">
+                            <a class="nav-link" asp-area="" asp-controller="Room" asp-action="Catalog">Hotels</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Packages">Packages</a>
+                        </li>
+                        }
+                    </ul>
+                    
+                    <ul class="navbar-nav ms-auto">
+                        @if (AuthenticationHelper.IsAuthenticated(Context))
+                        {
+                            var userRole = AuthenticationHelper.GetUserRole(Context);
+                            // Admin/Manager/Staff should be redirected to admin panel - they shouldn't see customer navigation
+                            @if (userRole == UserRole.Admin || userRole == UserRole.Manager || userRole == UserRole.Staff)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Admin" asp-action="Index">
+                                        <i class="bi bi-speedometer2 me-1"></i>Go to Admin Panel
+                                    </a>
+                                </li>
+                            }
+                            @* Only show "My Bookings" for customers - Admin/Manager/Staff use Admin panel *@
+                            @if (userRole == UserRole.Customer)
+                            {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Booking" asp-action="MyBookings">My Bookings</a>
+                            </li>
+                            }
+                            <li class="nav-item dropdown">
+                                @{
+                                    var userId = AuthenticationHelper.GetUserId(Context);
+                                    var userName = AuthenticationHelper.GetUserName(Context);
+                                    var userEmail = AuthenticationHelper.GetUserEmail(Context);
+                                    string? profilePictureUrl = null;
+                                    if (userId.HasValue)
+                                    {
+                                        var user = DbContext.Users.Find(userId.Value);
+                                        profilePictureUrl = user?.ProfilePictureUrl;
+                                    }
+                                }
+                                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                                    @if (!string.IsNullOrEmpty(profilePictureUrl))
+                                    {
+                                        <img src="@profilePictureUrl" alt="@userName" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
+                                        <span class="d-none">@userName?.Substring(0, 1).ToUpper()</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="user-avatar me-2">@(userName?.Substring(0, 1).ToUpper() ?? userEmail?.Substring(0, 1).ToUpper())</span>
+                                    }
+                                    <span class="d-none d-md-inline">@(userName ?? userEmail)</span>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li class="px-3 py-2">
+                                        <div class="d-flex align-items-center">
+                                            @if (!string.IsNullOrEmpty(profilePictureUrl))
+                                            {
+                                                <img src="@profilePictureUrl" alt="@userName" class="rounded-circle me-2" style="width: 40px; height: 40px; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
+                                                <span class="d-none user-avatar-large">@(userName?.Substring(0, 1).ToUpper() ?? userEmail?.Substring(0, 1).ToUpper())</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="user-avatar-large me-2">@(userName?.Substring(0, 1).ToUpper() ?? userEmail?.Substring(0, 1).ToUpper())</span>
+                                            }
+                                            <div>
+                                                <div class="fw-bold">@userName</div>
+                                                <small class="text-muted">@userEmail</small>
+                                            </div>
+                                        </div>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" asp-controller="Customer" asp-action="Profile"><i class="bi bi-person-circle me-2"></i>My Profile</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" asp-controller="Security" asp-action="Logout"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                                </ul>
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="nav-item">
+                                <a class="btn btn-light text-primary fw-bold ms-2" asp-area="" asp-controller="Security" asp-action="Login" onclick="window.location.href=this.href; window.location.reload();">Sign In</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="btn btn-outline-light ms-2" asp-area="" asp-controller="Security" asp-action="Register">Register</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+    
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="position-fixed top-50 start-50 translate-middle" style="display: none; z-index: 9999; pointer-events: none;">
+        <div class="bg-white rounded shadow-lg p-4 d-flex flex-column align-items-center">
+            <div class="spinner-border text-primary mb-2" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <small class="text-muted">Loading...</small>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9998;"></div>
+
+    <main role="main" class="pb-3 flex-grow-1">
+        @RenderBody()
+    </main>
+
+    @if (AuthenticationHelper.IsAuthenticated(Context))
+    {
+        var userRole = AuthenticationHelper.GetUserRole(Context);
+        @if (userRole == UserRole.Customer || !AuthenticationHelper.IsAuthenticated(Context))
+        {
+            <footer class="navbar navbar-expand-lg navbar-dark mt-auto">
+                <div class="container">
+                    <div class="navbar-nav w-100 d-flex flex-row justify-content-between align-items-center flex-wrap">
+                        <div class="d-flex flex-wrap align-items-center">
+                            <a class="navbar-brand mb-0 me-4" asp-area="" asp-controller="Home" asp-action="Index">BudgetStay</a>
+                            <div class="d-flex flex-wrap">
+                                <a class="nav-link" asp-controller="Home" asp-action="About">About Us</a>
+                                <a class="nav-link" asp-controller="Home" asp-action="Careers">Careers</a>
+                                <a class="nav-link" asp-controller="Home" asp-action="Press">Press</a>
+                                <a class="nav-link" asp-controller="Home" asp-action="Blog">Blog</a>
+                                <a class="nav-link" asp-controller="Home" asp-action="HelpCenter">Help Center</a>
+                                <a class="nav-link" asp-controller="Home" asp-action="Contact">Contact Us</a>
+                                <a class="nav-link" asp-controller="Home" asp-action="Privacy">Privacy Policy</a>
+                                <a class="nav-link" asp-controller="Home" asp-action="Terms">Terms of Service</a>
+                            </div>
+                        </div>
+                        <div class="text-white small mb-0">
+                            &copy; 2025 BudgetStay. All rights reserved.
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        }
+    }
+    else
+    {
+    <footer class="navbar navbar-expand-lg navbar-dark mt-auto">
+        <div class="container">
+            <div class="navbar-nav w-100 d-flex flex-row justify-content-between align-items-center flex-wrap">
+                <div class="d-flex flex-wrap align-items-center">
+                    <a class="navbar-brand mb-0 me-4" asp-area="" asp-controller="Home" asp-action="Index">BudgetStay</a>
+                    <div class="d-flex flex-wrap">
+                        <a class="nav-link" asp-controller="Home" asp-action="About">About Us</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Careers">Careers</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Press">Press</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Blog">Blog</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="HelpCenter">Help Center</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Contact">Contact Us</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Privacy">Privacy Policy</a>
+                        <a class="nav-link" asp-controller="Home" asp-action="Terms">Terms of Service</a>
+                    </div>
+                </div>
+                <div class="text-white small mb-0">
+                    &copy; 2025 BudgetStay. All rights reserved.
+                </div>
+            </div>
+        </div>
+    </footer>
+    }
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

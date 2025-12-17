@@ -1,0 +1,175 @@
+@* 
+    Admin Contact Messages Management View
+    Displays list of all contact form submissions with read/unread status.
+    Allows admins to view, mark as read, and respond to customer inquiries.
+*@
+@model List<Assignment.Models.ContactMessage>
+@{
+    ViewData["Title"] = "Contact Messages";
+}
+
+<div class="container-fluid">
+    <div class="mb-4">
+        <h2 class="mb-0 d-inline-block me-3">Contact Messages</h2>
+        @if (ViewBag.UnreadCount > 0)
+        {
+            <span class="badge bg-danger align-middle" style="font-size: 1rem; padding: 0.6rem 1rem; font-weight: 600;">@ViewBag.UnreadCount Unread</span>
+        }
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Subject</th>
+                        <th>Message</th>
+                        <th>Sent At</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        @foreach (var message in Model)
+                        {
+                            <tr class="@(!message.IsRead ? "table-warning" : "")">
+                                <td>@message.MessageId</td>
+                                <td>@message.Name</td>
+                                <td><a href="mailto:@message.Email">@message.Email</a></td>
+                                <td>@message.Subject</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary view-message-btn" 
+                                            data-message-id="@message.MessageId"
+                                            data-message-name="@message.Name"
+                                            data-message-email="@message.Email"
+                                            data-message-subject="@message.Subject"
+                                            data-message-text="@message.Message"
+                                            data-message-date="@message.SentAt.ToString("MM/dd/yyyy HH:mm")">
+                                        View
+                                    </button>
+                                </td>
+                                <td>@message.SentAt.ToString("MM/dd/yyyy HH:mm")</td>
+                                <td>
+                                    @if (message.IsRead)
+                                    {
+                                        <span class="badge bg-success">Read</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning">Unread</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        @if (!message.IsRead)
+                                        {
+                                            <form asp-action="MarkAsRead" method="post" style="display: inline;">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@message.MessageId" />
+                                                <button type="submit" class="btn btn-sm btn-success">Mark as Read</button>
+                                            </form>
+                                        }
+                                        <form asp-action="DeleteContactMessage" asp-route-id="@message.MessageId" method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this message?');">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center">No contact messages found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (ViewBag.TotalPages > 1)
+            {
+                <nav>
+                    <ul class="pagination justify-content-center">
+                        @for (int i = 1; i <= ViewBag.TotalPages; i++)
+                        {
+                            <li class="page-item @(i == ViewBag.CurrentPage ? "active" : "")">
+                                <a class="page-link" href="?page=@i">@i</a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Single Modal for all messages -->
+<div class="modal fade" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="messageModalLabel">Message Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>From:</strong> <span id="modal-message-name"></span></p>
+                <p><strong>Email:</strong> <a href="#" id="modal-message-email"></a></p>
+                <p><strong>Subject:</strong> <span id="modal-message-subject"></span></p>
+                <p><strong>Sent At:</strong> <span id="modal-message-date"></span></p>
+                <hr>
+                <p><strong>Message:</strong></p>
+                <p id="modal-message-text" style="white-space: pre-wrap;"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var messageModal = new bootstrap.Modal(document.getElementById('messageModal'));
+            var viewButtons = document.querySelectorAll('.view-message-btn');
+            
+            viewButtons.forEach(function(button) {
+                button.addEventListener('click', function() {
+                    // Get message data from data attributes
+                    var messageId = this.getAttribute('data-message-id');
+                    var messageName = this.getAttribute('data-message-name');
+                    var messageEmail = this.getAttribute('data-message-email');
+                    var messageSubject = this.getAttribute('data-message-subject');
+                    var messageText = this.getAttribute('data-message-text');
+                    var messageDate = this.getAttribute('data-message-date');
+                    
+                    // Populate modal
+                    document.getElementById('messageModalLabel').textContent = 'Message from ' + messageName;
+                    document.getElementById('modal-message-name').textContent = messageName;
+                    document.getElementById('modal-message-email').textContent = messageEmail;
+                    document.getElementById('modal-message-email').href = 'mailto:' + messageEmail;
+                    document.getElementById('modal-message-subject').textContent = messageSubject;
+                    document.getElementById('modal-message-date').textContent = messageDate;
+                    document.getElementById('modal-message-text').textContent = messageText;
+                    
+                    // Show modal
+                    messageModal.show();
+                });
+            });
+        });
+    </script>
+}

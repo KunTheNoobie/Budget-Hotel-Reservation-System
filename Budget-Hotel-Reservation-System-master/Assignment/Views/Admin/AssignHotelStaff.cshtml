@@ -1,0 +1,109 @@
+@* 
+    Admin Assign Hotel Staff View
+    Allows Admin to assign Manager and Staff to a specific hotel.
+*@
+@using Assignment.Models
+@{
+    ViewData["Title"] = "Assign Hotel Staff";
+    var hotel = ViewBag.Hotel as Hotel;
+    var currentManager = ViewBag.CurrentManager as User;
+    var currentStaff = ViewBag.CurrentStaff as User;
+    var availableManagers = ViewBag.AvailableManagers as List<User> ?? new List<User>();
+    var availableStaff = ViewBag.AvailableStaff as List<User> ?? new List<User>();
+}
+
+<div class="container">
+    <h2>Assign Staff/Manager to Hotel</h2>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">@hotel?.Name</h5>
+            <p class="card-text">
+                <strong>Location:</strong> @hotel?.Address, @hotel?.City, @hotel?.Country<br>
+                <strong>Contact:</strong> @(hotel?.ContactNumber ?? hotel?.ContactEmail ?? "-")
+            </p>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <form asp-action="AssignHotelStaff" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@hotel?.HotelId" />
+
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Manager Assignment</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="managerId" class="form-label">Select Manager</label>
+                    <select name="managerId" id="managerId" class="form-select">
+                        <option value="">-- No Manager (Unassign) --</option>
+                        @foreach (var manager in availableManagers)
+                        {
+                            <option value="@manager.UserId" selected="@(currentManager?.UserId == manager.UserId)">
+                                @manager.FullName (@manager.Email)@(manager.HotelId.HasValue && manager.HotelId != hotel?.HotelId ? " - Currently assigned to another hotel" : "")
+                            </option>
+                        }
+                    </select>
+                    <small class="form-text text-muted">
+                        @if (currentManager != null)
+                        {
+                            <span class="text-info">Current: @currentManager.FullName (@currentManager.Email)</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">No manager currently assigned</span>
+                        }
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Staff Assignment</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="staffId" class="form-label">Select Staff</label>
+                    <select name="staffId" id="staffId" class="form-select">
+                        <option value="">-- No Staff (Unassign) --</option>
+                        @foreach (var staff in availableStaff)
+                        {
+                            <option value="@staff.UserId" selected="@(currentStaff?.UserId == staff.UserId)">
+                                @staff.FullName (@staff.Email)@(staff.HotelId.HasValue && staff.HotelId != hotel?.HotelId ? " - Currently assigned to another hotel" : "")
+                            </option>
+                        }
+                    </select>
+                    <small class="form-text text-muted">
+                        @if (currentStaff != null)
+                        {
+                            <span class="text-info">Current: @currentStaff.FullName (@currentStaff.Email)</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">No staff currently assigned</span>
+                        }
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Save Assignments</button>
+            <a asp-action="Hotels" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+
+    <div class="alert alert-info mt-3">
+        <i class="bi bi-info-circle"></i> <strong>Note:</strong> If a manager or staff is currently assigned to another hotel, they will be reassigned to this hotel. Each hotel can have one manager and one staff member.
+    </div>
+</div>

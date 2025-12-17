@@ -1,0 +1,165 @@
+@* 
+    Admin Reviews Management View
+    Displays list of all customer reviews with ratings and comments.
+    Allows admins to view, moderate, and manage customer feedback.
+*@
+@model List<Assignment.Models.Review>
+@{
+    ViewData["Title"] = "Review Management";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Review Management</h2>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="mb-3">
+                <div class="row">
+                    <div class="col-md-8">
+                        <input type="text" name="searchTerm" value="@ViewBag.SearchTerm" class="form-control" placeholder="Search by user name, email, or comment..." />
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-secondary">Search</button>
+                        <a asp-action="Reviews" class="btn btn-outline-secondary">Clear</a>
+                    </div>
+                </div>
+            </form>
+
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>User</th>
+                        <th>Room</th>
+                        <th>Rating</th>
+                        <th>Comment</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        @foreach (var review in Model)
+                        {
+                            <tr>
+                                <td>@review.ReviewId</td>
+                                <td>
+                                    @review.Booking?.User?.FullName<br />
+                                    <small class="text-muted">@review.Booking?.User?.Email</small>
+                                </td>
+                                <td>
+                                    @review.Booking?.Room?.RoomType?.Name<br />
+                                    <small class="text-muted">Room @review.Booking?.Room?.RoomNumber</small>
+                                </td>
+                                <td>
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        <i class="bi @(i <= review.Rating ? "bi-star-fill text-warning" : "bi-star")"></i>
+                                    }
+                                    <span class="ms-1">(@review.Rating)</span>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(review.Comment))
+                                    {
+                                        <button type="button" class="btn btn-sm btn-outline-primary view-comment-btn" 
+                                                data-comment="@review.Comment"
+                                                data-user="@review.Booking?.User?.FullName">
+                                            @(review.Comment.Length > 50 ? review.Comment.Substring(0, 50) + "..." : review.Comment)
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No comment</span>
+                                    }
+                                </td>
+                                <td>@review.ReviewDate.ToString("MM/dd/yyyy")</td>
+                                <td>
+                                    <form asp-action="DeleteReview" asp-route-id="@review.ReviewId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this review?');">
+                                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                No reviews found.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (ViewBag.TotalPages > 1)
+            {
+                <nav>
+                    <ul class="pagination">
+                        @for (int i = 1; i <= ViewBag.TotalPages; i++)
+                        {
+                            <li class="page-item @(i == ViewBag.CurrentPage ? "active" : "")">
+                                <a class="page-link" href="?page=@i&searchTerm=@ViewBag.SearchTerm">@i</a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Comment View Modal -->
+<div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="commentModalLabel">Review Comment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>User:</strong> <span id="modal-comment-user"></span></p>
+                <hr>
+                <p><strong>Comment:</strong></p>
+                <p id="modal-comment-text" style="white-space: pre-wrap;"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var commentModal = new bootstrap.Modal(document.getElementById('commentModal'));
+            var viewButtons = document.querySelectorAll('.view-comment-btn');
+            
+            viewButtons.forEach(function(button) {
+                button.addEventListener('click', function() {
+                    var comment = this.getAttribute('data-comment');
+                    var user = this.getAttribute('data-user');
+                    
+                    document.getElementById('modal-comment-user').textContent = user;
+                    document.getElementById('modal-comment-text').textContent = comment;
+                    
+                    commentModal.show();
+                });
+            });
+        });
+    </script>
+}
+

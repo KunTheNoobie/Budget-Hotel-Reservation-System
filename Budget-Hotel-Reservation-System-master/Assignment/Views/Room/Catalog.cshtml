@@ -1,0 +1,489 @@
+@* 
+    Room Catalog View
+    Displays a searchable and filterable list of available room types.
+    Includes search functionality, filters (price, guests, dates), pagination, and room cards.
+*@
+@model List<Assignment.Models.RoomType>
+@{
+    ViewData["Title"] = "Room Catalog";
+    var allRoomTypes = ViewBag.AllRoomTypes as List<Assignment.Models.RoomType>;
+    var maxPrice = ViewBag.MaxPriceInDb as decimal? ?? 0;
+    var destinations = ViewBag.Destinations as List<string> ?? new List<string>();
+    int? selectedGuests = ViewBag.Guests as int?;
+}
+
+<div class="container-fluid mt-4">
+    <h2 class="mb-4">Room Catalog</h2>
+    
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-circle-fill me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5>Filters</h5>
+                </div>
+                <div class="card-body">
+                    <form id="filterForm" method="get">
+                        <div class="mb-3">
+                            <label for="searchTerm" class="form-label">Search</label>
+                            <input type="text" id="searchTerm" name="searchTerm" value="@ViewBag.SearchTerm" class="form-control" placeholder="Search destination or room..." list="catalogDestinations" maxlength="200" pattern="^[a-zA-Z0-9\s,.-]+$" />
+                            <datalist id="catalogDestinations">
+                                @foreach (var destination in destinations)
+                                {
+                                    <option value="@destination"></option>
+                                }
+                            </datalist>
+                            <div class="invalid-feedback">Search term must be 2-200 characters and contain only letters, numbers, spaces, commas, periods, and hyphens</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="roomTypeId" class="form-label">Room Type</label>
+                            <select id="roomTypeId" name="roomTypeId" class="form-select">
+                                <option value="">All Types</option>
+                                @foreach (var rt in allRoomTypes)
+                                {
+                                    var selected = ViewBag.RoomTypeId != null && ViewBag.RoomTypeId == rt.RoomTypeId;
+                                    <option value="@rt.RoomTypeId" selected="@(selected ? "selected" : null)">@rt.Name</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="guests" class="form-label">Guests</label>
+                            <input type="number" id="guests" name="guests" class="form-control" min="1" max="20" value="@(selectedGuests ?? 1)" required />
+                            <div class="invalid-feedback">Number of guests must be between 1 and 20</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="maxPrice" class="form-label">Max Price: RM <span id="priceValue">@(ViewBag.MaxPrice ?? (maxPrice > 0 ? maxPrice : 1000))</span></label>
+                            <input type="range" id="maxPrice" name="maxPrice" class="form-range" min="0" max="@(maxPrice > 0 ? maxPrice : 1000)" step="0.01" value="@(ViewBag.MaxPrice ?? (maxPrice > 0 ? maxPrice : 1000))" />
+                            <div class="d-flex justify-content-between small text-muted">
+                                <span>RM 0</span>
+                                <span>RM @(maxPrice > 0 ? maxPrice : 1000)</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
+                        <a asp-action="Catalog" class="btn btn-outline-secondary w-100 mt-2">Clear</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div id="roomResults">
+                @if (ViewBag.SearchError != null)
+                {
+                    <div class="alert alert-warning text-center py-5">
+                        <i class="bi bi-exclamation-triangle-fill fs-1 d-block mb-3"></i>
+                        <h4>Invalid Search</h4>
+                        <p>@ViewBag.SearchError</p>
+                        <p class="mb-0">Please try a different search term or <a asp-action="Catalog" class="alert-link">clear your search</a>.</p>
+                    </div>
+                }
+                else if (Model != null && Model.Any())
+                {
+                    <div class="row">
+                        @foreach (var roomType in Model)
+                        {
+                            var reviews = roomType.Rooms
+                                .SelectMany(r => r.Bookings)
+                                .SelectMany(b => b.Reviews)
+                                .ToList();
+                            var avgRating = reviews.Any() ? reviews.Average(r => r.Rating) : 0;
+                            var reviewCount = reviews.Count;
+                            
+                            // Get available rooms from pre-calculated dictionary (always calculated in controller from database)
+                            var availableRoomsDict = ViewBag.AvailableRoomsDict as Dictionary<int, int>;
+                            int availableRooms = 0;
+                            if (availableRoomsDict != null && availableRoomsDict.ContainsKey(roomType.RoomTypeId))
+                            {
+                                availableRooms = availableRoomsDict[roomType.RoomTypeId];
+                            }
+                            
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100 room-card shadow-sm">
+                                    <div class="room-card__media position-relative">
+                                        @if (roomType.RoomImages.Any())
+                                        {
+                                            <img src="@roomType.RoomImages.First().ImageUrl" class="card-img-top" alt="@roomType.Name" style="height: 220px; object-fit: cover;" />
+                                        }
+                                        else
+                                        {
+                                            <div class="placeholder d-flex align-items-center justify-content-center" style="height: 220px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                                <i class="bi bi-image text-white" style="font-size: 3rem;"></i>
+                                            </div>
+                                        }
+                                        @if (avgRating > 0)
+                                        {
+                                            <div class="position-absolute top-0 start-0 m-2">
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="bi bi-star-fill"></i> @avgRating.ToString("0.0") (@reviewCount)
+                                                </span>
+                                            </div>
+                                        }
+                                        @if (availableRooms > 0)
+                                        {
+                                            <div class="position-absolute top-0 end-0 m-2">
+                                                <span class="badge bg-success">
+                                                    @availableRooms Available
+                                                </span>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="card-body d-flex flex-column">
+                                        <div class="mb-2">
+                                            <h5 class="card-title mb-1">@roomType.Name</h5>
+                                            @if (roomType.Hotel != null)
+                                            {
+                                                <div class="d-flex align-items-center gap-2 mb-2">
+                                                    @if (!string.IsNullOrEmpty(roomType.Hotel.ImageUrl))
+                                                    {
+                                                        <img src="@roomType.Hotel.ImageUrl" alt="@roomType.Hotel.Name" class="rounded" style="width: 30px; height: 30px; object-fit: cover;" onerror="this.style.display='none';">
+                                                    }
+                                                    <div class="text-muted small d-flex align-items-center gap-1">
+                                                        <i class="bi bi-building text-primary"></i>
+                                                        <span class="fw-semibold">@roomType.Hotel.Name</span>
+                                                    </div>
+                                                </div>
+                                            }
+                                            <div class="text-muted small d-flex align-items-center gap-2">
+                                                <i class="bi bi-geo-alt-fill text-danger"></i>
+                                                <span>@(roomType.Hotel?.City ?? "Malaysia"), @(roomType.Hotel?.Country ?? "Malaysia")</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <p class="card-text flex-grow-1 small text-muted mb-3">@((roomType.Description?.Length ?? 0) > 120 ? roomType.Description!.Substring(0, 120) + "..." : roomType.Description ?? "Comfortable accommodation with modern amenities.")</p>
+                                        
+                                        @if (roomType.RoomTypeAmenities.Any())
+                                        {
+                                            <div class="mb-3">
+                                                <small class="text-muted d-block mb-1"><strong>Amenities:</strong></small>
+                                                <div class="d-flex flex-wrap gap-1">
+                                                    @foreach (var amenity in roomType.RoomTypeAmenities.Take(4).Select(rta => rta.Amenity))
+                                                    {
+                                                        <span class="badge bg-light text-dark border d-inline-flex align-items-center">
+                                                            @if (!string.IsNullOrEmpty(amenity.ImageUrl))
+                                                            {
+                                                                <img src="@amenity.ImageUrl" alt="@amenity.Name" class="me-2" style="width: 20px; height: 20px; object-fit: cover; border-radius: 4px;" onerror="this.style.display='none';">
+                                                            }
+                                                            @amenity.Name
+                                                        </span>
+                                                    }
+                                                    @if (roomType.RoomTypeAmenities.Count > 4)
+                                                    {
+                                                        <span class="badge bg-secondary">+@(roomType.RoomTypeAmenities.Count - 4) more</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                        
+                                        <div class="mb-3 p-2 bg-light rounded">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="small text-muted">Price per night:</span>
+                                                <span class="text-primary fw-bold fs-5">RM @roomType.BasePrice.ToString("F2")</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="small text-muted">
+                                                    <i class="bi bi-people"></i> Occupancy:
+                                                </span>
+                                                <span class="fw-semibold">@roomType.Occupancy person(s)</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mt-auto">
+                                            <a asp-action="Details" asp-route-id="@roomType.RoomTypeId" class="btn btn-primary w-100">
+                                                <i class="bi bi-eye me-1"></i> View Details
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(ViewBag.SearchTerm))
+                {
+                    <div class="alert alert-warning text-center py-5">
+                        <i class="bi bi-exclamation-triangle-fill fs-1 d-block mb-3"></i>
+                        <h4>No Match Found</h4>
+                        <p>We couldn't find any rooms matching your search criteria "<strong>@ViewBag.SearchTerm</strong>".</p>
+                        <p class="mb-0">Please try a different search term or <a asp-action="Catalog" class="alert-link">clear your filters</a>.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info text-center py-5">
+                        <i class="bi bi-info-circle-fill fs-1 d-block mb-3"></i>
+                        <h4>No Rooms Available</h4>
+                        <p>There are currently no rooms available matching your filters.</p>
+                        <p class="mb-0"><a asp-action="Catalog" class="alert-link">Clear filters</a> to see all available rooms.</p>
+                    </div>
+                }
+
+                @if (ViewBag.TotalPages > 1)
+                {
+                    <nav aria-label="Room catalog pagination" class="mt-5">
+                        <ul class="pagination justify-content-center">
+                            @{
+                                var currentPage = ViewBag.CurrentPage as int? ?? 1;
+                                var totalPages = ViewBag.TotalPages as int? ?? 1;
+                                var searchTerm = ViewBag.SearchTerm as string ?? "";
+                                var roomTypeId = ViewBag.RoomTypeId as int?;
+                                var maxPriceFilter = ViewBag.MaxPrice as decimal?;
+                                var guests = ViewBag.Guests as int?;
+                                var checkIn = ViewBag.CheckIn as string ?? "";
+                                
+                                // Build query string parameters
+                                var queryParams = new List<string>();
+                                if (!string.IsNullOrEmpty(searchTerm)) queryParams.Add($"searchTerm={Uri.EscapeDataString(searchTerm)}");
+                                if (roomTypeId.HasValue) queryParams.Add($"roomTypeId={roomTypeId.Value}");
+                                if (maxPriceFilter.HasValue) queryParams.Add($"maxPrice={maxPriceFilter.Value}");
+                                if (guests.HasValue) queryParams.Add($"guests={guests.Value}");
+                                if (!string.IsNullOrEmpty(checkIn)) queryParams.Add($"checkIn={Uri.EscapeDataString(checkIn)}");
+                                
+                                var queryString = queryParams.Any() ? "&" + string.Join("&", queryParams) : "";
+                            }
+                            
+                            @if (currentPage > 1)
+                            {
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=@(currentPage - 1)@queryString">Previous</a>
+                                </li>
+                            }
+
+                            @for (int i = 1; i <= totalPages; i++)
+                            {
+                                @if (i == 1 || i == totalPages || (i >= currentPage - 2 && i <= currentPage + 2))
+                                {
+                                    <li class="page-item @(i == currentPage ? "active" : "")">
+                                        <a class="page-link" href="?page=@i@queryString">@i</a>
+                                    </li>
+                                }
+                                else if (i == currentPage - 3 || i == currentPage + 3)
+                                {
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                }
+                            }
+
+                            @if (currentPage < totalPages)
+                            {
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=@(currentPage + 1)@queryString">Next</a>
+                                </li>
+                            }
+                        </ul>
+                    </nav>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Update price display as slider moves
+            var maxPriceSlider = $('#maxPrice');
+            var maxPriceValue = parseFloat(maxPriceSlider.attr('max')) || 1000;
+            
+            maxPriceSlider.on('input change', function() {
+                var value = parseFloat($(this).val());
+                // Ensure value doesn't exceed max
+                if (value > maxPriceValue) {
+                    value = maxPriceValue;
+                    $(this).val(value);
+                }
+                $('#priceValue').text(value.toFixed(2));
+            });
+            
+            // Ensure slider can reach the full max value
+            maxPriceSlider.attr('max', maxPriceValue);
+
+            // Form validation
+            $('#filterForm').on('submit', function(e) {
+                var isValid = true;
+                var searchTerm = $('#searchTerm').val().trim();
+                var guests = parseInt($('#guests').val());
+
+                // Validate search term (if provided)
+                if (searchTerm && searchTerm.length > 0) {
+                    if (searchTerm.length < 2) {
+                        $('#searchTerm').addClass('is-invalid');
+                        isValid = false;
+                    } else if (!/^[a-zA-Z0-9\s,.-]+$/.test(searchTerm)) {
+                        $('#searchTerm').addClass('is-invalid');
+                        isValid = false;
+                    } else {
+                        $('#searchTerm').removeClass('is-invalid');
+                    }
+                } else {
+                    $('#searchTerm').removeClass('is-invalid');
+                }
+
+                // Validate guests
+                if (!guests || guests < 1 || guests > 20) {
+                    $('#guests').addClass('is-invalid');
+                    isValid = false;
+                } else {
+                    $('#guests').removeClass('is-invalid');
+                }
+
+                if (!isValid) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+
+            // Remove invalid class on input
+            $('#searchTerm, #guests').on('input change', function() {
+                $(this).removeClass('is-invalid');
+            });
+
+            // AJAX search functionality
+            $('#searchTerm, #roomTypeId, #maxPrice, #guests').on('change', function() {
+                // Validate before performing AJAX search
+                var searchTerm = $('#searchTerm').val().trim();
+                var guests = parseInt($('#guests').val());
+
+                // Only perform search if validation passes
+                if (searchTerm && searchTerm.length > 0 && searchTerm.length < 2) {
+                    return; // Don't search with invalid term
+                }
+                if (guests && (guests < 1 || guests > 20)) {
+                    return; // Don't search with invalid guests
+                }
+
+                performAjaxSearch();
+            });
+
+            function performAjaxSearch() {
+                var term = $('#searchTerm').val().trim();
+                var roomTypeId = $('#roomTypeId').val();
+                var maxPrice = $('#maxPrice').val();
+                var guests = $('#guests').val();
+
+                // Validate before sending
+                if (term && term.length > 0 && term.length < 2) {
+                    return;
+                }
+                if (guests && (parseInt(guests) < 1 || parseInt(guests) > 20)) {
+                    return;
+                }
+
+                $.ajax({
+                    url: '@Url.Action("SearchAjax", "Room")',
+                    type: 'GET',
+                    data: { term: term, roomTypeId: roomTypeId, maxPrice: maxPrice, guests: guests },
+                    success: function(data) {
+                        // Update results dynamically
+                        updateRoomResults(data);
+                    },
+                    error: function() {
+                        $('#roomResults').html('<div class="alert alert-danger">An error occurred while searching. Please try again.</div>');
+                    }
+                });
+            }
+
+            function updateRoomResults(roomTypes) {
+                if (roomTypes.length === 0) {
+                    var searchTerm = $('#searchTerm').val();
+                    var html = '<div class="alert alert-warning text-center py-5">';
+                    html += '<i class="bi bi-exclamation-triangle-fill fs-1 d-block mb-3"></i>';
+                    html += '<h4>No Match Found</h4>';
+                    if (searchTerm) {
+                        html += '<p>We couldn\'t find any rooms matching your search criteria "<strong>' + searchTerm + '</strong>".</p>';
+                    } else {
+                        html += '<p>We couldn\'t find any rooms matching your filter criteria.</p>';
+                    }
+                    html += '<p class="mb-0">Please try different search terms or <a href="@Url.Action("Catalog")" class="alert-link">clear your filters</a>.</p>';
+                    html += '</div>';
+                    $('#roomResults').html(html);
+                    return;
+                }
+                
+                var html = '<div class="row">';
+                roomTypes.forEach(function(room) {
+                    html += '<div class="col-md-4 mb-4">';
+                    html += '<div class="card h-100 room-card shadow-sm">';
+                    html += '<div class="room-card__media position-relative">';
+                    if (room.imageUrl) {
+                        html += '<img src="' + room.imageUrl + '" class="card-img-top" style="height: 220px; object-fit: cover;" />';
+                    } else {
+                        html += '<div class="placeholder d-flex align-items-center justify-content-center" style="height: 220px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">';
+                        html += '<i class="bi bi-image text-white" style="font-size: 3rem;"></i></div>';
+                    }
+                    if (room.averageRating > 0) {
+                        html += '<div class="position-absolute top-0 start-0 m-2">';
+                        html += '<span class="badge bg-warning text-dark"><i class="bi bi-star-fill"></i> ' + room.averageRating.toFixed(1) + ' (' + room.reviewCount + ')</span>';
+                        html += '</div>';
+                    }
+                    if (room.availableRooms > 0) {
+                        html += '<div class="position-absolute top-0 end-0 m-2">';
+                        html += '<span class="badge bg-success">' + room.availableRooms + ' Available</span>';
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                    html += '<div class="card-body d-flex flex-column">';
+                    html += '<div class="mb-2">';
+                    html += '<h5 class="card-title mb-1">' + room.name + '</h5>';
+                    if (room.hotelName) {
+                        html += '<div class="d-flex align-items-center gap-2 mb-2">';
+                        if (room.hotelImageUrl) {
+                            html += '<img src="' + room.hotelImageUrl + '" alt="' + room.hotelName + '" class="rounded" style="width: 30px; height: 30px; object-fit: cover;" onerror="this.style.display=\'none\';">';
+                        }
+                        html += '<div class="text-muted small d-flex align-items-center gap-1">';
+                        html += '<i class="bi bi-building text-primary"></i><span class="fw-semibold">' + room.hotelName + '</span></div></div>';
+                    }
+                    html += '<div class="text-muted small d-flex align-items-center gap-2">';
+                    html += '<i class="bi bi-geo-alt-fill text-danger"></i><span>' + room.location + '</span></div>';
+                    html += '</div>';
+                    var desc = room.description && room.description.length > 120 ? room.description.substring(0, 120) + '...' : (room.description || 'Comfortable accommodation with modern amenities.');
+                    html += '<p class="card-text flex-grow-1 small text-muted mb-3">' + desc + '</p>';
+                    if (room.amenities && room.amenities.length > 0) {
+                        html += '<div class="mb-3">';
+                        html += '<small class="text-muted d-block mb-1"><strong>Amenities:</strong></small>';
+                        html += '<div class="d-flex flex-wrap gap-1">';
+                        var amenitiesToShow = room.amenities.slice(0, 4);
+                        amenitiesToShow.forEach(function(amenity) {
+                            var amenityName = typeof amenity === 'string' ? amenity : (amenity.name || amenity.Name || '');
+                            var amenityImage = typeof amenity === 'object' && amenity ? (amenity.imageUrl || amenity.ImageUrl || '') : '';
+                            html += '<span class="badge bg-light text-dark border d-inline-flex align-items-center">';
+                            if (amenityImage) {
+                                html += '<img src="' + amenityImage + '" alt="' + amenityName + '" class="me-2" style="width: 20px; height: 20px; object-fit: cover; border-radius: 4px;" onerror="this.style.display=\'none\';">';
+                            }
+                            html += amenityName + '</span>';
+                        });
+                        if (room.amenities.length > 4) {
+                            html += '<span class="badge bg-secondary">+' + (room.amenities.length - 4) + ' more</span>';
+                        }
+                        html += '</div></div>';
+                    }
+                    html += '<div class="mb-3 p-2 bg-light rounded">';
+                    html += '<div class="d-flex justify-content-between align-items-center mb-1">';
+                    html += '<span class="small text-muted">Price per night:</span>';
+                    html += '<span class="text-primary fw-bold fs-5">RM ' + room.basePrice.toFixed(2) + '</span></div>';
+                    html += '<div class="d-flex justify-content-between align-items-center">';
+                    html += '<span class="small text-muted"><i class="bi bi-people"></i> Occupancy:</span>';
+                    html += '<span class="fw-semibold">' + room.occupancy + ' person(s)</span></div>';
+                    html += '</div>';
+                    html += '<div class="mt-auto">';
+                    html += '<a href="/Room/Details/' + room.roomTypeId + '" class="btn btn-primary w-100"><i class="bi bi-eye me-1"></i> View Details</a>';
+                    html += '</div></div></div></div>';
+                });
+                html += '</div>';
+                $('#roomResults').html(html);
+            }
+        });
+    </script>
+}
+

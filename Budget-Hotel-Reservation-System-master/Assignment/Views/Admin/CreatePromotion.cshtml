@@ -1,0 +1,138 @@
+@* 
+    Admin Create Promotion View
+    Displays form for creating a new discount promotion or coupon code.
+    Includes fields for code, discount type/amount, validity dates, usage limits, and restrictions.
+*@
+@model Assignment.Models.Promotion
+@{
+    ViewData["Title"] = "Create Promotion";
+}
+
+<div class="container">
+    <h2>Create New Promotion</h2>
+
+    <form asp-action="CreatePromotion" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="Code" class="form-label"></label>
+            <input asp-for="Code" class="form-control" placeholder="e.g., SUMMER2024" />
+            <span asp-validation-for="Code" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Description" class="form-label"></label>
+            <textarea asp-for="Description" class="form-control" rows="3" placeholder="Promotion description"></textarea>
+            <span asp-validation-for="Description" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Type" class="form-label"></label>
+            <select asp-for="Type" class="form-select" asp-items="Html.GetEnumSelectList<Assignment.Models.DiscountType>()"></select>
+            <span asp-validation-for="Type" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Value" class="form-label"></label>
+            <input asp-for="Value" class="form-control" type="number" step="0.01" min="0" />
+            <small class="form-text text-muted">Enter percentage (e.g., 10 for 10%) or fixed amount (e.g., 50.00)</small>
+            <span asp-validation-for="Value" class="text-danger"></span>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="StartDate" class="form-label"></label>
+                <input asp-for="StartDate" class="form-control" type="date" />
+                <span asp-validation-for="StartDate" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="EndDate" class="form-label"></label>
+                <input asp-for="EndDate" class="form-control" type="date" />
+                <span asp-validation-for="EndDate" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="mb-3 form-check">
+            <input asp-for="IsActive" class="form-check-input" />
+            <label asp-for="IsActive" class="form-check-label">Active</label>
+        </div>
+
+        <hr />
+        <h5 class="mb-3">Abuse Prevention Settings</h5>
+        <p class="text-muted small">Configure limits to prevent promotion code abuse. Recommended: Enable Phone Number + Payment Card limits.</p>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="form-check">
+                    <input asp-for="LimitPerPhoneNumber" class="form-check-input" />
+                    <label asp-for="LimitPerPhoneNumber" class="form-check-label">Limit Per Phone Number</label>
+                    <small class="form-text text-muted d-block">Most reliable - prevents abuse via multiple accounts</small>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="form-check">
+                    <input asp-for="LimitPerPaymentCard" class="form-check-input" />
+                    <label asp-for="LimitPerPaymentCard" class="form-check-label">Limit Per Payment Card</label>
+                    <small class="form-text text-muted d-block">Stops ~95% of abusers - tracks by card number</small>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="form-check">
+                    <input asp-for="LimitPerUserAccount" class="form-check-input" />
+                    <label asp-for="LimitPerUserAccount" class="form-check-label">Limit Per User Account</label>
+                    <small class="form-text text-muted d-block">One use per registered account</small>
+                </div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="form-check">
+                    <input asp-for="LimitPerDevice" class="form-check-input" />
+                    <label asp-for="LimitPerDevice" class="form-check-label">Limit Per Device/IP</label>
+                    <small class="form-text text-muted d-block">Tracks by device fingerprint and IP address</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="MaxUsesPerLimit" class="form-label">Maximum Uses Per Limit</label>
+            <input asp-for="MaxUsesPerLimit" class="form-control" type="number" min="1" max="1000" value="1" />
+            <small class="form-text text-muted">How many times can this promo be used per phone/card/device (default: 1)</small>
+            <span asp-validation-for="MaxUsesPerLimit" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="MaxTotalUses" class="form-label">Maximum Total Uses (Optional)</label>
+            <input asp-for="MaxTotalUses" class="form-control" type="number" min="0" />
+            <small class="form-text text-muted">Leave empty for unlimited. Set a number to limit total redemptions across all users.</small>
+            <span asp-validation-for="MaxTotalUses" class="text-danger"></span>
+        </div>
+
+        <hr />
+        <h5 class="mb-3">Minimum Criteria</h5>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="MinimumNights" class="form-label">Minimum Stay Nights (Optional)</label>
+                <input asp-for="MinimumNights" class="form-control" type="number" min="0" max="30" />
+                <small class="form-text text-muted">Require minimum number of nights to use this promotion</small>
+                <span asp-validation-for="MinimumNights" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="MinimumAmount" class="form-label">Minimum Amount (RM) (Optional)</label>
+                <input asp-for="MinimumAmount" class="form-control" type="number" step="0.01" min="0" />
+                <small class="form-text text-muted">Require minimum booking amount to use this promotion</small>
+                <span asp-validation-for="MinimumAmount" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Create Promotion</button>
+            <a asp-action="Promotions" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+

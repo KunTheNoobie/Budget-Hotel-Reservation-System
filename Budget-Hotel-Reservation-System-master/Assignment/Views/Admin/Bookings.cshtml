@@ -1,0 +1,336 @@
+﻿@* 
+    Admin Bookings Management View
+    Displays list of all bookings in the system with filtering and search capabilities.
+    Allows admins to view booking details, manage status, and process cancellations.
+*@
+@model List<Assignment.Models.Booking>
+@{
+    ViewData["Title"] = "Booking Management";
+}
+@using System.Security.Claims
+@{
+    var role = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+}
+<script src="~/js/html5-qrcode.min.js"></script>
+
+<style>
+    /* Hides the "Code Scanner" blue link */
+    #reader a {
+        display: none !important;
+    }
+
+    /* Hides the "IDLE" or "Scanning" status badge */
+    #reader__status_span {
+        display: none !important;
+    }
+
+    /* Optional: Removes the top border/header area if it looks empty now */
+    #reader__header_message {
+        display: none !important;
+    }
+</style>
+
+<div class="container-fluid">
+    <h2 class="mb-4">Booking Management</h2>
+
+    <div class="alert alert-info alert-dismissible fade show mb-3">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Automatic Status Updates:</strong> Booking statuses are automatically updated based on dates:
+        <ul class="mb-0 mt-2">
+            <li><strong>Check-in:</strong> Confirmed bookings automatically change to "CheckedIn" on the check-in date</li>
+            <li><strong>Check-out:</strong> CheckedIn bookings automatically change to "CheckedOut" after the check-out date</li>
+            <li><strong>No-show:</strong> Confirmed bookings that haven't been checked in by the day after check-in date are marked as "NoShow"</li>
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="mb-3">
+                <div class="row">
+                    <div class="col-md-4">
+                        <input type="text" name="searchTerm" value="@ViewBag.SearchTerm" class="form-control" placeholder="Search by customer..." />
+                    </div>
+                    <div class="col-md-3">
+                        <select name="status" class="form-select">
+                            <option value="">All Statuses</option>
+                            @foreach (var status in Enum.GetValues(typeof(BookingStatus)))
+                            {
+                                <option value="@status" selected="@(ViewBag.Status?.ToString() == status.ToString())">@status</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <button type="submit" class="btn btn-secondary">Search</button>
+                        <a asp-action="Bookings" class="btn btn-outline-secondary">Clear</a>
+                        <a asp-action="ExportBookingsToCsv" 
+                           asp-route-searchTerm="@ViewBag.SearchTerm" 
+                           asp-route-status="@ViewBag.Status" 
+                           class="btn btn-success ms-2">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
+                        </a>
+                    </div>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Customer</th>
+                            <th>Room</th>
+                            <th>Check-In</th>
+                            <th>Check-Out</th>
+                            <th>Total Price</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model != null && Model.Any())
+                        {
+                            @foreach (var booking in Model)
+                            {
+                                // Apply special class if deleted
+                                <tr class="@(booking.IsDeleted ? "deleted-row" : "")">
+                                    <td>
+                                        @booking.BookingId
+                                        @if(booking.IsDeleted) { 
+                                            <span class="badge bg-danger">DELETED</span> 
+                                        }
+                                    </td>
+                                    <td>@booking.User.FullName<br /><small>@booking.User.Email</small></td>
+                                    <td>@booking.Room.RoomNumber<br /><small>@booking.Room.RoomType.Name</small></td>
+                                    <td>@booking.CheckInDate.ToString("MM/dd/yyyy")</td>
+                                    <td>@booking.CheckOutDate.ToString("MM/dd/yyyy")</td>
+                                    <td>RM @booking.TotalPrice.ToString("F2")</td>
+                                    <td>
+                                        <span class="badge @(booking.Status == BookingStatus.Confirmed ? "bg-success" : booking.Status == BookingStatus.Cancelled ? "bg-danger" : "bg-warning")">
+                                            @booking.Status
+                                        </span>
+                                    </td>
+                                    <td style="position: relative;">
+                                        
+                                        @if (!booking.IsDeleted)
+                                        {
+                                            // ---------------- ACTIVE BOOKING ACTIONS ----------------
+                                            
+                                            <a asp-action="BookingDetails" asp-route-id="@booking.BookingId" class="btn btn-sm btn-info">Details</a>
+
+                                            @if(role == "Admin" || role == "Manager")
+                                            {
+                                                <div class="btn-group dropend">
+                                                    <button type="button" class="btn btn-sm btn-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                                        Update
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-end">
+                                                        @foreach (var status in Enum.GetValues(typeof(BookingStatus)))
+                                                        {
+                                                            var statusEnum = (BookingStatus)status;
+                                                            // Keep your auto-status logic if you wish, or simplify it
+                                                            <li>
+                                                                <form asp-action="UpdateBookingStatus" method="post" class="d-inline">
+                                                                    @Html.AntiForgeryToken()
+                                                                    <input type="hidden" name="id" value="@booking.BookingId" />
+                                                                    <input type="hidden" name="status" value="@status" />
+                                                                    <button type="submit" class="dropdown-item">@status</button>
+                                                                </form>
+                                                            </li>
+                                                        }
+                                                    </ul>
+                                                </div>
+                                            }
+
+                                            <button type="button" class="btn btn-sm btn-warning" onclick="openQrModal(@booking.BookingId)">
+                                                <i class="bi bi-qr-code-scan"></i>
+                                            </button>
+
+                                            // Staff, Manager, Admin can ALL delete now
+                                            <form asp-action="DeleteBooking" method="post" class="d-inline" onsubmit="return confirm('Delete this booking?');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@booking.BookingId" />
+                                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            // ---------------- DELETED BOOKING ACTIONS ----------------
+                                            
+                                            // Only Admin and Manager can Recover
+                                            if (role == "Admin" || role == "Manager")
+                                            {
+                                                <form asp-action="RecoverBooking" method="post" class="d-inline" onsubmit="return confirm('Recover this booking?');">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@booking.BookingId" />
+                                                    <button type="submit" class="btn btn-sm btn-success">
+                                                        <i class="bi bi-arrow-counterclockwise"></i> Recover
+                                                    </button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted fst-italic">Archived</span>
+                                            }
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">
+                                    No bookings found.
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (ViewBag.TotalPages > 1)
+            {
+                <nav>
+                    <ul class="pagination">
+                        @for (int i = 1; i <= ViewBag.TotalPages; i++)
+                        {
+                            <li class="page-item @(i == ViewBag.CurrentPage ? "active" : "")">
+                                <a class="page-link" href="?page=@i&searchTerm=@ViewBag.SearchTerm&status=@ViewBag.Status">@i</a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="qrModalLabel">Scan Customer QR Code</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="stopScanner()"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="reader" style="width: 100%;"></div>
+                <div id="scanResult" class="mt-2 text-primary fw-bold"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let html5QrcodeScanner;
+    let expectedBookingId = 0;
+
+    function openQrModal(id) {
+        expectedBookingId = id; // Save it for later verification
+        
+        var myModalEl = document.getElementById('qrScannerModal');
+        var myModal = new bootstrap.Modal(myModalEl);
+        myModal.show();
+
+        // Update the modal title so Admin knows who they should be scanning
+        document.getElementById('qrModalLabel').innerText = "Scan QR for Booking " + name;
+
+        myModalEl.addEventListener('shown.bs.modal', function () {
+            startScanner();
+        }, { once: true });
+    }
+
+    function startScanner() {
+        document.getElementById('scanResult').innerText = "Scanning... Please show QR for #" + expectedBookingId;
+        
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.clear().catch(err => console.log(err));
+        }
+
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", 
+            { fps: 10, qrbox: 250 }
+        );
+        
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        // 🔒 SECURITY CHECK LOGIC
+        let scannedId = 0;
+
+        // Parse the ID just like the server does
+        if (decodedText.includes("BookingID:")) {
+            try {
+                // Extract "14" from "BookingID:14|User..."
+                let parts = decodedText.split('|');
+                let idPart = parts[0].split(':')[1];
+                scannedId = parseInt(idPart);
+            } catch (e) { scannedId = 0; }
+        } else {
+            // Simple number format
+            scannedId = parseInt(decodedText);
+        }
+
+        // 🛑 THE COMPARISON
+        if (scannedId !== expectedBookingId) 
+        {
+            let resultDiv = document.getElementById('scanResult');
+            resultDiv.className = "mt-2 text-danger fw-bold"; // Bootstrap Red
+            resultDiv.innerText = "❌ WRONG ID! Expected #" + expectedBookingId + " but scanned #" + scannedId;
+            html5QrcodeScanner.pause();
+            
+            alert("⚠️ SECURITY WARNING!\n\nExpected Booking: #" + expectedBookingId + "\nScanned QR: #" + scannedId + "\n\nThis QR code does NOT match the selected customer!");
+            
+            // Resume scanning so they can try the correct one
+            html5QrcodeScanner.resume();
+            return; // ❌ STOP HERE. Do not send to server.
+        }
+
+        // ✅ MATCH FOUND - Proceed
+        html5QrcodeScanner.clear();
+        let resultDiv = document.getElementById('scanResult');
+        resultDiv.className = "mt-2 text-success fw-bold"; // Bootstrap Green
+        resultDiv.innerText = "✅ Match! Processing...";
+
+        confirmQrCheckIn(decodedText);
+    }
+
+    function onScanFailure(error) {
+        // Ignore noise
+    }
+
+    function confirmQrCheckIn(bookingId) {
+        fetch('/Admin/Bookings/QrCheckIn', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bookingId) 
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message); // Success Message
+                location.reload(); 
+            } else {
+                alert("❌ Error: " + data.message);
+                location.reload(); 
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("❌ Server Error.");
+        });
+    }
+
+    document.getElementById('qrScannerModal').addEventListener('hidden.bs.modal', function () {
+        if (html5QrcodeScanner) html5QrcodeScanner.clear();
+    });
+</script>

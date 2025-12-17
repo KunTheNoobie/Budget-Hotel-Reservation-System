@@ -1,0 +1,323 @@
+@* 
+    Admin Edit Package View
+    Displays form for editing an existing package's information.
+    Allows modification of package details, pricing, image, and included room types/services.
+*@
+@model Assignment.Models.Package
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Edit Package";
+    var roomTypes = ViewBag.RoomTypes as List<Assignment.Models.RoomType> ?? new List<Assignment.Models.RoomType>();
+    var services = ViewBag.Services as List<Assignment.Models.Service> ?? new List<Assignment.Models.Service>();
+    var packageItems = ViewBag.PackageItems as List<Assignment.Models.PackageItem> ?? new List<Assignment.Models.PackageItem>();
+}
+
+<div class="container">
+    <h2>Edit Package</h2>
+
+    <form asp-action="EditPackage" method="post" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="PackageId" />
+        <div asp-validation-summary="All" class="text-danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label">Package Name</label>
+            <input asp-for="Name" class="form-control" maxlength="150" required />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Description" class="form-label">Description</label>
+            <textarea asp-for="Description" class="form-control" rows="4" maxlength="1000"></textarea>
+            <span asp-validation-for="Description" class="text-danger"></span>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="TotalPrice" class="form-label">Total Price (RM)</label>
+                <input asp-for="TotalPrice" class="form-control" type="number" step="0.01" min="0" required />
+                <span asp-validation-for="TotalPrice" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <div class="form-check mt-4">
+                    <input asp-for="IsActive" class="form-check-input" />
+                    <label asp-for="IsActive" class="form-check-label">Active</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Package Image</label>
+            @if (!string.IsNullOrEmpty(Model.ImageUrl))
+            {
+                <div class="mb-2">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <img src="@Model.ImageUrl" alt="Current Image" class="img-thumbnail" style="max-height: 200px;" onerror="this.style.display='none';" />
+                        <div>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="deletePackageImage(@Model.PackageId)">
+                                <i class="bi bi-trash"></i> Delete Image
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+            <div class="mb-2">
+                <input type="file" name="imageFile" class="form-control" accept="image/*" />
+                <small class="form-text text-muted">Upload a new image file to replace current image</small>
+            </div>
+            <div class="mb-2">
+                <span class="text-muted">OR</span>
+            </div>
+            <div>
+                <input type="text" name="imageUrl" class="form-control" placeholder="Enter new image URL" />
+                <small class="form-text text-muted">Update image URL (leave empty to keep current image)</small>
+            </div>
+        </div>
+
+        <hr class="my-4">
+        <h5 class="mb-3">Package Items</h5>
+        
+        <div id="packageItemsContainer">
+            @if (packageItems.Any())
+            {
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered" id="packageItemsTable">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Item</th>
+                                <th>Quantity</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in packageItems)
+                            {
+                                <tr data-item-id="@item.PackageItemId">
+                                    <td>
+                                        @if (item.RoomTypeId.HasValue)
+                                        {
+                                            <span class="badge bg-info">Room Type</span>
+                                        }
+                                        else if (item.ServiceId.HasValue)
+                                        {
+                                            <span class="badge bg-success">Service</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (item.RoomType != null)
+                                        {
+                                            <text>@item.RoomType.Name</text>
+                                        }
+                                        else if (item.Service != null)
+                                        {
+                                            <text>@item.Service.Name</text>
+                                        }
+                                    </td>
+                                    <td>@item.Quantity</td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-danger remove-item-btn" data-item-id="@item.PackageItemId">Remove</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    This package has no items. Please add room types or services.
+                </div>
+            }
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">Add Package Item</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Item Type</label>
+                        <select id="newItemType" class="form-select">
+                            <option value="">-- Select Type --</option>
+                            <option value="roomType">Room Type</option>
+                            <option value="service">Service</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Item</label>
+                        <select id="newItemId" class="form-select" disabled>
+                            <option value="">-- Select Item --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" id="newItemQuantity" class="form-control" min="1" value="1" />
+                    </div>
+                    <div class="col-md-1 mb-3 d-flex align-items-end">
+                        <button type="button" class="btn btn-primary" id="addItemBtn">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <input type="hidden" id="removedItems" name="removedItems" value="" />
+        <input type="hidden" id="addedItems" name="addedItems" value="" />
+
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Update Package</button>
+            <a asp-action="Packages" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        function deletePackageImage(packageId) {
+            if (confirm('Are you sure you want to delete this image?')) {
+                var token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '@Url.Action("DeletePackageImage", "Admin")/' + packageId;
+                
+                var tokenInput = document.createElement('input');
+                tokenInput.type = 'hidden';
+                tokenInput.name = '__RequestVerificationToken';
+                tokenInput.value = token;
+                form.appendChild(tokenInput);
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            var removedItems = [];
+            var addedItems = [];
+            var roomTypes = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(roomTypes.Select(rt => new { roomTypeId = rt.RoomTypeId, name = rt.Name, hotelName = rt.Hotel?.Name ?? "" })));
+            var services = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(services.Select(s => new { serviceId = s.ServiceId, name = s.Name })));
+
+            // Handle item type change
+            document.getElementById('newItemType').addEventListener('change', function() {
+                var itemSelect = document.getElementById('newItemId');
+                itemSelect.innerHTML = '<option value="">-- Select Item --</option>';
+                
+                if (this.value === 'roomType') {
+                    roomTypes.forEach(function(rt) {
+                        var option = document.createElement('option');
+                        option.value = String(rt.roomTypeId);
+                        option.textContent = rt.name + (rt.hotelName ? ' - ' + rt.hotelName : '');
+                        itemSelect.appendChild(option);
+                    });
+                    itemSelect.disabled = false;
+                } else if (this.value === 'service') {
+                    services.forEach(function(s) {
+                        var option = document.createElement('option');
+                        option.value = String(s.serviceId);
+                        option.textContent = s.name;
+                        itemSelect.appendChild(option);
+                    });
+                    itemSelect.disabled = false;
+                } else {
+                    itemSelect.disabled = true;
+                }
+            });
+
+            // Handle add item
+            document.getElementById('addItemBtn').addEventListener('click', function() {
+                var itemType = document.getElementById('newItemType').value;
+                var itemId = document.getElementById('newItemId').value;
+                var quantity = parseInt(document.getElementById('newItemQuantity').value);
+
+                if (!itemType || !itemId || !quantity || quantity < 1) {
+                    alert('Please select item type, item, and enter a valid quantity.');
+                    return;
+                }
+
+                var table = document.getElementById('packageItemsTable');
+                if (!table) {
+                    var container = document.getElementById('packageItemsContainer');
+                    container.innerHTML = '<div class="table-responsive mb-4"><table class="table table-bordered" id="packageItemsTable"><thead><tr><th>Type</th><th>Item</th><th>Quantity</th><th>Actions</th></tr></thead><tbody></tbody></table></div>';
+                    table = document.getElementById('packageItemsTable');
+                }
+
+                var tbody = table.querySelector('tbody');
+                var row = document.createElement('tr');
+                row.setAttribute('data-temp-id', 'new-' + Date.now());
+                
+                var typeBadge = itemType === 'roomType' ? '<span class="badge bg-info">Room Type</span>' : '<span class="badge bg-success">Service</span>';
+                var itemName = '';
+                if (itemType === 'roomType') {
+                    var roomType = roomTypes.find(rt => String(rt.roomTypeId) === String(itemId));
+                    if (roomType) {
+                        itemName = roomType.name + (roomType.hotelName ? ' - ' + roomType.hotelName : '');
+                    }
+                } else {
+                    var service = services.find(s => String(s.serviceId) === String(itemId));
+                    if (service) {
+                        itemName = service.name;
+                    }
+                }
+                
+                if (!itemName) {
+                    alert('Item not found. Please try again.');
+                    return;
+                }
+
+                row.innerHTML = '<td>' + typeBadge + '</td>' +
+                    '<td>' + itemName + '</td>' +
+                    '<td>' + quantity + '</td>' +
+                    '<td><button type="button" class="btn btn-sm btn-danger remove-item-btn">Remove</button></td>';
+
+                row.querySelector('.remove-item-btn').addEventListener('click', function() {
+                    row.remove();
+                    var tempId = row.getAttribute('data-temp-id');
+                    if (tempId) {
+                        addedItems = addedItems.filter(id => id !== tempId);
+                    }
+                    updateHiddenFields();
+                });
+
+                tbody.appendChild(row);
+                
+                var tempId = row.getAttribute('data-temp-id');
+                addedItems.push({
+                    id: tempId,
+                    type: itemType,
+                    itemId: parseInt(itemId),
+                    quantity: parseInt(quantity)
+                });
+
+                // Reset form
+                document.getElementById('newItemType').value = '';
+                document.getElementById('newItemId').value = '';
+                document.getElementById('newItemId').disabled = true;
+                document.getElementById('newItemQuantity').value = '1';
+
+                updateHiddenFields();
+            });
+
+            // Handle remove existing item
+            document.querySelectorAll('.remove-item-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var row = this.closest('tr');
+                    var itemId = row.getAttribute('data-item-id');
+                    if (itemId) {
+                        removedItems.push(parseInt(itemId));
+                    }
+                    row.remove();
+                    updateHiddenFields();
+                });
+            });
+
+            function updateHiddenFields() {
+                document.getElementById('removedItems').value = JSON.stringify(removedItems);
+                document.getElementById('addedItems').value = JSON.stringify(addedItems);
+            }
+        });
+    </script>
+}
+

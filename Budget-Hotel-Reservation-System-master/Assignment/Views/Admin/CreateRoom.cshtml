@@ -1,0 +1,52 @@
+@* 
+    Admin Create Room View
+    Displays form for creating a new individual room with room number and type assignment.
+    Includes room number input and room type selection dropdown.
+*@
+@model Assignment.Models.Room
+@{
+    ViewData["Title"] = "Create Room";
+    var roomTypes = ViewBag.RoomTypes as List<Assignment.Models.RoomType>;
+}
+
+<div class="container">
+    <h2>Create New Room</h2>
+
+    <form asp-action="CreateRoom" method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="RoomNumber" class="form-label"></label>
+            <input asp-for="RoomNumber" class="form-control" />
+            <span asp-validation-for="RoomNumber" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="RoomTypeId" class="form-label"></label>
+            <select asp-for="RoomTypeId" class="form-select">
+                <option value="">-- Select Room Type --</option>
+                @foreach (var roomType in roomTypes)
+                {
+                    <option value="@roomType.RoomTypeId">@roomType.Name</option>
+                }
+            </select>
+            <span asp-validation-for="RoomTypeId" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Status" class="form-label"></label>
+            <select asp-for="Status" class="form-select" asp-items="Html.GetEnumSelectList<RoomStatus>()"></select>
+            <span asp-validation-for="Status" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Create</button>
+            <a asp-action="Rooms" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+

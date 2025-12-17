@@ -1,0 +1,746 @@
+@* 
+    Package Details View
+    Displays detailed information about a specific package including included services,
+    room types, pricing breakdown, and booking options. Shows what's included in the package.
+*@
+@model Assignment.ViewModels.Home.PackageSummaryViewModel
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<section class="gradient-hero hero-shell">
+    <div class="container text-center">
+        <h1 class="display-4 fw-bold text-white mb-3">@Model.Name</h1>
+        <p class="lead text-white-50">@Model.Description</p>
+    </div>
+</section>
+
+<div class="container section-spacer">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                {
+                    <img src="@Model.ImageUrl" class="card-img-top" alt="@Model.Name" style="height: 400px; object-fit: cover;">
+                }
+                else
+                {
+                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 400px;">
+                        <i class="bi bi-box-seam" style="font-size: 5rem; color: var(--primary);"></i>
+                    </div>
+                }
+                <div class="card-body">
+                    <h2 class="card-title mb-3">@Model.Name</h2>
+                    
+                    @if (!string.IsNullOrEmpty(Model.HotelName) || !string.IsNullOrEmpty(Model.Location))
+                    {
+                        <div class="mb-3">
+                            @if (!string.IsNullOrEmpty(Model.HotelName))
+                            {
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-building text-primary fs-5"></i>
+                                    <span class="fs-5 fw-semibold">@Model.HotelName</span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.Location))
+                            {
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <i class="bi bi-geo-alt-fill text-danger fs-5"></i>
+                                    <span class="fs-6 text-muted">@Model.Location</span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(Model.RoomTypeName))
+                            {
+                                <div class="mb-3">
+                                    <span class="badge bg-info text-dark fs-6 p-2">
+                                        <i class="bi bi-door-open me-1"></i>@Model.RoomTypeName
+                                    </span>
+                                    @if (Model.Occupancy.HasValue)
+                                    {
+                                        <span class="badge bg-secondary fs-6 p-2 ms-2">
+                                            <i class="bi bi-people me-1"></i>@Model.Occupancy person(s)
+                                        </span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    
+                    <p class="card-text lead mb-4">@Model.Description</p>
+                    
+                    @{
+                        var roomType = ViewBag.RoomType as Assignment.Models.RoomType;
+                        var services = ViewBag.Services as List<Assignment.Models.PackageItem>;
+                        var roomItems = ViewBag.RoomItems as List<Assignment.Models.PackageItem>;
+                        var hotel = ViewBag.Hotel as Assignment.Models.Hotel;
+                        var amenities = ViewBag.Amenities as List<Assignment.Models.Amenity>;
+                        var roomImages = ViewBag.RoomImages as List<Assignment.Models.RoomImage> ?? new List<Assignment.Models.RoomImage>();
+                        var reviews = ViewBag.Reviews as List<Assignment.Models.Review> ?? new List<Assignment.Models.Review>();
+                        var averageRating = ViewBag.AverageRating as double? ?? 0;
+                        var reviewCount = ViewBag.ReviewCount as int? ?? 0;
+                    }
+
+                    @if (roomImages.Any())
+                    {
+                        <hr class="my-4">
+                        <h4 class="mb-4">
+                            <i class="bi bi-images me-2"></i>Room Gallery:
+                        </h4>
+                        <div class="row g-3 mb-4">
+                            @foreach (var image in roomImages.Take(6))
+                            {
+                                <div class="col-md-4 col-sm-6">
+                                    <div class="card">
+                                        <img src="@image.ImageUrl" class="card-img-top" alt="Room Image" style="height: 200px; object-fit: cover;" onerror="this.src='https://via.placeholder.com/400x300?text=Image+Not+Found'">
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        @if (roomImages.Count > 6)
+                        {
+                            <p class="text-muted text-center">
+                                <i class="bi bi-info-circle me-1"></i>Showing 6 of @roomImages.Count images. 
+                                <a asp-controller="Room" asp-action="Details" asp-route-id="@roomType.RoomTypeId" class="text-primary">View all room images</a>
+                            </p>
+                        }
+                    }
+
+                    @if (averageRating > 0)
+                    {
+                        <hr class="my-4">
+                        <h4 class="mb-4">
+                            <i class="bi bi-star-fill me-2"></i>Guest Reviews:
+                        </h4>
+                        <div class="d-flex align-items-center mb-4 p-3 bg-light rounded">
+                            <div class="text-center me-4">
+                                <h2 class="display-4 fw-bold text-primary mb-0">@averageRating.ToString("0.0")</h2>
+                                <div class="text-warning fs-5">
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        <i class="bi bi-star@(i <= Math.Round(averageRating) ? "-fill" : "")"></i>
+                                    }
+                                </div>
+                                <small class="text-muted">Based on @reviewCount review(s)</small>
+                            </div>
+                            <div class="flex-grow-1">
+                                @if (reviews.Any())
+                                {
+                                    <div class="review-list">
+                                        @foreach (var review in reviews.Take(3))
+                                        {
+                                            <div class="review-item border-bottom pb-2 mb-2">
+                                                <div class="d-flex align-items-start mb-2">
+                                                    <div class="me-3 position-relative" style="width: 40px; height: 40px; flex-shrink: 0;">
+                                                        @if (!string.IsNullOrEmpty(review.Booking?.User?.ProfilePictureUrl))
+                                                        {
+                                                            <img src="@review.Booking.User.ProfilePictureUrl" alt="@review.Booking.User.FullName" 
+                                                                 class="rounded-circle review-avatar-img" style="width: 40px; height: 40px; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1;" 
+                                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                            <div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center rounded-circle review-avatar-fallback" style="display: none; width: 40px; height: 40px; font-size: 0.85rem; position: absolute; top: 0; left: 0; z-index: 0;">
+                                                                @(review.Booking?.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                            </div>
+                                                        }
+                                                        else
+                                                        {
+                                                            <div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 40px; height: 40px; font-size: 0.85rem;">
+                                                                @(review.Booking?.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <div>
+                                                                <h6 class="mb-1">@review.Booking?.User?.FullName</h6>
+                                                                <div class="text-warning small mb-1">
+                                                                    @for (int i = 1; i <= 5; i++)
+                                                                    {
+                                                                        <i class="bi bi-star@(i <= review.Rating ? "-fill" : "")"></i>
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                            <small class="text-muted">@review.ReviewDate.ToString("MMM dd, yyyy")</small>
+                                                        </div>
+                                                        @if (!string.IsNullOrWhiteSpace(review.Comment))
+                                                        {
+                                                            <p class="mb-0 text-muted small">@review.Comment</p>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                    @if (reviews.Count > 3)
+                                    {
+                                        <div class="text-center mt-3">
+                                            <a asp-controller="Room" asp-action="Details" asp-route-id="@roomType.RoomTypeId" class="btn btn-sm btn-outline-primary">
+                                                View All Reviews
+                                            </a>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <hr class="my-4">
+                    <h4 class="mb-4">
+                        <i class="bi bi-box-seam me-2"></i>Package Includes:
+                    </h4>
+                    <div class="row mb-4">
+                        @if (roomType != null)
+                        {
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100 border-success">
+                                    <div class="card-body">
+                                        <h6 class="card-title text-success">
+                                            <i class="bi bi-door-open-fill me-2"></i>Accommodation
+                                        </h6>
+                                        <p class="mb-1"><strong>@roomType.Name</strong></p>
+                                        <p class="mb-1 text-muted small">@roomType.Description</p>
+                                        @if (roomItems != null && roomItems.Any())
+                                        {
+                                            <p class="mb-1"><strong>Quantity:</strong> @roomItems.Sum(ri => ri.Quantity) room(s)</p>
+                                        }
+                                        else
+                                        {
+                                            <p class="mb-1"><strong>Quantity:</strong> 1 room(s)</p>
+                                        }
+                                        <p class="mb-1"><strong>Occupancy:</strong> @roomType.Occupancy person(s) per room</p>
+                                        <p class="mb-0"><strong>Base Price:</strong> RM @roomType.BasePrice.ToString("F2") per night</p>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        
+                        @if (services != null && services.Any())
+                        {
+                            @foreach (var serviceItem in services)
+                            {
+                                if (serviceItem.Service != null)
+                                {
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card h-100 border-info">
+                                            <div class="card-body">
+                                                <h6 class="card-title text-info">
+                                                    <i class="bi bi-check-circle-fill me-2"></i>@serviceItem.Service.Name
+                                                    @if (serviceItem.Quantity > 1)
+                                                    {
+                                                        <span class="badge bg-info">x@serviceItem.Quantity</span>
+                                                    }
+                                                </h6>
+                                                @if (!string.IsNullOrEmpty(serviceItem.Service.Description))
+                                                {
+                                                    <p class="mb-2 text-muted small">@serviceItem.Service.Description</p>
+                                                }
+                                                <p class="mb-0">
+                                                    <strong>Value:</strong> RM @serviceItem.Service.Price.ToString("F2")
+                                                    @if (serviceItem.Quantity > 1)
+                                                    {
+                                                        <text> × @serviceItem.Quantity = RM @((serviceItem.Service.Price * serviceItem.Quantity).ToString("F2"))</text>
+                                                    }
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        }
+                        else if (roomType == null)
+                        {
+                            <div class="col-12">
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>No package details available.
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    @if (roomType != null)
+                    {
+                        <hr class="my-4">
+                        <h4 class="mb-4">
+                            <i class="bi bi-door-open me-2"></i>Room Details:
+                        </h4>
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <p><strong>Room Type:</strong> @roomType.Name</p>
+                                <p><strong>Occupancy:</strong> @roomType.Occupancy person(s)</p>
+                                @if (!string.IsNullOrEmpty(roomType.Description))
+                                {
+                                    <p><strong>Description:</strong> @roomType.Description</p>
+                                }
+                                @if (roomItems != null && roomItems.Any())
+                                {
+                                    <p><strong>Quantity:</strong> @roomItems.Sum(ri => ri.Quantity) room(s)</p>
+                                }
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Base Price:</strong> RM @roomType.BasePrice.ToString("F2") per night</p>
+                                @if (roomItems != null && roomItems.Any())
+                                {
+                                    var totalNights = roomItems.Sum(ri => ri.Quantity);
+                                    <p><strong>Total Room Cost:</strong> RM @((roomType.BasePrice * totalNights).ToString("F2"))</p>
+                                }
+                            </div>
+                        </div>
+
+                        @if (amenities != null && amenities.Any())
+                        {
+                            <h5 class="mb-3"><i class="bi bi-list-check me-2"></i>Room Amenities:</h5>
+                            <div class="row mb-4">
+                                @foreach (var amenity in amenities)
+                                {
+                                    <div class="col-md-4 mb-2">
+                                        <span class="badge bg-light text-dark p-2 d-inline-flex align-items-center">
+                                            @if (!string.IsNullOrEmpty(amenity.ImageUrl))
+                                            {
+                                                <img src="@amenity.ImageUrl" alt="@amenity.Name" class="me-2" style="width: 24px; height: 24px; object-fit: cover; border-radius: 4px;" onerror="this.style.display='none';">
+                                            }
+                                            @amenity.Name
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+
+                    @if (services != null && services.Any())
+                    {
+                        <hr class="my-4">
+                        <h4 class="mb-4">
+                            <i class="bi bi-star me-2"></i>Included Services:
+                        </h4>
+                        <div class="row mb-4">
+                            @foreach (var serviceItem in services)
+                            {
+                                if (serviceItem.Service != null)
+                                {
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card h-100">
+                                            <div class="card-body">
+                                                <h6 class="card-title">
+                                                    <i class="bi bi-check-circle-fill text-success me-2"></i>@serviceItem.Service.Name
+                                                </h6>
+                                                @if (serviceItem.Quantity > 1)
+                                                {
+                                                    <p class="text-muted mb-1">Quantity: @serviceItem.Quantity</p>
+                                                }
+                                                @if (!string.IsNullOrEmpty(serviceItem.Service.Description))
+                                                {
+                                                    <p class="card-text small text-muted">@serviceItem.Service.Description</p>
+                                                }
+                                                <p class="text-primary mb-0">
+                                                    <strong>Value: RM @serviceItem.Service.Price.ToString("F2")</strong>
+                                                    @if (serviceItem.Quantity > 1)
+                                                    {
+                                                        <text> × @serviceItem.Quantity = RM @((serviceItem.Service.Price * serviceItem.Quantity).ToString("F2"))</text>
+                                                    }
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+
+                    @if (hotel != null)
+                    {
+                        <hr class="my-4">
+                        <h4 class="mb-4">
+                            <i class="bi bi-building me-2"></i>Hotel Information:
+                        </h4>
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                @if (!string.IsNullOrEmpty(hotel.ImageUrl))
+                                {
+                                    <img src="@hotel.ImageUrl" alt="@hotel.Name" class="img-fluid rounded shadow-sm mb-3" style="max-height: 250px; object-fit: cover;" onerror="this.style.display='none';">
+                                }
+                            </div>
+                            <div class="col-md-8">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p><strong>Hotel:</strong> @hotel.Name</p>
+                                        <p><strong>Address:</strong> @hotel.Address</p>
+                                        <p><strong>Location:</strong> @hotel.City, @hotel.Country</p>
+                                        @if (!string.IsNullOrEmpty(hotel.PostalCode))
+                                        {
+                                            <p><strong>Postal Code:</strong> @hotel.PostalCode</p>
+                                        }
+                                    </div>
+                                    <div class="col-md-6">
+                                        @if (!string.IsNullOrEmpty(hotel.ContactNumber))
+                                        {
+                                            <p><strong>Contact:</strong> <a href="tel:@hotel.ContactNumber">@hotel.ContactNumber</a></p>
+                                        }
+                                        @if (!string.IsNullOrEmpty(hotel.ContactEmail))
+                                        {
+                                            <p><strong>Email:</strong> <a href="mailto:@hotel.ContactEmail">@hotel.ContactEmail</a></p>
+                                        }
+                                        @if (!string.IsNullOrEmpty(hotel.Description))
+                                        {
+                                            <p><strong>About:</strong> @hotel.Description</p>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    
+                    @if (Model.Highlights.Any())
+                    {
+                        <hr class="my-4">
+                        <h4 class="mb-4">
+                            <i class="bi bi-box-seam me-2"></i>What's Included:
+                        </h4>
+                        <ul class="list-unstyled">
+                            @foreach (var highlight in Model.Highlights)
+                            {
+                                <li class="d-flex align-items-center gap-3 mb-3 p-3 bg-light rounded shadow-sm">
+                                    <i class="bi bi-check-circle-fill text-success" style="font-size: 1.5rem;"></i>
+                                    <span class="fs-5">@highlight</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+
+                    <hr class="my-4">
+                    <h4 class="mb-4">
+                        <i class="bi bi-info-circle me-2"></i>Package Information:
+                    </h4>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="bi bi-calendar-check me-2"></i>Booking Details</h5>
+                                    <ul class="list-unstyled">
+                                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Instant confirmation</li>
+                                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Free cancellation up to 24 hours before check-in</li>
+                                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Best price guarantee</li>
+                                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Secure payment</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="bi bi-clock me-2"></i>Check-In/Out</h5>
+                                    <ul class="list-unstyled">
+                                        <li class="mb-2"><strong>Check-In:</strong> From 2:00 PM</li>
+                                        <li class="mb-2"><strong>Check-Out:</strong> Until 11:00 AM</li>
+                                        <li class="mb-2"><i class="bi bi-info-circle text-info me-2"></i>Early check-in and late check-out available upon request</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (roomType != null && roomItems != null && roomItems.Any())
+                    {
+                        <hr class="my-4">
+                        <h4 class="mb-4">
+                            <i class="bi bi-calculator me-2"></i>Package Duration:
+                        </h4>
+                        <div class="alert alert-info">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-moon-stars fs-3 me-3"></i>
+                                <div>
+                                    <strong>@roomItems.Sum(ri => ri.Quantity) Night(s) Stay</strong>
+                                    <p class="mb-0 text-muted">This package includes @roomItems.Sum(ri => ri.Quantity) night(s) accommodation</p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <hr class="my-4">
+                    <h4 class="mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>Important Information:
+                    </h4>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card border-warning">
+                                <div class="card-body">
+                                    <h6 class="card-title text-warning"><i class="bi bi-x-circle me-2"></i>Not Included</h6>
+                                    <ul class="list-unstyled mb-0">
+                                        <li class="mb-2"><i class="bi bi-x text-danger me-2"></i>Airport transfers (unless specified)</li>
+                                        <li class="mb-2"><i class="bi bi-x text-danger me-2"></i>Travel insurance</li>
+                                        <li class="mb-2"><i class="bi bi-x text-danger me-2"></i>Personal expenses</li>
+                                        <li class="mb-2"><i class="bi bi-x text-danger me-2"></i>Additional meals (unless specified)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-success">
+                                <div class="card-body">
+                                    <h6 class="card-title text-success"><i class="bi bi-shield-check me-2"></i>Terms & Conditions</h6>
+                                    <ul class="list-unstyled mb-0 small">
+                                        <li class="mb-2"><i class="bi bi-check text-success me-2"></i>Prices are per package, not per person</li>
+                                        <li class="mb-2"><i class="bi bi-check text-success me-2"></i>Subject to availability</li>
+                                        <li class="mb-2"><i class="bi bi-check text-success me-2"></i>Non-refundable after check-in</li>
+                                        <li class="mb-2"><i class="bi bi-check text-success me-2"></i>Valid for the dates selected</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @{
+                        var individualPrice = ViewBag.IndividualPrice as decimal?;
+                        if (individualPrice.HasValue && individualPrice.Value > 0)
+                        {
+                            <hr class="my-4">
+                            <h4 class="mb-4">
+                                <i class="bi bi-calculator me-2"></i>Price Breakdown:
+                            </h4>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Item</th>
+                                            <th class="text-end">Price</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @if (roomType != null && roomItems != null && roomItems.Any())
+                                        {
+                                            var roomTotal = roomType.BasePrice * roomItems.Sum(ri => ri.Quantity);
+                                            <tr>
+                                                <td>@roomType.Name × @roomItems.Sum(ri => ri.Quantity)</td>
+                                                <td class="text-end">RM @roomTotal.ToString("F2")</td>
+                                            </tr>
+                                        }
+                                        @if (services != null)
+                                        {
+                                            @foreach (var serviceItem in services)
+                                            {
+                                                if (serviceItem.Service != null)
+                                                {
+                                                    var serviceTotal = serviceItem.Service.Price * serviceItem.Quantity;
+                                                    <tr>
+                                                        <td>@serviceItem.Service.Name × @serviceItem.Quantity</td>
+                                                        <td class="text-end">RM @serviceTotal.ToString("F2")</td>
+                                                    </tr>
+                                                }
+                                            }
+                                        }
+                                        <tr class="table-secondary">
+                                            <td><strong>Individual Total</strong></td>
+                                            <td class="text-end"><strong>RM @individualPrice.Value.ToString("F2")</strong></td>
+                                        </tr>
+                                        <tr class="table-success">
+                                            <td><strong>Package Price</strong></td>
+                                            <td class="text-end"><strong>RM @Model.TotalPrice.ToString("F2")</strong></td>
+                                        </tr>
+                                        @{
+                                            var priceBreakdownSavings = individualPrice.Value - Model.TotalPrice;
+                                            if (priceBreakdownSavings > 0)
+                                            {
+                                                <tr class="table-info">
+                                                    <td><strong>You Save</strong></td>
+                                                    <td class="text-end"><strong class="text-success">RM @priceBreakdownSavings.ToString("F2")</strong></td>
+                                                </tr>
+                                            }
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow-lg sticky-top" style="top: 20px;">
+                <div class="card-body">
+                    <h3 class="card-title mb-4 text-center">Package Pricing</h3>
+                    
+                    @{
+                        var savings = Model.IndividualPrice.HasValue && Model.IndividualPrice.Value > Model.TotalPrice 
+                            ? Model.IndividualPrice.Value - Model.TotalPrice 
+                            : (decimal?)null;
+                        var savingsPercent = savings.HasValue && Model.IndividualPrice.HasValue && Model.IndividualPrice.Value > 0
+                            ? (int)Math.Round((savings.Value / Model.IndividualPrice.Value) * 100)
+                            : (int?)null;
+                    }
+                    
+                    @if (Model.IndividualPrice.HasValue && savings.HasValue && savings.Value > 0)
+                    {
+                        <div class="mb-3 p-3 bg-light rounded">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted">Individual Price:</span>
+                                <span class="text-decoration-line-through text-muted fw-semibold">RM @Model.IndividualPrice.Value.ToString("F2")</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-success fw-bold">You Save:</span>
+                                <span class="text-success fw-bold fs-5">RM @savings.Value.ToString("F2")</span>
+                            </div>
+                            @if (savingsPercent.HasValue)
+                            {
+                                <div class="text-center mt-2">
+                                    <span class="badge bg-danger fs-6 p-2">
+                                        <i class="bi bi-tag-fill"></i> Save @savingsPercent%!
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    
+                    <div class="mb-4 text-center">
+                        <span class="display-4 fw-bold text-primary">RM @Model.TotalPrice.ToString("F2")</span>
+                        <p class="text-muted mb-0">per stay</p>
+                    </div>
+                    
+                    @if (!ViewBag.IsAuthenticated)
+                    {
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle me-2"></i>Please <a asp-controller="Security" asp-action="Login" class="alert-link">login</a> to book this package.
+                        </div>
+                        <a asp-controller="Security" asp-action="Login" class="btn btn-primary btn-lg w-100 mb-3">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>Login to Book
+                        </a>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <form asp-controller="Booking" asp-action="Create" method="get" id="packageBookingForm">
+                                @{
+                                    var roomType = ViewBag.RoomType as Assignment.Models.RoomType;
+                                    var roomTypeId = Model.RoomTypeId ?? roomType?.RoomTypeId;
+                                }
+                                <input type="hidden" name="roomTypeId" value="@roomTypeId" />
+                                <input type="hidden" name="packageId" value="@Model.PackageId" />
+                                
+                                <div class="mb-3">
+                                    <label for="checkIn" class="form-label"><strong>Check-In Date</strong></label>
+                                    <input type="date" class="form-control" id="checkIn" name="checkIn" 
+                                           min="@DateTime.Today.ToString("yyyy-MM-dd")" 
+                                           value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="checkOut" class="form-label"><strong>Check-Out Date</strong></label>
+                                    <input type="date" class="form-control" id="checkOut" name="checkOut" 
+                                           min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" 
+                                           value="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" required />
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
+                                    <i class="bi bi-calendar-check me-2"></i>Book This Package
+                                </button>
+                            </form>
+                        </div>
+                    }
+                    
+                    <a asp-controller="Home" asp-action="Packages" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-arrow-left me-2"></i>Back to Packages
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Handle avatar image loading errors
+            $('.review-avatar-img').on('error', function() {
+                $(this).hide();
+                $(this).siblings('.review-avatar-fallback').show();
+            }).on('load', function() {
+                // Ensure fallback is hidden when image loads successfully
+                $(this).siblings('.review-avatar-fallback').hide();
+            });
+
+            // Helper function to format date in local timezone as YYYY-MM-DD (consistent with server-side)
+            function formatLocalDate(date) {
+                var year = date.getFullYear();
+                var month = String(date.getMonth() + 1).padStart(2, '0');
+                var day = String(date.getDate()).padStart(2, '0');
+                return year + '-' + month + '-' + day;
+            }
+
+            // Helper function to parse date string (YYYY-MM-DD) in local timezone
+            // This ensures consistent parsing with how 'today' is created (local timezone)
+            function parseLocalDate(dateString) {
+                if (!dateString) return null;
+                var parts = dateString.split('-');
+                if (parts.length !== 3) return null;
+                var year = parseInt(parts[0], 10);
+                var month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+                var day = parseInt(parts[2], 10);
+                return new Date(year, month, day, 0, 0, 0, 0); // Creates date in local timezone
+            }
+
+            var checkInInput = $('#checkIn');
+            var checkOutInput = $('#checkOut');
+            
+            // Set minimum dates using local timezone (consistent with server-side DateTime.Today)
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            var tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(0, 0, 0, 0);
+            
+            checkInInput.attr('min', formatLocalDate(today));
+            checkOutInput.attr('min', formatLocalDate(tomorrow));
+            
+            // Validate check-out is after check-in
+            checkInInput.on('change', function() {
+                var checkInDate = parseLocalDate($(this).val());
+                if (checkInDate && !isNaN(checkInDate.getTime())) {
+                    var minCheckOut = new Date(checkInDate);
+                    minCheckOut.setDate(minCheckOut.getDate() + 1);
+                    checkOutInput.attr('min', formatLocalDate(minCheckOut));
+                    
+                    var checkOutDate = parseLocalDate(checkOutInput.val());
+                    if (checkOutDate && !isNaN(checkOutDate.getTime()) && checkOutDate <= checkInDate) {
+                        checkOutInput.val(formatLocalDate(minCheckOut));
+                    }
+                }
+            });
+            
+            checkOutInput.on('change', function() {
+                var checkInDate = parseLocalDate(checkInInput.val());
+                var checkOutDate = parseLocalDate($(this).val());
+                
+                if (checkInDate && checkOutDate && !isNaN(checkInDate.getTime()) && !isNaN(checkOutDate.getTime()) && checkOutDate <= checkInDate) {
+                    alert('Check-out date must be after check-in date.');
+                    var minCheckOut = new Date(checkInDate);
+                    minCheckOut.setDate(minCheckOut.getDate() + 1);
+                    $(this).val(formatLocalDate(minCheckOut));
+                }
+            });
+            
+            // Form validation
+            $('#packageBookingForm').on('submit', function(e) {
+                var checkIn = parseLocalDate(checkInInput.val());
+                var checkOut = parseLocalDate(checkOutInput.val());
+                var today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                if (!checkIn || !checkOut || isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
+                    e.preventDefault();
+                    alert('Please select valid dates.');
+                    return false;
+                }
+                
+                if (checkIn < today) {
+                    e.preventDefault();
+                    alert('Check-in date cannot be in the past.');
+                    return false;
+                }
+                
+                if (checkOut <= checkIn) {
+                    e.preventDefault();
+                    alert('Check-out date must be after check-in date.');
+                    return false;
+                }
+            });
+        });
+    </script>
+}
+

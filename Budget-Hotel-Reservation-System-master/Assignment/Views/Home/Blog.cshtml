@@ -1,0 +1,80 @@
+@* 
+    Blog Page View
+    Displays blog posts and travel tips. Public informational page with articles and updates.
+*@
+@{
+    ViewData["Title"] = "Blog";
+}
+
+<div class="container mt-5 mb-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <h1 class="mb-4">BudgetStay Blog</h1>
+            
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="mb-3">Travel Tips & Guides</h3>
+                    <p>Welcome to the BudgetStay blog! Here you'll find travel tips, destination guides, and insider secrets to help you make the most of your travels.</p>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h4 class="mb-3">Latest Posts</h4>
+                    <div class="mb-3">
+                        <h5>Top 10 Budget-Friendly Destinations in Malaysia</h5>
+                        <p class="text-muted">Published: January 15, 2025</p>
+                        <p>Discover the best budget-friendly destinations in Malaysia that offer amazing experiences without breaking the bank...</p>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <h5>How to Save Money on Hotel Bookings</h5>
+                        <p class="text-muted">Published: January 10, 2025</p>
+                        <p>Learn insider tips and tricks to get the best deals on hotel bookings and save money on your next trip...</p>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <h5>Traveling on a Budget: A Complete Guide</h5>
+                        <p class="text-muted">Published: January 5, 2025</p>
+                        <p>Everything you need to know about traveling on a budget, from finding affordable accommodations to saving on food and activities...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h4 class="mb-3">Subscribe to Our Newsletter</h4>
+                    <p>Stay updated with the latest travel tips, deals, and destination guides. Subscribe to our newsletter!</p>
+                    
+                    @if (TempData["NewsletterSuccess"] != null)
+                    {
+                        <div class="alert alert-success mb-3">
+                            <i class="bi bi-check-circle-fill me-2"></i>@TempData["NewsletterSuccess"]
+                        </div>
+                    }
+                    @if (TempData["NewsletterError"] != null)
+                    {
+                        <div class="alert alert-danger mb-3">
+                            <i class="bi bi-exclamation-circle-fill me-2"></i>@TempData["NewsletterError"]
+                        </div>
+                    }
+                    @if (TempData["NewsletterInfo"] != null)
+                    {
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle-fill me-2"></i>@TempData["NewsletterInfo"]
+                        </div>
+                    }
+                    
+                    <form asp-action="SubscribeNewsletter" method="post">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-3">
+                            <input type="email" name="email" class="form-control" placeholder="Enter your email address" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Subscribe</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

@@ -1,0 +1,367 @@
+@* 
+    Room Details View
+    Displays detailed information about a specific room type including images, amenities,
+    pricing, availability, reviews, and booking options. Includes image carousel and booking button.
+*@
+@model Assignment.Models.RoomType
+@{
+    ViewData["Title"] = "Room Details";
+    var availableRooms = ViewBag.AvailableRooms as int? ?? 0;
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="mb-3">
+            <h2>@Model.Name</h2>
+                @if (Model.Hotel != null)
+                {
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        @if (!string.IsNullOrEmpty(Model.Hotel.ImageUrl))
+                        {
+                            <img src="@Model.Hotel.ImageUrl" alt="@Model.Hotel.Name" class="rounded" style="width: 80px; height: 80px; object-fit: cover;" onerror="this.style.display='none';">
+                        }
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <i class="bi bi-building text-primary"></i>
+                                <span class="fw-bold fs-5">@Model.Hotel.Name</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 text-muted">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                <span>@Model.Hotel.City, @Model.Hotel.Country</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(Model.Hotel.Address))
+                            {
+                                <div class="text-muted small">
+                                    <i class="bi bi-map"></i> @Model.Hotel.Address
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            
+            @if (Model.RoomImages.Any())
+            {
+                <div id="roomCarousel" class="carousel slide mb-4" data-bs-ride="carousel">
+                    <div class="carousel-inner">
+                        @for (int i = 0; i < Model.RoomImages.Count; i++)
+                        {
+                            <div class="carousel-item @(i == 0 ? "active" : "")">
+                                <img src="@Model.RoomImages.ElementAt(i).ImageUrl" class="d-block w-100" alt="Room Image" style="height: 400px; object-fit: cover;">
+                            </div>
+                        }
+                    </div>
+                    @if (Model.RoomImages.Count > 1)
+                    {
+                        <button class="carousel-control-prev" type="button" data-bs-target="#roomCarousel" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon"></span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#roomCarousel" data-bs-slide="next">
+                            <span class="carousel-control-next-icon"></span>
+                        </button>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="bg-secondary d-flex align-items-center justify-content-center mb-4" style="height: 400px;">
+                    <span class="text-white">No Images Available</span>
+                </div>
+            }
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5>Description</h5>
+                    <p>@Model.Description</p>
+                </div>
+            </div>
+
+            @if (Model.RoomTypeAmenities.Any())
+            {
+                <div class="card">
+                    <div class="card-body">
+                        <h5>Amenities</h5>
+                        <div class="row">
+                            @foreach (var amenity in Model.RoomTypeAmenities.Select(rta => rta.Amenity))
+                            {
+                                <div class="col-md-4 mb-3">
+                                    <div class="d-flex align-items-center">
+                                        @if (!string.IsNullOrEmpty(amenity.ImageUrl))
+                                        {
+                                            <img src="@amenity.ImageUrl" alt="@amenity.Name" class="me-2" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px;" onerror="this.style.display='none';">
+                                        }
+                                        <span>@amenity.Name</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Reviews Section -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h4 class="mb-4">Guest Reviews</h4>
+                    @{
+                        var allReviews = ViewBag.AllReviews as List<Assignment.Models.Review> ?? new List<Assignment.Models.Review>();
+                        var paginatedReviews = ViewBag.PaginatedReviews as List<Assignment.Models.Review> ?? new List<Assignment.Models.Review>();
+                        var reviewCurrentPage = ViewBag.ReviewCurrentPage as int? ?? 1;
+                        var reviewTotalPages = ViewBag.ReviewTotalPages as int? ?? 1;
+                    }
+
+                    @if (allReviews.Any())
+                    {
+                        <div class="d-flex align-items-center mb-4">
+                            <h2 class="display-4 fw-bold text-primary mb-0 me-3">@allReviews.Average(r => r.Rating).ToString("0.0")</h2>
+                            <div>
+                                <div class="text-warning fs-5">
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        <i class="bi bi-star@(i <= Math.Round(allReviews.Average(r => r.Rating)) ? "-fill" : "")"></i>
+                                    }
+                                </div>
+                                <small class="text-muted">Based on @allReviews.Count review(s)</small>
+                            </div>
+                        </div>
+
+                        <div class="review-list">
+                            @foreach (var review in paginatedReviews)
+                            {
+                                <div class="review-item border-bottom pb-3 mb-3">
+                                    <div class="d-flex align-items-start mb-2">
+                                        <div class="me-3 position-relative" style="width: 45px; height: 45px; flex-shrink: 0;">
+                                            @if (!string.IsNullOrEmpty(review.Booking?.User?.ProfilePictureUrl))
+                                            {
+                                                <img src="@review.Booking.User.ProfilePictureUrl" alt="@review.Booking.User.FullName" 
+                                                     class="rounded-circle review-avatar-img" style="width: 45px; height: 45px; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1;" 
+                                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                <div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center rounded-circle review-avatar-fallback" style="display: none; width: 45px; height: 45px; font-size: 0.9rem; position: absolute; top: 0; left: 0; z-index: 0;">
+                                                    @(review.Booking?.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="avatar-circle bg-primary text-white d-flex align-items-center justify-content-center rounded-circle" style="width: 45px; height: 45px; font-size: 0.9rem;">
+                                                    @(review.Booking?.User?.FullName?.Substring(0, 1).ToUpper() ?? "G")
+                                                </div>
+                                            }
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <h6 class="mb-1">@review.Booking?.User?.FullName</h6>
+                                                    <div class="text-warning small mb-2">
+                                                        @for (int i = 1; i <= 5; i++)
+                                                        {
+                                                            <i class="bi bi-star@(i <= review.Rating ? "-fill" : "")"></i>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                <small class="text-muted">@review.ReviewDate.ToString("MMM dd, yyyy")</small>
+                                            </div>
+                                            <p class="mb-0 text-muted">@review.Comment</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        @if (reviewTotalPages > 1)
+                        {
+                            <nav aria-label="Review pagination" class="mt-4">
+                                <ul class="pagination justify-content-center">
+                                    @if (reviewCurrentPage > 1)
+                                    {
+                                        <li class="page-item">
+                                            <a class="page-link" href="?reviewPage=@(reviewCurrentPage - 1)">Previous</a>
+                                        </li>
+                                    }
+
+                                    @for (int i = 1; i <= reviewTotalPages; i++)
+                                    {
+                                        @if (i == 1 || i == reviewTotalPages || (i >= reviewCurrentPage - 2 && i <= reviewCurrentPage + 2))
+                                        {
+                                            <li class="page-item @(i == reviewCurrentPage ? "active" : "")">
+                                                <a class="page-link" href="?reviewPage=@i">@i</a>
+                                            </li>
+                                        }
+                                        else if (i == reviewCurrentPage - 3 || i == reviewCurrentPage + 3)
+                                        {
+                                            <li class="page-item disabled">
+                                                <span class="page-link">...</span>
+                                            </li>
+                                        }
+                                    }
+
+                                    @if (reviewCurrentPage < reviewTotalPages)
+                                    {
+                                        <li class="page-item">
+                                            <a class="page-link" href="?reviewPage=@(reviewCurrentPage + 1)">Next</a>
+                                        </li>
+                                    }
+                                </ul>
+                            </nav>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-chat-square-text fs-1 mb-2"></i>
+                            <p>No reviews yet. Be the first to stay and review!</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm" style="border-top: 4px solid var(--primary);">
+                <div class="card-body p-4">
+                    <h4 class="card-title mb-3">RM @Model.BasePrice.ToString("F0") <small class="text-muted fs-6 fw-normal">/night</small></h4>
+                    <p class="mb-4"><i class="bi bi-people text-muted me-2"></i><strong>Occupancy:</strong> @Model.Occupancy person(s)</p>
+
+                    @if (Assignment.Helpers.AuthenticationHelper.IsAuthenticated(Context))
+                    {
+                        <hr class="my-4" />
+                        <h5 class="mb-3">Book This Room</h5>
+                        <form id="availabilityForm">
+                            <div class="mb-3">
+                                <label for="checkIn" class="form-label"><i class="bi bi-calendar-event me-2"></i>Check-In Date</label>
+                                <input type="date" id="checkIn" name="checkIn" class="form-control" required />
+                            </div>
+                            <div class="mb-3">
+                                <label for="checkOut" class="form-label"><i class="bi bi-calendar-check me-2"></i>Check-Out Date</label>
+                                <input type="date" id="checkOut" name="checkOut" class="form-control" required />
+                            </div>
+                            <div id="availabilityMessage" class="mb-3"></div>
+                            <button type="button" id="checkAvailabilityBtn" class="btn btn-primary w-100 mb-2">
+                                <i class="bi bi-search me-2"></i>Check Availability
+                            </button>
+                            <a id="bookNowBtn" asp-controller="Booking" asp-action="Create" asp-route-roomTypeId="@Model.RoomTypeId" class="btn btn-warning w-100 fw-bold" style="display: none;">
+                                <i class="bi bi-bookmark-check me-2"></i>Book Now
+                            </a>
+                        </form>
+                    }
+                    else
+                    {
+                        <div class="alert alert-light border text-center">
+                            <p class="mb-2">Sign in to book this room</p>
+                            <a asp-controller="Security" asp-action="Login" class="btn btn-outline-primary w-100">Login</a>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Handle avatar image loading errors
+            $('.review-avatar-img').on('error', function() {
+                $(this).hide();
+                $(this).siblings('.review-avatar-fallback').show();
+            }).on('load', function() {
+                // Ensure fallback is hidden when image loads successfully
+                $(this).siblings('.review-avatar-fallback').hide();
+            });
+
+            // Note: Favorites feature removed
+            var roomTypeId = @Model.RoomTypeId;
+            
+            // Set minimum dates for date inputs
+            var today = new Date().toLocaleDateString('en-CA');
+            $('#checkIn').attr('min', today);
+            $('#checkOut').attr('min', today);
+
+            // Update check-out minimum date when check-in changes
+            $('#checkIn').on('change', function() {
+                var checkInValue = $(this).val();
+                if (checkInValue) {
+                    var checkInDate = new Date(checkInValue);
+                    checkInDate.setDate(checkInDate.getDate() + 1);
+                    var minCheckOut = checkInDate.toISOString().split('T')[0];
+                    $('#checkOut').attr('min', minCheckOut);
+                    
+                    // If check-out is before new minimum, clear it
+                    var checkOutValue = $('#checkOut').val();
+                    if (checkOutValue && checkOutValue < minCheckOut) {
+                        $('#checkOut').val('');
+                    }
+                }
+                // Clear availability message when dates change
+                $('#availabilityMessage').html('');
+                $('#bookNowBtn').hide();
+            });
+
+            // Clear availability message when check-out date changes
+            $('#checkOut').on('change', function() {
+                $('#availabilityMessage').html('');
+                $('#bookNowBtn').hide();
+            });
+
+            // Check availability function - only called when button is clicked
+            function checkAvailability() {
+                var checkIn = $('#checkIn').val();
+                var checkOut = $('#checkOut').val();
+
+                if (!checkIn || !checkOut) {
+                    $('#availabilityMessage').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Please select both dates.</div>');
+                    $('#bookNowBtn').hide();
+                    return;
+                }
+
+                // Validate dates
+                var checkInDate = new Date(checkIn);
+                var checkOutDate = new Date(checkOut);
+                
+                if (checkOutDate <= checkInDate) {
+                    $('#availabilityMessage').html('<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>Check-out date must be after check-in date.</div>');
+                    $('#bookNowBtn').hide();
+                    return;
+                }
+
+                // Show loading message
+                $('#availabilityMessage').html('<div class="alert alert-info"><i class="bi bi-hourglass-split me-2"></i>Checking availability...</div>');
+                $('#checkAvailabilityBtn').prop('disabled', true);
+
+                $.ajax({
+                    url: '@Url.Action("CheckAvailability", "Room")',
+                    type: 'POST',
+                    data: {
+                        roomTypeId: roomTypeId,
+                        checkIn: checkIn,
+                        checkOut: checkOut
+                    },
+                    success: function(response) {
+                        $('#checkAvailabilityBtn').prop('disabled', false);
+                        if (response.available && response.count > 0) {
+                            $('#availabilityMessage').html('<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>Available! ' + response.count + ' room(s) available.</div>');
+                            $('#bookNowBtn').show().attr('href', '/Booking/Create?roomTypeId=' + roomTypeId + '&checkIn=' + checkIn + '&checkOut=' + checkOut);
+                        } else {
+                            var message = response.message || 'No rooms available for the selected dates.';
+                            $('#availabilityMessage').html('<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>' + message + '</div>');
+                            $('#bookNowBtn').hide();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        $('#checkAvailabilityBtn').prop('disabled', false);
+                        console.error('Availability check error:', error);
+                        $('#availabilityMessage').html('<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Error checking availability. Please try again.</div>');
+                        $('#bookNowBtn').hide();
+                    }
+                });
+            }
+
+            // Check availability only when button is clicked
+            $('#checkAvailabilityBtn').on('click', function(e) {
+                e.preventDefault();
+                checkAvailability();
+            });
+        });
+    </script>
+}
+

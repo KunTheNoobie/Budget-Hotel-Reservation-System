@@ -1,0 +1,177 @@
+@* 
+    Packages Listing View
+    Displays all available stay packages with their details, pricing, and highlights.
+    Shows package cards with images and links to package details pages.
+*@
+@model List<Assignment.ViewModels.Home.PackageSummaryViewModel>
+@{
+    ViewData["Title"] = "Stay Packages";
+}
+
+<section class="gradient-hero hero-shell">
+    <div class="container text-center">
+        <h1 class="display-4 fw-bold text-white mb-3">Curated Stay Packages</h1>
+        <p class="lead text-white-50">Experience more with our exclusive bundles designed for every traveler.</p>
+    </div>
+</section>
+
+<div class="container section-spacer">
+    @if (Model.Any())
+    {
+        <div class="row g-4">
+            @foreach (var package in Model)
+            {
+                var savings = package.IndividualPrice.HasValue && package.IndividualPrice.Value > package.TotalPrice 
+                    ? package.IndividualPrice.Value - package.TotalPrice 
+                    : (decimal?)null;
+                var savingsPercent = savings.HasValue && package.IndividualPrice.HasValue && package.IndividualPrice.Value > 0
+                    ? (int)Math.Round((savings.Value / package.IndividualPrice.Value) * 100)
+                    : (int?)null;
+                
+                <div class="col-md-4 mb-4">
+                <div class="card package-card h-100 hover-lift shadow-sm">
+                    <div class="feature-card__media position-relative" style="height: 250px;">
+                        @if (!string.IsNullOrEmpty(package.ImageUrl))
+                        {
+                            <img src="@package.ImageUrl" alt="@package.Name" class="w-100 h-100 object-fit-cover" />
+                        }
+                        else
+                        {
+                            <div class="placeholder w-100 h-100 d-flex align-items-center justify-content-center bg-light text-muted" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                <i class="bi bi-gift fs-1 text-white"></i>
+                            </div>
+                        }
+                        @if (savingsPercent.HasValue && savingsPercent.Value > 0)
+                        {
+                            <span class="badge bg-danger position-absolute top-0 start-0 m-3 fs-6">
+                                <i class="bi bi-tag-fill"></i> Save @savingsPercent%!
+                            </span>
+                        }
+                        <span class="badge bg-primary position-absolute top-0 end-0 m-3">Best Value</span>
+                    </div>
+                    <div class="card-body d-flex flex-column">
+                        <div class="mb-3">
+                            <h3 class="card-title h4 mb-2">@package.Name</h3>
+                            @if (!string.IsNullOrEmpty(package.HotelName))
+                            {
+                                <div class="text-muted small d-flex align-items-center gap-1 mb-2">
+                                    <i class="bi bi-building text-primary"></i>
+                                    <span class="fw-semibold">@package.HotelName</span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(package.Location))
+                            {
+                                <div class="text-muted small d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-geo-alt-fill text-danger"></i>
+                                    <span>@package.Location</span>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(package.RoomTypeName))
+                            {
+                                <div class="mb-2">
+                                    <span class="badge bg-info text-dark">
+                                        <i class="bi bi-door-open"></i> @package.RoomTypeName
+                                    </span>
+                                    @if (package.Occupancy.HasValue)
+                                    {
+                                        <span class="badge bg-secondary ms-1">
+                                            <i class="bi bi-people"></i> @package.Occupancy person(s)
+                                        </span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        
+                        <p class="text-muted flex-grow-1 mb-3">@package.Description</p>
+                        
+                        <hr class="my-3 border-muted" />
+                        
+                        <h6 class="text-uppercase text-muted small fw-bold mb-3">
+                            <i class="bi bi-box-seam me-1"></i>Package Includes:
+                        </h6>
+                        <ul class="list-unstyled mb-4">
+                            @foreach (var highlight in package.Highlights)
+                            {
+                                <li class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                    <span class="small">@highlight</span>
+                                </li>
+                            }
+                        </ul>
+                        
+                        <div class="mt-auto pt-3 border-top">
+                            <div class="mb-3">
+                                @if (package.IndividualPrice.HasValue && savings.HasValue && savings.Value > 0)
+                                {
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <small class="text-muted">Individual Price:</small>
+                                        <small class="text-decoration-line-through text-muted">RM @package.IndividualPrice.Value.ToString("F2")</small>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <small class="text-success fw-bold">You Save:</small>
+                                        <small class="text-success fw-bold">RM @savings.Value.ToString("F2")</small>
+                                    </div>
+                                }
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="text-muted d-block">Package Price</small>
+                                        <span class="price-display fs-4 fw-bold text-primary">RM @package.TotalPrice.ToString("F2")</span>
+                                        <small class="text-muted d-block">per stay</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <a asp-controller="Home" asp-action="PackageDetails" asp-route-id="@package.PackageId" class="btn btn-primary w-100">
+                                <i class="bi bi-eye me-1"></i>View Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            }
+        </div>
+
+        @if (ViewBag.TotalPages > 1)
+        {
+            <nav aria-label="Package pagination" class="mt-5">
+                <ul class="pagination justify-content-center">
+                    @if (ViewBag.CurrentPage > 1)
+                    {
+                        <li class="page-item">
+                            <a class="page-link" href="?page=@(ViewBag.CurrentPage - 1)">Previous</a>
+                        </li>
+                    }
+
+                    @for (int i = 1; i <= ViewBag.TotalPages; i++)
+                    {
+                        @if (i == 1 || i == ViewBag.TotalPages || (i >= ViewBag.CurrentPage - 2 && i <= ViewBag.CurrentPage + 2))
+                        {
+                            <li class="page-item @(i == ViewBag.CurrentPage ? "active" : "")">
+                                <a class="page-link" href="?page=@i">@i</a>
+                            </li>
+                        }
+                        else if (i == ViewBag.CurrentPage - 3 || i == ViewBag.CurrentPage + 3)
+                        {
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        }
+                    }
+
+                    @if (ViewBag.CurrentPage < ViewBag.TotalPages)
+                    {
+                        <li class="page-item">
+                            <a class="page-link" href="?page=@(ViewBag.CurrentPage + 1)">Next</a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        }
+    }
+    else
+    {
+        <div class="text-center py-5">
+            <i class="bi bi-box-seam fs-1 text-muted mb-3"></i>
+            <p class="text-muted">No packages available at the moment. Please check back later!</p>
+        </div>
+    }
+</div>

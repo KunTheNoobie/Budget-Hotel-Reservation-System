@@ -1,0 +1,134 @@
+@* 
+    Admin Create Hotel View
+    Displays form for creating a new hotel with location, contact information, and image upload.
+    Includes fields for name, address, contact details, description, and hotel image.
+*@
+@model Assignment.Models.Hotel
+@{
+    ViewData["Title"] = "Create Hotel";
+}
+
+<div class="container">
+    <h2>Create New Hotel</h2>
+
+    <form asp-action="CreateHotel" method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="All" class="text-danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Address" class="form-label"></label>
+            <input asp-for="Address" class="form-control" />
+            <span asp-validation-for="Address" class="text-danger"></span>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="City" class="form-label"></label>
+                <input asp-for="City" class="form-control" />
+                <span asp-validation-for="City" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="PostalCode" class="form-label"></label>
+                <input asp-for="PostalCode" class="form-control" />
+                <span asp-validation-for="PostalCode" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Country" class="form-label"></label>
+            <input asp-for="Country" class="form-control" />
+            <span asp-validation-for="Country" class="text-danger"></span>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label asp-for="ContactNumber" class="form-label"></label>
+                <input asp-for="ContactNumber" class="form-control" pattern="^(\+?[0-9]{1,4}[-]?[0-9]{2,4}[-]?[0-9]{3,4}[-]?[0-9]{3,4}|[0-9]{7,15})$" title="Phone number format: +60-12-345-6789, 012-345-6789, or 0123456789" />
+                <span asp-validation-for="ContactNumber" class="text-danger"></span>
+                <small class="form-text text-muted">Format: +60-12-345-6789, 012-345-6789, or similar (optional)</small>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label asp-for="ContactEmail" class="form-label"></label>
+                <input asp-for="ContactEmail" class="form-control" />
+                <span asp-validation-for="ContactEmail" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Description" class="form-label"></label>
+            <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+            <span asp-validation-for="Description" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Hotel Image</label>
+            <div class="row">
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">Upload Image File</label>
+                    <input type="file" name="imageFile" class="form-control" accept="image/*" />
+                    <small class="form-text text-muted">Supported formats: JPG, PNG, GIF, WebP</small>
+                </div>
+                <div class="col-md-6 mb-2">
+                    <label class="form-label">OR Enter Image URL</label>
+                    <input type="url" name="imageUrl" class="form-control" placeholder="https://example.com/image.jpg" />
+                    <small class="form-text text-muted">Enter a full URL to an image</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">Assign Staff/Manager (Optional)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="managerId" class="form-label">Select Manager</label>
+                        <select name="managerId" id="managerId" class="form-select">
+                            <option value="">-- No Manager (Assign Later) --</option>
+                            @foreach (var manager in ViewBag.AvailableManagers as List<Assignment.Models.User> ?? new List<Assignment.Models.User>())
+                            {
+                                <option value="@manager.UserId">@manager.FullName (@manager.Email)</option>
+                            }
+                        </select>
+                        @if (ViewData.ModelState["ManagerId"]?.Errors?.Count > 0)
+                        {
+                            <span class="text-danger">@ViewData.ModelState["ManagerId"].Errors[0].ErrorMessage</span>
+                        }
+                        <small class="form-text text-muted">Select a manager to assign to this hotel. You can assign later if needed.</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="staffId" class="form-label">Select Staff</label>
+                        <select name="staffId" id="staffId" class="form-select">
+                            <option value="">-- No Staff (Assign Later) --</option>
+                            @foreach (var staff in ViewBag.AvailableStaff as List<Assignment.Models.User> ?? new List<Assignment.Models.User>())
+                            {
+                                <option value="@staff.UserId">@staff.FullName (@staff.Email)</option>
+                            }
+                        </select>
+                        @if (ViewData.ModelState["StaffId"]?.Errors?.Count > 0)
+                        {
+                            <span class="text-danger">@ViewData.ModelState["StaffId"].Errors[0].ErrorMessage</span>
+                        }
+                        <small class="form-text text-muted">Select a staff member to assign to this hotel. You can assign later if needed.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <button type="submit" class="btn btn-primary">Create</button>
+            <a asp-action="Hotels" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+
