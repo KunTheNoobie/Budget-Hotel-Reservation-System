@@ -46,123 +46,156 @@
                 </div>
             </form>
 
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Image</th>
-                        <th>Name</th>
-                        <th>Address</th>
-                        <th>City</th>
-                        <th>Country</th>
-                        <th>Contact</th>
-                        @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
+            @* 
+                Wrap table in table-responsive div to enable horizontal scrolling on smaller screens
+                This ensures all columns including Actions (Edit/Delete buttons) remain visible
+            *@
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px;">ID</th>
+                            <th style="width: 80px;">Image</th>
+                            <th style="min-width: 150px;">Name</th>
+                            <th style="min-width: 200px; max-width: 250px;">Address</th>
+                            <th style="min-width: 120px;">City</th>
+                            <th style="min-width: 100px;">Country</th>
+                            <th style="min-width: 140px;">Contact</th>
+                            @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
+                            {
+                                <th style="min-width: 250px; max-width: 300px;">Manager/Staff</th>
+                            }
+                            @if (role == "Admin")
+                            {
+                                <th style="width: 150px; min-width: 150px;">Actions</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model != null && Model.Any())
                         {
-                            <th>Manager/Staff</th>
-                        }
-                        @if (role == "Admin")
-                        {
-                            <th>Actions</th>
-                        }
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (Model != null && Model.Any())
-                    {
-                        @foreach (var hotel in Model)
-                        {
-                            <tr>
-                                <td>@hotel.HotelId</td>
-                                <td>
-                                    @if (!string.IsNullOrEmpty(hotel.ImageUrl))
+                            @foreach (var hotel in Model)
+                            {
+                                <tr>
+                                    <td>@hotel.HotelId</td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(hotel.ImageUrl))
+                                        {
+                                            <img src="@hotel.ImageUrl" alt="@hotel.Name" style="width: 50px; height: 50px; object-fit: cover;" onerror="this.src='https://via.placeholder.com/50?text=No+Image'">
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">No Image</span>
+                                        }
+                                    </td>
+                                    <td>@hotel.Name</td>
+                                    <td>
+                                        @* Truncate long addresses to prevent table overflow *@
+                                        <div style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@hotel.Address">
+                                            @hotel.Address
+                                        </div>
+                                    </td>
+                                    <td>@hotel.City</td>
+                                    <td>@hotel.Country</td>
+                                    <td>
+                                        @* Truncate long contact numbers if needed *@
+                                        <div style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@(hotel.ContactNumber ?? hotel.ContactEmail ?? "-")">
+                                            @(hotel.ContactNumber ?? hotel.ContactEmail ?? "-")
+                                        </div>
+                                    </td>
+                                    @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
                                     {
-                                        <img src="@hotel.ImageUrl" alt="@hotel.Name" style="width: 50px; height: 50px; object-fit: cover;" onerror="this.src='https://via.placeholder.com/50?text=No+Image'">
+                                        <td>
+                                            @{
+                                                var managersDict = ViewBag.Managers as Dictionary<int, Assignment.Models.User> ?? new Dictionary<int, Assignment.Models.User>();
+                                                var staffDict = ViewBag.Staff as Dictionary<int, Assignment.Models.User> ?? new Dictionary<int, Assignment.Models.User>();
+                                                var manager = managersDict.ContainsKey(hotel.HotelId) ? managersDict[hotel.HotelId] : null;
+                                                var staffMember = staffDict.ContainsKey(hotel.HotelId) ? staffDict[hotel.HotelId] : null;
+                                            }
+                                            <div class="small" style="max-width: 300px;">
+                                                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@(manager != null ? $"{manager.FullName} ({manager.Email})" : "Not assigned")">
+                                                    <strong>Manager:</strong> 
+                                                    @if (manager != null)
+                                                    {
+                                                        <span>@manager.FullName (@manager.Email)</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">Not assigned</span>
+                                                    }
+                                                </div>
+                                                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px;" title="@(staffMember != null ? $"{staffMember.FullName} ({staffMember.Email})" : "Not assigned")">
+                                                    <strong>Staff:</strong> 
+                                                    @if (staffMember != null)
+                                                    {
+                                                        <span>@staffMember.FullName (@staffMember.Email)</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">Not assigned</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </td>
+                                    }
+                                    <td>
+                                        @* Actions column - ensure buttons are always visible *@
+                                        @if (role == "Admin")
+                                        {
+                                            <div class="d-flex gap-1 flex-wrap">
+                                                <a asp-action="EditHotel"
+                                                    asp-route-id="@hotel.HotelId"
+                                                    class="btn btn-sm btn-primary">Edit</a>
+
+                                                <form asp-action="DeleteHotel"
+                                                        asp-route-id="@hotel.HotelId"
+                                                        method="post"
+                                                        class="d-inline"
+                                                        onsubmit="return confirm('Are you sure you want to delete this hotel?');">
+                                                    <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                                </form>
+                                            </div>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            @* 
+                                Calculate colspan dynamically based on actual columns shown:
+                                Base columns: ID, Image, Name, Address, City, Country, Contact (7 columns)
+                                + Manager/Staff column if Admin (1 column)
+                                + Actions column if Admin (1 column)
+                            *@
+                            int columnCount = 7; // Base columns: ID, Image, Name, Address, City, Country, Contact
+                            if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
+                            {
+                                columnCount++; // Manager/Staff column
+                            }
+                            if (role == "Admin")
+                            {
+                                columnCount++; // Actions column
+                            }
+                            <tr>
+                                <td colspan="@columnCount" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No hotels found. 
+                                    @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
+                                    {
+                                        <a asp-action="CreateHotel">Create your first hotel</a>
                                     }
                                     else
                                     {
-                                        <span class="text-muted">No Image</span>
+                                        <span>Contact your administrator to add hotels.</span>
                                     }
-                                </td>
-                                <td>@hotel.Name</td>
-                                <td>@hotel.Address</td>
-                                <td>@hotel.City</td>
-                                <td>@hotel.Country</td>
-                                <td>@(hotel.ContactNumber ?? hotel.ContactEmail ?? "-")</td>
-                                @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
-                                {
-                                    <td>
-                                        @{
-                                            var managersDict = ViewBag.Managers as Dictionary<int, Assignment.Models.User> ?? new Dictionary<int, Assignment.Models.User>();
-                                            var staffDict = ViewBag.Staff as Dictionary<int, Assignment.Models.User> ?? new Dictionary<int, Assignment.Models.User>();
-                                            var manager = managersDict.ContainsKey(hotel.HotelId) ? managersDict[hotel.HotelId] : null;
-                                            var staffMember = staffDict.ContainsKey(hotel.HotelId) ? staffDict[hotel.HotelId] : null;
-                                        }
-                                        <div class="small">
-                                            <div>
-                                                <strong>Manager:</strong> 
-                                                @if (manager != null)
-                                                {
-                                                    <span>@manager.FullName (@manager.Email)</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-muted">Not assigned</span>
-                                                }
-                                            </div>
-                                            <div>
-                                                <strong>Staff:</strong> 
-                                                @if (staffMember != null)
-                                                {
-                                                    <span>@staffMember.FullName (@staffMember.Email)</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-muted">Not assigned</span>
-                                                }
-                                            </div>
-                                        </div>
-                                    </td>
-                                }
-                                <td>
-                                    @if (role == "Admin")
-                                    {
-                                        <a asp-action="EditHotel"
-                                            asp-route-id="@hotel.HotelId"
-                                            class="btn btn-sm btn-primary">Edit</a>
-
-                                        <form asp-action="DeleteHotel"
-                                                asp-route-id="@hotel.HotelId"
-                                                method="post"
-                                                class="d-inline"
-                                                onsubmit="return confirm('Are you sure you want to delete this hotel?');">
-
-                                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                                        </form>
-                                    }
+                                    to get started.
                                 </td>
                             </tr>
                         }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="@(AuthenticationHelper.GetUserRole(Context) == UserRole.Admin ? 9 : 8)" class="text-center text-muted py-4">
-                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                No hotels found. 
-                                @if (AuthenticationHelper.GetUserRole(Context) == UserRole.Admin)
-                                {
-                                    <a asp-action="CreateHotel">Create your first hotel</a>
-                                }
-                                else
-                                {
-                                    <span>Contact your administrator to add hotels.</span>
-                                }
-                                to get started.
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
 
             @if (ViewBag.TotalPages > 1)
             {
@@ -180,4 +213,98 @@
         </div>
     </div>
 </div>
+
+@* 
+    Additional CSS to ensure table responsiveness and prevent button cutoff
+    This ensures the Actions column (Edit/Delete buttons) is always visible
+*@
+<style>
+    /* Ensure table-responsive container works properly with horizontal scroll */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* Ensure table doesn't shrink below minimum width */
+    .table-responsive table {
+        min-width: 1200px; /* Minimum width to show all columns comfortably */
+        width: 100%;
+        table-layout: auto;
+    }
+
+    /* Ensure action buttons container doesn't break and stays on one line */
+    .table-responsive .d-flex.gap-1 {
+        white-space: nowrap;
+        flex-wrap: nowrap !important;
+        min-width: 140px;
+    }
+
+    /* Make Actions column sticky so it stays visible when scrolling horizontally */
+    .table-responsive th:last-child,
+    .table-responsive td:last-child {
+        position: sticky;
+        right: 0;
+        background-color: white;
+        z-index: 10;
+        box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    /* Ensure table header Actions column also sticks with proper background */
+    .table-responsive thead th:last-child {
+        background-color: #f8f9fa;
+        z-index: 11;
+    }
+
+    /* Match striped row backgrounds for sticky Actions column */
+    .table-striped tbody tr:nth-of-type(odd) td:last-child {
+        background-color: white;
+    }
+
+    .table-striped tbody tr:nth-of-type(even) td:last-child {
+        background-color: rgba(0,0,0,.05);
+    }
+
+    /* Hover effect for table rows - ensure Actions column background matches */
+    .table-hover tbody tr:hover td:last-child {
+        background-color: rgba(0,0,0,.075) !important;
+    }
+
+    /* Ensure buttons are properly sized and don't overflow */
+    .table-responsive .btn-sm {
+        min-width: 60px;
+        white-space: nowrap;
+    }
+
+    /* On smaller screens, adjust font sizes but keep functionality */
+    @@media (max-width: 992px) {
+        .table-responsive table {
+            min-width: 1000px; /* Slightly smaller minimum on tablets */
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .table-responsive {
+            font-size: 0.875rem;
+        }
+        
+        .table-responsive table {
+            min-width: 900px; /* Smaller minimum on mobile */
+        }
+        
+        .table-responsive .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            min-width: 55px;
+        }
+    }
+
+    /* Ensure text truncation works properly */
+    .table-responsive [style*="text-overflow: ellipsis"] {
+        display: block;
+    }
+</style>
 

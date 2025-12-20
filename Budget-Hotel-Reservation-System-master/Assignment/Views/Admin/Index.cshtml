@@ -1,8 +1,6 @@
 @* 
     Admin Dashboard View
     Displays comprehensive statistics and charts for system administrators.
-    Shows user counts, booking statistics, revenue trends, and booking distribution by hotel.
-    Uses Chart.js for data visualization.
 *@
 @using System.Security.Claims
 @{
@@ -11,268 +9,690 @@
     var stats = ViewBag.Stats as dynamic;
 }
 
-<div class="container-fluid">
-    <h2 class="mb-4">@role&nbsp;Dashboard</h2>
-
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card text-white bg-primary">
-                <div class="card-body">
-                    <h5 class="card-title">Total Users</h5>
-                    <h2>@stats.TotalUsers</h2>
-                </div>
+<div class="container-fluid px-4">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h1 class="dashboard-title mb-2">@role Dashboard</h1>
+                <p class="dashboard-subtitle text-muted mb-0">Welcome back! Here's your overview.</p>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-success">
-                <div class="card-body">
-                    <h5 class="card-title">Total Hotels</h5>
-                    <h2>@stats.TotalHotels</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-info">
-                <div class="card-body">
-                    <h5 class="card-title">Total Rooms</h5>
-                    <h2>@stats.TotalRooms</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-warning">
-                <div class="card-body">
-                    <h5 class="card-title">Total Bookings</h5>
-                    <h2>@stats.TotalBookings</h2>
+            <div class="text-end">
+                <div class="date-display">
+                    <button class="btn btn-outline-primary">
+                        <i class="bi bi-calendar3 me-2"></i>@DateTime.Now.ToString("MMMM dd, yyyy")
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-header">
-                    <h5>Bookings by Hotel</h5>
-                </div>
-                <div class="card-body" style="position: relative; height: 300px;">
-                    <canvas id="hotelChart"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5>Revenue Trend</h5>
-                    <div>
-                        <select id="periodSelector" class="form-select form-select-sm" style="width: auto; display: inline-block;">
-                            @{
-                                var currentPeriod = ViewBag.Period as string ?? "7days";
-                            }
-                            @if (currentPeriod == "7days")
-                            {
-                                <option value="7days" selected>7 Days</option>
-                            }
-                            else
-                            {
-                                <option value="7days">7 Days</option>
-                            }
-                            @if (currentPeriod == "month")
-                            {
-                                <option value="month" selected>Month</option>
-                            }
-                            else
-                            {
-                                <option value="month">Month</option>
-                            }
-                            @if (currentPeriod == "year")
-                            {
-                                <option value="year" selected>Year</option>
-                            }
-                            else
-                            {
-                                <option value="year">Year</option>
-                            }
-                            @if (currentPeriod == "alltime")
-                            {
-                                <option value="alltime" selected>All Time</option>
-                            }
-                            else
-                            {
-                                <option value="alltime">All Time</option>
-                            }
-                        </select>
+    <!-- KPI Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="kpi-card kpi-card-primary">
+                <div class="kpi-card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="kpi-content">
+                            <h6 class="kpi-label">TOTAL USERS</h6>
+                            <h2 class="kpi-value">@stats.TotalUsers</h2>
+                            <p class="kpi-description">Active accounts in system</p>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="bi bi-people-fill"></i>
+                        </div>
                     </div>
                 </div>
-                <div class="card-body" style="position: relative; height: 300px;">
-                    <canvas id="revenueChart"></canvas>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="kpi-card kpi-card-success">
+                <div class="kpi-card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="kpi-content">
+                            <h6 class="kpi-label">TOTAL HOTELS</h6>
+                            <h2 class="kpi-value">@stats.TotalHotels</h2>
+                            <p class="kpi-description">Registered properties</p>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="bi bi-building-fill"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="kpi-card kpi-card-info">
+                <div class="kpi-card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="kpi-content">
+                            <h6 class="kpi-label">TOTAL ROOMS</h6>
+                            <h2 class="kpi-value">@stats.TotalRooms</h2>
+                            <p class="kpi-description">Available accommodations</p>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="bi bi-door-open-fill"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="kpi-card kpi-card-warning">
+                <div class="kpi-card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="kpi-content">
+                            <h6 class="kpi-label">TOTAL BOOKINGS</h6>
+                            <h2 class="kpi-value">@stats.TotalBookings</h2>
+                            <p class="kpi-description">All-time reservations</p>
+                        </div>
+                        <div class="kpi-icon">
+                            <i class="bi bi-calendar-check-fill"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5>Booking Status</h5>
+    <!-- Filters Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card filter-card">
+                <div class="card-header d-flex align-items-center">
+                    <i class="bi bi-funnel-fill me-2"></i>
+                    <h5 class="mb-0">Date Range & Filters</h5>
                 </div>
                 <div class="card-body">
-                    <p><strong>Pending:</strong> @stats.PendingBookings</p>
-                    <p><strong>Confirmed:</strong> @stats.ConfirmedBookings</p>
+                    <form method="get" action="@Url.Action("Index", "Admin")" id="filterForm">
+                        <div class="row g-3 align-items-end">
+                        
+                            <!-- 1. Period Filter -->
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold">Period</label>
+                                <select class="form-select" name="period" id="periodFilter">
+                                    @{
+                                        var pVal = ViewBag.Period as string;
+                                        // Default to "custom"
+                                        if (string.IsNullOrEmpty(pVal) || pVal == "7days") { pVal = "custom"; }
+                                    }
+                                    <option value="custom" selected="@(pVal == "custom")">Default</option>
+                                    <option value="7days" selected="@(pVal == "7days")">Last 7 Days</option>
+                                    <option value="month" selected="@(pVal == "month")">Last Month</option>
+                                    <option value="year" selected="@(pVal == "year")">Last Year</option>
+                                </select>
+                            </div>
+
+                            <!-- 2. Timeframe Filter -->
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold">Timeframe</label>
+                                <select class="form-select" name="timeframe" id="timeframeSelector">
+                                    @{
+                                        var tVal = ViewBag.Timeframe as string;
+                                        // Default to "custom"
+                                        if (string.IsNullOrEmpty(tVal) || tVal == "daily") { tVal = "custom"; }
+                                    }
+                                    <option value="custom" selected="@(tVal == "custom")">Default</option>
+                                    <option value="daily" selected="@(tVal == "daily")">Daily</option>
+                                    <option value="weekly" selected="@(tVal == "weekly")">Weekly</option>
+                                    <option value="monthly" selected="@(tVal == "monthly")">Monthly</option>
+                                </select>
+                            </div>
+
+                            <!-- 3. Custom Date Range -->
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Custom Date Range</label>
+                                @{
+                                    string startVal = "";
+                                    string endVal = "";
+
+                                    // Parse and format Start Date to yyyy-MM-dd (Required for HTML5 input)
+                                    if (ViewBag.StartDate != null)
+                                    {
+                                        if (DateTime.TryParse(ViewBag.StartDate.ToString(), out DateTime sDate))
+                                        {
+                                            startVal = sDate.ToString("yyyy-MM-dd");
+                                        }
+                                        else
+                                        {
+                                            startVal = ViewBag.StartDate.ToString();
+                                        }
+                                    }
+
+                                    // Parse and format End Date
+                                    if (ViewBag.EndDate != null)
+                                    {
+                                        if (DateTime.TryParse(ViewBag.EndDate.ToString(), out DateTime eDate))
+                                        {
+                                            endVal = eDate.ToString("yyyy-MM-dd");
+                                        }
+                                        else
+                                        {
+                                            endVal = ViewBag.EndDate.ToString();
+                                        }
+                                    }
+                                }
+                                <div class="input-group">
+                                    <input type="date" class="form-control" id="startDate" name="startDate" value="@startVal" />
+                                    <span class="input-group-text">to</span>
+                                    <input type="date" class="form-control" id="endDate" name="endDate" value="@endVal" />
+                                </div>
+                            </div>
+
+                            <!-- 4. Buttons -->
+                            <div class="col-md-4">
+                                <label class="form-label d-block">&nbsp;</label>
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary flex-fill">
+                                        <i class="bi bi-check-circle me-2"></i>Apply
+                                    </button>
+                                    <a href="@Url.Action("Index", "Admin")" class="btn btn-outline-secondary">
+                                        <i class="bi bi-x-circle me-2"></i>Clear
+                                    </a>
+                                    <button type="button" class="btn btn-success" onclick="exportAllData()">
+                                        <i class="bi bi-download me-2"></i>Export
+                                        <div class="bottom"></div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Charts Section -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="card chart-card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-bar-chart-fill me-2 text-primary"></i>
+                        <h5 class="mb-0">Bookings by Room Type</h5>
+                    </div>
+                </div>
+                <div class="card-body" style="position: relative; height: 450px; padding: 1.5rem;">
+                    <canvas id="roomTypeChart"></canvas>
+                    <div id="roomTypeChartNoData" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #6b7280;">
+                        <p style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">No booking data available</p>
+                        <p style="font-size: 12px;">Please check your filters or database</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card chart-card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-graph-up-arrow me-2 text-success"></i>
+                        <h5 class="mb-0">Revenue Trend</h5>
+                    </div>
+                </div>
+                <div class="card-body" style="position: relative; height: 450px; padding: 1.5rem;">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+                @if (ViewBag.RevenueChange != null)
+                {
+                    <div class="card-footer bg-light">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Comparison with previous period:
+                            </small>
+                            <div>
+                                @if ((decimal)ViewBag.RevenueChange > 0)
+                                {
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-arrow-up me-1"></i>@ViewBag.RevenueChange%
+                                    </span>
+                                }
+                                else if ((decimal)ViewBag.RevenueChange < 0)
+                                {
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-arrow-down me-1"></i>@Math.Abs((decimal)ViewBag.RevenueChange)%
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">No change</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <script>
-        // Hotel Chart (Bar Chart)
-        var hotelCtx = document.getElementById('hotelChart').getContext('2d');
-        var hotelChart = new Chart(hotelCtx, {
-            type: 'bar',
+        // Register the datalabels plugin
+        Chart.register(ChartDataLabels);
+        
+        // Room Type Chart Data
+        var roomTypeLabels = @Html.Raw(Json.Serialize(ViewBag.HotelLabels ?? new string[0]));
+        var roomTypeStatusData = @Html.Raw(Json.Serialize(ViewBag.HotelStatusData ?? new object[0]));
+        var roomTypeDetails = @Html.Raw(Json.Serialize(ViewBag.HotelDetails ?? new object[0]));
+        
+        // Ensure arrays are properly initialized
+        if (!Array.isArray(roomTypeLabels)) roomTypeLabels = [];
+        if (!Array.isArray(roomTypeStatusData)) roomTypeStatusData = [];
+        if (!Array.isArray(roomTypeDetails)) roomTypeDetails = [];
+        
+        // Room Type Chart
+        var roomTypeCtxElement = document.getElementById('roomTypeChart');
+
+if (roomTypeCtxElement) {
+    var ctx = roomTypeCtxElement.getContext('2d');
+
+    // 1. Process Data
+    var pieLabels = [];
+    var pieData = [];
+    var pieHotelNames = []; // <--- NEW: Store Hotel Names here
+    var pieRevenue = [];    // <--- NEW: Store Revenue here (optional bonus)
+
+    if (roomTypeStatusData && roomTypeLabels && roomTypeDetails) {
+        for (var i = 0; i < roomTypeStatusData.length; i++) {
+            var s = roomTypeStatusData[i];
+            var d = roomTypeDetails[i]; // Get details for this room type
+            
+            // Calculate Total Volume (Active + Historical)
+            var totalVolume = Number(s.confirmed||0) + Number(s.pending||0) + 
+                              Number(s.checkedIn||0) + Number(s.checkedOut||0);
+
+            // Only show if there is data
+            if (totalVolume > 0) {
+                pieLabels.push(roomTypeLabels[i]);
+                pieData.push(totalVolume);
+                
+                // Save Hotel Name and Revenue for the Tooltip
+                // Handle case sensitivity (HotelName vs hotelName)
+                pieHotelNames.push(d ? (d.HotelName || d.hotelName || 'Unknown Hotel') : 'N/A');
+                pieRevenue.push(d ? (d.Revenue || d.revenue || 0) : 0);
+            }
+        }
+    }
+
+    // 2. Color Palette
+    var pieColors = [
+        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', 
+        '#858796', '#5a5c69', '#6610f2', '#e83e8c', '#fd7e14'
+    ];
+
+    // 3. Create Chart
+    if (pieData.length > 0) {
+        var roomTypeChart = new Chart(ctx, {
+            type: 'pie',
             data: {
-                labels: @Html.Raw(Json.Serialize(ViewBag.HotelLabels)),
+                labels: pieLabels,
                 datasets: [{
-                    label: 'Bookings',
-                    data: @Html.Raw(Json.Serialize(ViewBag.HotelData)),
-                    backgroundColor: [
-                        'rgba(54, 162, 235, 0.7)',
-                        'rgba(255, 99, 132, 0.7)',
-                        'rgba(255, 206, 86, 0.7)',
-                        'rgba(75, 192, 192, 0.7)',
-                        'rgba(153, 102, 255, 0.7)',
-                        'rgba(255, 159, 64, 0.7)'
-                    ],
-                    borderColor: [
-                        'rgba(54, 162, 235, 1)',
-                        'rgba(255, 99, 132, 1)',
-                        'rgba(255, 206, 86, 1)',
-                        'rgba(75, 192, 192, 1)',
-                        'rgba(153, 102, 255, 1)',
-                        'rgba(255, 159, 64, 1)'
-                    ],
-                    borderWidth: 1
+                    data: pieData,
+                    backgroundColor: pieColors.slice(0, pieLabels.length),
+                    hoverOffset: 15,
+                    borderColor: '#fff',
+                    borderWidth: 2
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: { padding: 20 },
                 plugins: {
                     legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
+                        display: true,
+                        position: 'right',
+                        labels: {
+                            usePointStyle: true,
+                            font: { size: 11, family: "'Inter', sans-serif" },
+                            color: '#6c757d'
                         }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#1f2937',
+                        bodyColor: '#4b5563',
+                        borderColor: 'rgba(0,0,0,0.1)',
+                        borderWidth: 1,
+                        padding: 12,
+                        callbacks: {
+                            // Line 1: Room Type and Count
+                            label: function(context) {
+                                var label = context.label || '';
+                                var value = context.parsed;
+                                var total = context.chart._metasets[context.datasetIndex].total;
+                                var percentage = ((value / total) * 100).toFixed(1) + '%';
+                                return ` ${label}: ${value} Bookings (${percentage})`;
+                            },
+                            // Line 2 & 3: Hotel Name and Revenue (NEW)
+                            afterBody: function(context) {
+                                var index = context[0].dataIndex; // Get the index of the hovered slice
+                                var hotel = pieHotelNames[index]; // Look up the hotel name
+                                var rev = parseFloat(pieRevenue[index]).toLocaleString('en-US', {minimumFractionDigits: 2});
+                                
+                                return [
+                                    '', // Empty line for spacing
+                                    '🏨 ' + hotel,
+                                    '💰 Total Revenue: RM ' + rev
+                                ];
+                            }
+                        },
+                        titleFont: { size: 13, weight: 'bold' },
+                        bodyFont: { size: 12 }
+                    },
+                    // Percentage Labels on Chart
+                    datalabels: {
+                        display: true,
+                        color: '#fff',
+                        font: { weight: 'bold', size: 12 },
+                        formatter: (value, ctx) => {
+                            let sum = 0;
+                            let dataArr = ctx.chart.data.datasets[0].data;
+                            dataArr.map(data => { sum += Number(data); });
+                            
+                            let percentage = (value * 100 / sum).toFixed(1) + "%";
+                            
+                            if ((value * 100 / sum) < 5) return ""; 
+
+                            return value + "\n(" + percentage + ")";
+                        },
+                        textAlign: 'center'
                     }
                 }
-            }
+            },
+            plugins: [ChartDataLabels]
         });
+        
+        var noDataDiv = document.getElementById('roomTypeChartNoData');
+        if(noDataDiv) noDataDiv.style.display = 'none';
+    }
+}
 
-        // Revenue Chart
+        // Revenue Chart Configuration
+        var revenueLabels = @Html.Raw(Json.Serialize(ViewBag.RevenueLabels ?? new string[0]));
+        var revenueData = @Html.Raw(Json.Serialize(ViewBag.RevenueData ?? new decimal[0]));
+        var revenueBySource = @Html.Raw(Json.Serialize(ViewBag.RevenueBySource ?? new object()));
+        var avgBookingValue = @Html.Raw(Json.Serialize(ViewBag.AvgBookingValue ?? new decimal[0]));
+        var forecastData = @Html.Raw(Json.Serialize(ViewBag.ForecastData ?? new decimal[0]));
+
         var revenueCtx = document.getElementById('revenueChart').getContext('2d');
+        var revenueDatasets = [{
+            label: 'Total Revenue (RM)',
+            data: revenueData,
+            borderColor: 'rgba(75, 192, 192, 1)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.4,
+            fill: true,
+            yAxisID: 'y'
+        }];
+
+        if (revenueBySource) {
+            var sourceColors = {
+                'Direct': 'rgba(54, 162, 235, 0.6)'
+            };
+            
+            for (var source in revenueBySource) {
+
+                if(source === 'OTA'|| source === 'Group' || source === 'Phone'|| source === 'WalkIn')
+                {
+                    continue;
+                }
+
+                if (revenueBySource.hasOwnProperty(source) && revenueBySource[source].length > 0) {
+                    revenueDatasets.push({
+                        label: source + ' Revenue',
+                        data: revenueBySource[source],
+                        borderColor: sourceColors[source] || 'rgba(200, 200, 200, 0.6)',
+                        backgroundColor: sourceColors[source] || 'rgba(200, 200, 200, 0.2)',
+                        tension: 0.4,
+                        fill: false,
+                        yAxisID: 'y'
+                    });
+                }
+            }
+        }
+
+        if (avgBookingValue && avgBookingValue.length > 0) {
+            revenueDatasets.push({
+                label: 'Avg Booking Value (RM)',
+                data: avgBookingValue,
+                borderColor: 'rgba(255, 159, 64, 1)',
+                backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                borderDash: [5, 5],
+                tension: 0.4,
+                fill: false,
+                yAxisID: 'y1'
+            });
+        }
+
+        if (forecastData && forecastData.length > 0) {
+            revenueDatasets.push({
+                label: 'Forecast (RM)',
+                data: Array(revenueLabels.length).fill(null).concat(forecastData),
+                borderColor: 'rgba(200, 200, 200, 1)',
+                backgroundColor: 'rgba(200, 200, 200, 0.1)',
+                borderDash: [10, 5],
+                tension: 0.4,
+                fill: false,
+                yAxisID: 'y'
+            });
+        }
+
         var revenueChart = new Chart(revenueCtx, {
             type: 'line',
             data: {
-                labels: @Html.Raw(Json.Serialize(ViewBag.RevenueLabels)),
-                datasets: [{
-                    label: 'Revenue (RM)',
-                    data: @Html.Raw(Json.Serialize(ViewBag.RevenueData)),
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    tension: 0.4,
-                    fill: true
-                }]
+                labels: revenueLabels.concat(forecastData && forecastData.length > 0 ? 
+                    Array(forecastData.length).fill(null).map((_, i) => {
+                        var lastDate = new Date(revenueLabels[revenueLabels.length - 1]);
+                        lastDate.setDate(lastDate.getDate() + (i + 1));
+                        return lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    }) : []),
+                datasets: revenueDatasets
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: true, position: 'bottom' },
+                    datalabels: { display: false }
+                },
                 scales: {
-                    y: {
-                        beginAtZero: true
-                    }
+                    y: { type: 'linear', display: true, position: 'left', beginAtZero: true, title: { display: true, text: 'Revenue (RM)' } },
+                    y1: { type: 'linear', display: true, position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: { display: true, text: 'Avg Booking Value (RM)' } }
                 }
             }
         });
 
-        // Period selector change handler
-        document.getElementById('periodSelector').addEventListener('change', function() {
-            var period = this.value;
-            window.location.href = '@Url.Action("Index", "Admin")?period=' + period;
-        });
+        // Export functions
+        function exportAllData() {
+            var csv = 'Date,Total Revenue';
+            if (revenueBySource) {
+                for (var source in revenueBySource) {
+                    if (revenueBySource.hasOwnProperty(source)) csv += ',' + source + ' Revenue';
+                }
+            }
+            csv += ',Avg Booking Value\n';
+            
+            for (var i = 0; i < revenueLabels.length; i++) {
+                csv += '"' + revenueLabels[i] + '",' + revenueData[i].toFixed(2);
+                if (revenueBySource) {
+                    for (var source in revenueBySource) {
+                        if (revenueBySource.hasOwnProperty(source)) csv += ',' + (revenueBySource[source][i] || 0).toFixed(2);
+                    }
+                }
+                csv += ',' + (avgBookingValue[i] || 0).toFixed(2) + '\n';
+            }
+            
+            var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            var url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'revenue_trend_data.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     </script>
 
-    <div class="mt-4">
-        <h4>Quick Links</h4>
+    <!-- Quick Links Section -->
+    <div class="mt-5">
+        <div class="d-flex align-items-center mb-4">
+            <i class="bi bi-link-45deg me-2 text-primary" style="font-size: 1.5rem;"></i>
+            <h4 class="mb-0">Quick Links</h4>
+        </div>
         <div class="row g-3">
-            <div class="col-md-3">
-                <a asp-action="Users" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-people"></i><br />Users
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <a asp-action="Users" class="quick-link-card">
+                    <div class="quick-link-icon"><i class="bi bi-people-fill"></i></div>
+                    <span class="quick-link-text">Users</span>
                 </a>
             </div>
-            <div class="col-md-3">
-                <a asp-action="Hotels" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-building"></i><br />Hotels
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <a asp-action="Hotels" class="quick-link-card">
+                    <div class="quick-link-icon"><i class="bi bi-building-fill"></i></div>
+                    <span class="quick-link-text">Hotels</span>
                 </a>
             </div>
-            <div class="col-md-3">
-                <a asp-action="RoomTypes" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-door-open"></i><br />Room Types
+             <div class="col-xl-3 col-md-4 col-sm-6">
+                 <a asp-action="RoomTypes" class="quick-link-card">
+                     <div class="quick-link-icon"><i class="bi bi-door-open-fill"></i></div>
+                     <span class="quick-link-text">Room Types</span>
+                 </a>
+             </div>
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <a asp-action="Rooms" class="quick-link-card">
+                    <div class="quick-link-icon"><i class="bi bi-house-fill"></i></div>
+                    <span class="quick-link-text">Rooms</span>
                 </a>
             </div>
-            <div class="col-md-3">
-                <a asp-action="Rooms" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-house"></i><br />Rooms
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <a asp-action="Bookings" class="quick-link-card">
+                    <div class="quick-link-icon"><i class="bi bi-calendar-check-fill"></i></div>
+                    <span class="quick-link-text">Bookings</span>
                 </a>
             </div>
-            <div class="col-md-3">
-                <a asp-action="Bookings" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-calendar-check"></i><br />Bookings
-                </a>
-            </div>
-            <div class="col-md-3">
-                <a asp-action="Reviews" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-star"></i><br />Reviews
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <a asp-action="Reviews" class="quick-link-card">
+                    <div class="quick-link-icon"><i class="bi bi-star-fill"></i></div>
+                    <span class="quick-link-text">Reviews</span>
                 </a>
             </div>
             @if (role != "Staff")
             {
-                <div class="col-md-3">
-                    <a asp-action="Amenities" class="btn btn-outline-primary w-100">
-                        <i class="bi bi-list-check"></i><br />Amenities
+                <div class="col-xl-3 col-md-4 col-sm-6">
+                    <a asp-action="Amenities" class="quick-link-card">
+                        <div class="quick-link-icon"><i class="bi bi-list-check"></i></div>
+                        <span class="quick-link-text">Amenities</span>
                     </a>
-                </div>    
+                </div>
             }
-            <div class="col-md-3">
-                <a asp-action="Services" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-gear"></i><br />Services
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <a asp-action="Services" class="quick-link-card">
+                    <div class="quick-link-icon"><i class="bi bi-gear-fill"></i></div>
+                    <span class="quick-link-text">Services</span>
                 </a>
             </div>
-            <div class="col-md-3">
-                <a asp-action="Packages" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-box-seam"></i><br />Packages
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <a asp-action="Packages" class="quick-link-card">
+                    <div class="quick-link-icon"><i class="bi bi-box-seam-fill"></i></div>
+                    <span class="quick-link-text">Packages</span>
                 </a>
             </div>
-            <div class="col-md-3">
-                <a asp-action="Promotions" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-tag"></i><br />Promotions
+            <div class="col-xl-3 col-md-4 col-sm-6">
+                <a asp-action="Promotions" class="quick-link-card">
+                    <div class="quick-link-icon"><i class="bi bi-tag-fill"></i></div>
+                    <span class="quick-link-text">Promotions</span>
                 </a>
             </div>
             @if (role != "Staff" && role != "Manager")
             {
-                <div class="col-md-3">
-                <a asp-action="ContactMessages" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-envelope"></i><br />Contact Messages
-                </a>
-            </div>
+                <div class="col-xl-3 col-md-4 col-sm-6">
+                    <a asp-action="ContactMessages" class="quick-link-card">
+                        <div class="quick-link-icon"><i class="bi bi-envelope-fill"></i></div>
+                        <span class="quick-link-text">Contact Messages</span>
+                    </a>
+                </div>
             }
-
         </div>
     </div>
 </div>
 
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            
+            var periodSelect = document.getElementById('periodFilter');
+            var timeframeSelect = document.getElementById('timeframeSelector');
+            var startDateInput = document.getElementById('startDate');
+            var endDateInput = document.getElementById('endDate');
+
+            if (!periodSelect || !timeframeSelect || !startDateInput || !endDateInput) {
+                return;
+            }
+
+            function checkFilters() {
+                var pVal = periodSelect.value;
+                var tVal = timeframeSelect.value;
+                
+                // Check if user has entered any date
+                var hasDateInput = startDateInput.value !== '' || endDateInput.value !== '';
+
+                console.log("Period:", pVal, "Timeframe:", tVal, "HasDate:", hasDateInput);
+
+                // CONDITION 1: User selected a specific Period (e.g., "Last 7 Days")
+                if (pVal !== 'custom') {
+                    timeframeSelect.disabled = true;
+                    startDateInput.disabled = true;
+                    endDateInput.disabled = true;
+                    
+                    // Reset others
+                    timeframeSelect.value = 'custom';
+                    startDateInput.value = '';
+                    endDateInput.value = '';
+                }
+
+                // CONDITION 2: User selected a specific Timeframe (e.g., "Weekly")
+                else if (tVal !== 'custom') {
+                    periodSelect.disabled = true;
+                    startDateInput.disabled = true;
+                    endDateInput.disabled = true;
+
+                    // Reset others
+                    periodSelect.value = 'custom';
+                    startDateInput.value = '';
+                    endDateInput.value = '';
+                }
+
+                // CONDITION 3: User typed in a Date
+                else if (hasDateInput) {
+                    periodSelect.disabled = true;
+                    timeframeSelect.disabled = true;
+                    
+                    // We don't reset values here, or the date would disappear as you type!
+                }
+
+                // CONDITION 4: Default State (Everything is Custom/Empty)
+                else {
+                    periodSelect.disabled = false;
+                    timeframeSelect.disabled = false;
+                    startDateInput.disabled = false;
+                    endDateInput.disabled = false;
+                }
+            }
+
+            // Listen for changes on dropdowns
+            periodSelect.addEventListener('change', checkFilters);
+            timeframeSelect.addEventListener('change', checkFilters);
+            
+            // Listen for changes on Date Inputs (use 'input' for immediate reaction)
+            startDateInput.addEventListener('input', checkFilters);
+            endDateInput.addEventListener('input', checkFilters);
+
+            // Run on load
+            checkFilters();
+        });
+    </script>
+}

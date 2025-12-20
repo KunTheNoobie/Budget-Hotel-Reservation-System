@@ -53,37 +53,54 @@ namespace Assignment.Controllers
         {
             try
             {
-                // Rate limiting: Check for too many contact form submissions from same IP
+                // ========== RATE LIMITING PROTECTION ==========
+                // Prevent spam by limiting contact form submissions from same IP address
+                // This protects against automated bots flooding the contact form
                 var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-                var recentAttempts = _context.SecurityLogs
-                    .Count(s => s.IPAddress == ipAddress && 
-                                s.Action == "ContactForm" && 
-                                s.Timestamp > DateTime.Now.AddMinutes(-5));
                 
+                // Count how many contact form submissions from this IP in the last 5 minutes
+                var recentAttempts = _context.SecurityLogs
+                    .Count(s => s.IPAddress == ipAddress &&           // Same IP address
+                                s.Action == "ContactForm" &&          // Contact form action
+                                s.Timestamp > DateTime.Now.AddMinutes(-5)); // Within last 5 minutes
+                
+                // If too many attempts (5 or more), block the submission
                 if (recentAttempts >= 5)
                 {
+                    // Check if this is an AJAX request (for AJAX form submissions)
                     if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                     {
+                        // Return JSON response for AJAX requests
                         return Json(new { success = false, message = "Too many contact form submissions. Please try again after 5 minutes." });
                     }
+                    
+                    // Return error message for regular form submissions
                     TempData["Error"] = "Too many contact form submissions. Please try again after 5 minutes.";
                     return RedirectToAction("Contact", "Home");
                 }
 
+                // ========== VALIDATE AND SAVE CONTACT MESSAGE ==========
+                // Check if form data is valid (required fields, email format, etc.)
                 if (ModelState.IsValid)
                 {
+                    // Set timestamp when message was sent
                     model.SentAt = DateTime.Now;
+                    
+                    // Mark message as unread (admin hasn't read it yet)
                     model.IsRead = false;
+                    
+                    // Add message to database
                     _context.ContactMessages.Add(model);
                     await _context.SaveChangesAsync();
 
-                    // Log contact form submission
+                    // ========== LOG CONTACT FORM SUBMISSION ==========
+                    // Record the submission in security logs for rate limiting and audit trail
                     _context.SecurityLogs.Add(new SecurityLog
                     {
-                        Action = "ContactForm",
-                        UserId = null,
-                        IPAddress = ipAddress,
-                        Details = $"Contact form submitted from {model.Email}",
+                        Action = "ContactForm",                    // Action type
+                        UserId = null,                            // No user ID (public form)
+                        IPAddress = ipAddress,                    // Store IP for rate limiting
+                        Details = $"Contact form submitted from {model.Email}", // Additional details
                         Timestamp = DateTime.Now
                     });
                     await _context.SaveChangesAsync();

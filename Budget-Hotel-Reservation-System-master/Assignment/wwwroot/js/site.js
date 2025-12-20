@@ -34,82 +34,22 @@ $(document).ajaxStart(function() {
  * showToast('Booking confirmed!', 'success');
  * showToast('An error occurred', 'error');
  */
-function showToast(message, type = 'info') {
-    const toastId = 'toast-' + Date.now();
-    const bgColor = {
-        'success': 'bg-success',
-        'error': 'bg-danger',
-        'warning': 'bg-warning',
-        'info': 'bg-info'
-    }[type] || 'bg-info';
-    
-    const icon = {
-        'success': 'bi-check-circle-fill',
-        'error': 'bi-exclamation-circle-fill',
-        'warning': 'bi-exclamation-triangle-fill',
-        'info': 'bi-info-circle-fill'
-    }[type] || 'bi-info-circle-fill';
-    
-    const toastHtml = `
-        <div id="${toastId}" class="toast align-items-center text-white ${bgColor} border-0" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="d-flex">
-                <div class="toast-body">
-                    <i class="bi ${icon} me-2"></i>${message}
-                </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-        </div>
-    `;
-    
-    $('#toastContainer').append(toastHtml);
-    const toastElement = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastElement, {
-        autohide: true,
-        delay: 5000
-    });
-    toast.show();
-    
-    // Remove toast element after it's hidden
-    toastElement.addEventListener('hidden.bs.toast', function() {
-        $(this).remove();
-    });
-}
+
 
 /**
  * Initialize Toast Notifications from Server-Side TempData
+ * This function should be called from the layout file after TempData is available.
  * Checks for TempData messages from the server (Success, Error, Info, Warning)
  * and displays them as toast notifications when the page loads.
  * Also handles newsletter-specific messages.
+ * 
+ * Note: The actual TempData initialization is done in the layout files using Razor syntax.
+ * This function is kept here for reference but the initialization code should be in _Layout.cshtml or _AdminLayout.cshtml
  */
-$(document).ready(function() {
-    // Check for TempData messages from server-side (ASP.NET Core TempData)
-    @if (TempData["Success"] != null)
-    {
-        <text>showToast('@Html.Raw(TempData["Success"])', 'success');</text>
-    }
-    @if (TempData["Error"] != null)
-    {
-        <text>showToast('@Html.Raw(TempData["Error"])', 'error');</text>
-    }
-    @if (TempData["Info"] != null)
-    {
-        <text>showToast('@Html.Raw(TempData["Info"])', 'info');</text>
-    }
-    @if (TempData["Warning"] != null)
-    {
-        <text>showToast('@Html.Raw(TempData["Warning"])', 'warning');</text>
-    }
-    
-    // Check for newsletter errors
-    @if (TempData["NewsletterError"] != null)
-    {
-        <text>showToast('@Html.Raw(TempData["NewsletterError"])', 'error');</text>
-    }
-    @if (TempData["NewsletterSuccess"] != null)
-    {
-        <text>showToast('@Html.Raw(TempData["NewsletterSuccess"])', 'success');</text>
-    }
-});
+function initializeTempDataToasts() {
+    // This function is called from layout files with Razor-generated code
+    // The actual implementation is in the layout files
+}
 
 /**
  * Image Preview Function

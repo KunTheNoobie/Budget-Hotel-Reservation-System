@@ -49,61 +49,87 @@ namespace Assignment.Controllers
         /// <returns>The room catalog view with filtered results.</returns>
         public async Task<IActionResult> Catalog(string searchTerm = "", int? roomTypeId = null, decimal? maxPrice = null, DateTime? checkIn = null, int? guests = null, int page = 1, int pageSize = 9)
         {
-            // Redirect Admin/Manager/Staff to admin panel
+            // ========== ROLE-BASED REDIRECTION ==========
+            // Admin, Manager, and Staff should use the admin panel to view rooms
+            // Only customers should see the public room catalog
             if (AuthenticationHelper.IsAuthenticated(HttpContext))
             {
                 var role = AuthenticationHelper.GetUserRole(HttpContext);
                 if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
                 {
+                    // Redirect admin users to admin panel
                     return RedirectToAction("Index", "Admin");
                 }
             }
-            // Validate input parameters
+            
+            // ========== INPUT VALIDATION ==========
+            // Validate and sanitize all user input to prevent errors and security issues
+            
+            // Validate number of guests (must be between 1 and 20)
+            // This prevents invalid values and ensures room occupancy requirements are met
             if (guests.HasValue && (guests.Value < 1 || guests.Value > 20))
             {
                 ModelState.AddModelError("Guests", "Number of guests must be between 1 and 20.");
-                guests = 1;
+                guests = 1; // Set to minimum valid value
             }
 
+            // Validate maximum price (cannot be negative)
+            // Negative prices don't make sense and could cause calculation errors
             if (maxPrice.HasValue && maxPrice.Value < 0)
             {
                 ModelState.AddModelError("MaxPrice", "Maximum price cannot be negative.");
-                maxPrice = null;
+                maxPrice = null; // Clear invalid value
             }
 
+            // Validate search term
             if (!string.IsNullOrEmpty(searchTerm))
             {
+                // Limit search term length to prevent performance issues
+                // Very long search terms can slow down database queries
                 if (searchTerm.Length > 200)
                 {
                     ModelState.AddModelError("SearchTerm", "Search term cannot exceed 200 characters.");
-                    searchTerm = searchTerm.Substring(0, 200);
+                    searchTerm = searchTerm.Substring(0, 200); // Truncate to max length
                 }
-                // Check for invalid characters
+                
+                // Check for invalid characters (security: prevent SQL injection attempts)
+                // Only allow alphanumeric characters, spaces, commas, periods, and hyphens
+                // This prevents malicious input that could be used in attacks
                 if (!System.Text.RegularExpressions.Regex.IsMatch(searchTerm, @"^[a-zA-Z0-9\s,.-]+$"))
                 {
                     ModelState.AddModelError("SearchTerm", "Search term contains invalid characters. Only letters, numbers, spaces, commas, periods, and hyphens are allowed.");
                 }
             }
 
+            // ========== DATE VALIDATION ==========
             // Validate check-in date - must be today or in the future
+            // Past dates don't make sense for new bookings
             if (checkIn.HasValue && checkIn.Value.Date < DateTime.Today)
             {
                 ModelState.AddModelError("CheckIn", "Check-in date cannot be in the past. Please select today or a future date.");
-                checkIn = DateTime.Today;
+                checkIn = DateTime.Today; // Set to today as default
             }
 
+            // ========== BUILD BASE QUERY ==========
+            // Start with all room types and include related data for display
+            // Include Hotel (for location info), RoomImages (for photos), and Amenities (for features)
             var query = _context.RoomTypes
-                .Include(rt => rt.Hotel)
-                .Include(rt => rt.RoomImages)
-                .Include(rt => rt.RoomTypeAmenities)
-                    .ThenInclude(rta => rta.Amenity)
-                .AsQueryable();
+                .Include(rt => rt.Hotel)                    // Include hotel information (name, city, country)
+                .Include(rt => rt.RoomImages)                // Include room photos for display
+                .Include(rt => rt.RoomTypeAmenities)         // Include amenities relationship
+                    .ThenInclude(rta => rta.Amenity)         // Include actual amenity details
+                .AsQueryable();                              // Make it queryable so we can add filters
 
+            // ========== SEARCH TERM FILTERING ==========
+            // Apply search filter if user provided a search term
             if (!string.IsNullOrEmpty(searchTerm))
             {
+                // Normalize search term: trim whitespace and convert to lowercase
+                // This makes search case-insensitive and handles extra spaces
                 var term = searchTerm.Trim().ToLower();
                 
                 // Require minimum 2 characters for meaningful search
+                // Single character searches are too broad and can cause performance issues
                 if (term.Length < 2)
                 {
                     ViewBag.SearchTerm = searchTerm;
@@ -126,12 +152,18 @@ namespace Assignment.Controllers
                     return View(new List<RoomType>());
                 }
                 
+                // ========== LOCATION-BASED SEARCH ==========
+                // Check if search term contains a comma (e.g., "Kuala Lumpur, Malaysia")
+                // This indicates user is searching by location (city, country)
                 var locationParts = term.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 if (locationParts.Length >= 2)
                 {
-                    var cityTerm = locationParts[0];
-                    var countryTerm = locationParts[1];
+                    // User provided location search (city, country format)
+                    var cityTerm = locationParts[0];      // First part is city
+                    var countryTerm = locationParts[1];   // Second part is country
 
+                    // Search in hotel city, hotel name, and country
+                    // Match city in hotel city or hotel name, AND country in hotel country or hotel name
                     query = query.Where(rt => rt.Hotel != null &&
                         (
                             rt.Hotel.City.ToLower().Contains(cityTerm) ||
@@ -144,54 +176,71 @@ namespace Assignment.Controllers
                 }
                 else
                 {
-                    // More strict matching - require the term to be at the start of words or be a significant match
+                    // ========== GENERAL SEARCH ==========
+                    // User provided general search term (not location-specific)
+                    // Search in room type name, hotel name, city, and country
+                    // Match if term appears at start of word or as significant match
                     query = query.Where(rt =>
-                        rt.Name.ToLower().StartsWith(term) ||
-                        rt.Name.ToLower().Contains(" " + term) ||
+                        rt.Name.ToLower().StartsWith(term) ||                    // Room name starts with term
+                        rt.Name.ToLower().Contains(" " + term) ||                // Room name contains term as word
                         (rt.Hotel != null && (
-                            rt.Hotel.Name.ToLower().StartsWith(term) ||
-                            rt.Hotel.Name.ToLower().Contains(" " + term) ||
-                            rt.Hotel.City.ToLower().StartsWith(term) ||
-                            rt.Hotel.City.ToLower().Contains(" " + term) ||
-                            rt.Hotel.Country.ToLower().StartsWith(term) ||
-                            rt.Hotel.Country.ToLower().Contains(" " + term))));
+                            rt.Hotel.Name.ToLower().StartsWith(term) ||          // Hotel name starts with term
+                            rt.Hotel.Name.ToLower().Contains(" " + term) ||      // Hotel name contains term as word
+                            rt.Hotel.City.ToLower().StartsWith(term) ||          // City starts with term
+                            rt.Hotel.City.ToLower().Contains(" " + term) ||     // City contains term as word
+                            rt.Hotel.Country.ToLower().StartsWith(term) ||      // Country starts with term
+                            rt.Hotel.Country.ToLower().Contains(" " + term))));  // Country contains term as word
                 }
             }
 
+            // ========== ROOM TYPE FILTER ==========
+            // Filter by specific room type if user selected one from dropdown
             if (roomTypeId.HasValue)
             {
                 query = query.Where(rt => rt.RoomTypeId == roomTypeId.Value);
             }
 
+            // ========== PRICE FILTER ==========
+            // Filter by maximum price (show only rooms at or below this price)
             if (maxPrice.HasValue)
             {
                 query = query.Where(rt => rt.BasePrice <= maxPrice.Value);
             }
 
+            // ========== OCCUPANCY FILTER ==========
+            // Filter by number of guests (show only rooms that can accommodate this many guests)
+            // Room occupancy must be greater than or equal to requested number of guests
             if (guests.HasValue && guests.Value > 0)
             {
                 query = query.Where(rt => rt.Occupancy >= guests.Value);
             }
 
-            // Get distinct room types to avoid duplicates
+            // ========== GET DISTINCT ROOM TYPES ==========
+            // Get list of unique room type IDs that match the filters
+            // This prevents duplicates and allows us to get full room type details separately
             var roomTypeIds = await query.Select(rt => rt.RoomTypeId).Distinct().ToListAsync();
-            var totalCount = roomTypeIds.Count;
+            var totalCount = roomTypeIds.Count; // Total count for pagination
             
+            // ========== LOAD FULL ROOM TYPE DATA WITH PAGINATION ==========
+            // Load complete room type information including all related data
+            // Apply pagination: skip previous pages and take only current page items
             var roomTypes = await _context.RoomTypes
-                .Include(rt => rt.Hotel)
-                .Include(rt => rt.RoomImages)
-                .Include(rt => rt.RoomTypeAmenities)
-                    .ThenInclude(rta => rta.Amenity)
-                .Include(rt => rt.Rooms)
-                    .ThenInclude(r => r.Bookings)
-                        .ThenInclude(b => b.Reviews)
-                .Where(rt => roomTypeIds.Contains(rt.RoomTypeId))
-                .OrderBy(rt => rt.RoomTypeId)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
+                .Include(rt => rt.Hotel)                    // Hotel information
+                .Include(rt => rt.RoomImages)               // Room photos
+                .Include(rt => rt.RoomTypeAmenities)         // Amenities relationship
+                    .ThenInclude(rta => rta.Amenity)        // Amenity details
+                .Include(rt => rt.Rooms)                    // Physical rooms
+                    .ThenInclude(r => r.Bookings)           // Booking history
+                        .ThenInclude(b => b.Reviews)         // Reviews for bookings
+                .Where(rt => roomTypeIds.Contains(rt.RoomTypeId))  // Only room types that matched filters
+                .OrderBy(rt => rt.RoomTypeId)              // Order by ID for consistent pagination
+                .Skip((page - 1) * pageSize)               // Skip items from previous pages
+                .Take(pageSize)                             // Take only items for current page
                 .ToListAsync();
 
-            // Calculate available rooms for each room type
+            // ========== CALCULATE AVAILABLE ROOMS ==========
+            // For each room type, count how many rooms are actually available
+            // This is calculated from database to ensure accuracy (accounts for current bookings)
             // Always calculate from database to ensure accuracy
             var availableRoomsDict = new Dictionary<int, int>();
             foreach (var rt in roomTypes)

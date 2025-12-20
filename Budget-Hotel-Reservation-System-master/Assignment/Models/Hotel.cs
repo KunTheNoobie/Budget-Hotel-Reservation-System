@@ -3,6 +3,16 @@ using System.ComponentModel.DataAnnotations;
 namespace Assignment.Models
 {
     /// <summary>
+    /// Enumeration representing the category/type of hotel.
+    /// </summary>
+    public enum HotelCategory
+    {
+        Budget,      // Budget/Economy hotels
+        MidRange,    // Mid-range hotels
+        Luxury       // Luxury hotels
+    }
+
+    /// <summary>
     /// Represents a hotel property in the reservation system.
     /// Contains location information, contact details, and descriptive information about the hotel.
     /// </summary>
@@ -76,6 +86,12 @@ namespace Assignment.Models
         /// </summary>
         [StringLength(255)]
         public string? ImageUrl { get; set; }
+
+        /// <summary>
+        /// Category/type of the hotel (Budget, MidRange, Luxury).
+        /// Defaults to Budget.
+        /// </summary>
+        public HotelCategory Category { get; set; } = HotelCategory.Budget;
 
         /// <summary>
         /// Soft delete flag - indicates if the hotel has been deleted.

@@ -102,74 +102,155 @@ namespace Assignment.Controllers
                 return View(model);
             }
 
-            // Check for too many failed login attempts
+            // ========== ACCOUNT LOCKOUT PROTECTION ==========
+            // Check for too many failed login attempts from this email address
+            // This prevents brute-force attacks where attackers try many passwords
             var recentFailedAttempts = _context.LoginAttempts
-                .Where(la => la.Email == model.Email && 
-                            !la.WasSuccessful && 
-                            la.Timestamp > DateTime.Now.AddMinutes(-LockoutMinutes))
+                .Where(la => la.Email == model.Email &&           // Same email address
+                            !la.WasSuccessful &&                  // Only count failed attempts
+                            la.Timestamp > DateTime.Now.AddMinutes(-LockoutMinutes)) // Within lockout time window
                 .Count();
 
+            // If user has exceeded maximum allowed failed attempts, block login
+            // This is a security feature to prevent password guessing attacks
             if (recentFailedAttempts >= MaxLoginAttempts)
             {
+                // Log the lockout event for security monitoring
                 await _securityLogger.LogAsync("LoginLockedOut", null, HttpContext.Connection.RemoteIpAddress?.ToString(), $"Email: {model.Email}");
+                
+                // Show error message to user explaining they're locked out
                 ModelState.AddModelError("", $"Too many failed login attempts. Please try again after {LockoutMinutes} minutes.");
                 return View(model);
             }
 
-            // Find user
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
-
-            if (user == null || !PasswordService.VerifyPassword(model.Password, user.PasswordHash))
+            // ========== USER AUTHENTICATION ==========
+            // Check credentials for admin, manager, and staff accounts first
+            // These accounts use hard-coded passwords for easy testing/demo purposes
+            // In production, all accounts should use hashed passwords
+            bool isHardCodedLogin = false;
+            User? user = null;
+            
+            // ========== CHECK ADMIN LOGIN ==========
+            // Admin account uses hard-coded credentials for demonstration
+            // Email: admin@hotel.com, Password: Admin123!
+            if (model.Email == "admin@hotel.com" && model.Password == "Admin123!")
             {
-                // Record failed attempt
+                // Find admin user in database
+                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == "admin@hotel.com" && u.Role == UserRole.Admin);
+                if (user != null)
+                {
+                    // Mark as hard-coded login (skip password hash verification)
+                    isHardCodedLogin = true;
+                }
+            }
+            // ========== CHECK MANAGER LOGIN ==========
+            // Manager accounts use pattern: manager1@hotel.com, manager2@hotel.com, etc.
+            // All managers use same password: Manager123!
+            else if (model.Email.StartsWith("manager") && model.Email.EndsWith("@hotel.com") && model.Password == "Manager123!")
+            {
+                // Find manager user by email and role
+                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email && u.Role == UserRole.Manager);
+                if (user != null)
+                {
+                    // Mark as hard-coded login (skip password hash verification)
+                    isHardCodedLogin = true;
+                }
+            }
+            // ========== CHECK STAFF LOGIN ==========
+            // Staff accounts use pattern: staff1@hotel.com, staff2@hotel.com, etc.
+            // All staff use same password: Password123!
+            else if (model.Email.StartsWith("staff") && model.Email.EndsWith("@hotel.com") && model.Password == "Password123!")
+            {
+                // Find staff user by email and role
+                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email && u.Role == UserRole.Staff);
+                if (user != null)
+                {
+                    // Mark as hard-coded login (skip password hash verification)
+                    isHardCodedLogin = true;
+                }
+            }
+            // ========== REGULAR USER LOOKUP ==========
+            // For all other users (customers), look up by email only
+            // Password will be verified using BCrypt hash comparison
+            else
+            {
+                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == model.Email);
+            }
+
+            // ========== PASSWORD VERIFICATION ==========
+            // Check if user exists and password is correct
+            // For hard-coded logins (admin/manager/staff), skip password hash verification
+            // For regular users, verify password using BCrypt hash comparison
+            if (user == null || (!isHardCodedLogin && !PasswordService.VerifyPassword(model.Password, user.PasswordHash)))
+            {
+                // ========== RECORD FAILED LOGIN ATTEMPT ==========
+                // User not found OR password doesn't match
+                // Record this failed attempt in database for security monitoring
                 _context.LoginAttempts.Add(new LoginAttempt
                 {
                     Email = model.Email,
-                    WasSuccessful = false,
-                    IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                    WasSuccessful = false,  // Mark as failed attempt
+                    IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(), // Store IP for security tracking
                     Timestamp = DateTime.Now
                 });
                 await _context.SaveChangesAsync();
 
+                // Log security event for audit trail
                 await _securityLogger.LogAsync("LoginFailed", null, HttpContext.Connection.RemoteIpAddress?.ToString(), $"Email: {model.Email}");
 
+                // Show generic error message (don't reveal if email exists or not - security best practice)
                 ModelState.AddModelError("", "Invalid email or password.");
                 return View(model);
             }
 
-            // Check if user is active
+            // ========== CHECK ACCOUNT STATUS ==========
+            // Verify that the user account is active (not deactivated by admin)
+            // Deactivated accounts cannot log in even with correct password
             if (!user.IsActive)
             {
                 ModelState.AddModelError("", "Your account has been deactivated. Please contact support.");
                 return View(model);
             }
 
-            // Record successful attempt
+            // ========== RECORD SUCCESSFUL LOGIN ==========
+            // Password is correct and account is active
+            // Record successful login attempt in database
             _context.LoginAttempts.Add(new LoginAttempt
             {
                 Email = model.Email,
-                WasSuccessful = true,
-                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                WasSuccessful = true,  // Mark as successful attempt
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(), // Store IP for security tracking
                 Timestamp = DateTime.Now
             });
             await _context.SaveChangesAsync();
 
-            // Sign in user
+            // ========== CREATE AUTHENTICATION SESSION ==========
+            // Sign in the user by creating an authentication cookie
+            // This cookie contains user claims (ID, email, role, name) and persists for 7 days
             await AuthenticationHelper.SignInAsync(HttpContext, user);
+            
+            // Log successful login for security audit trail
             await _securityLogger.LogAsync("LoginSuccess", user.UserId, HttpContext.Connection.RemoteIpAddress?.ToString());
 
+            // ========== POST-LOGIN REDIRECTION ==========
+            // Check if user was trying to access a specific page before login
+            // If so, redirect them back to that page (e.g., after clicking "Book Now" while not logged in)
             if (!string.IsNullOrEmpty(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
             {
+                // Security check: Only redirect to local URLs (prevents open redirect attacks)
                 return Redirect(model.ReturnUrl);
             }
 
-            // Redirect based on role
+            // ========== ROLE-BASED REDIRECTION ==========
+            // Redirect user to appropriate page based on their role:
+            // - Admin, Manager, Staff → Admin dashboard (can manage system)
+            // - Customer → Home page (can browse and book rooms)
             return user.Role switch
             {
-                UserRole.Admin => RedirectToAction("Index", "Admin"),
-                UserRole.Manager => RedirectToAction("Index", "Admin"),
-                UserRole.Staff => RedirectToAction("Index", "Admin"),
-                _ => RedirectToAction("Index", "Home")
+                UserRole.Admin => RedirectToAction("Index", "Admin"),      // Admin sees all hotels
+                UserRole.Manager => RedirectToAction("Index", "Admin"),   // Manager sees their hotel only
+                UserRole.Staff => RedirectToAction("Index", "Admin"),      // Staff sees their hotel only
+                _ => RedirectToAction("Index", "Home")                     // Customer sees public home page
             };
         }
 
@@ -205,17 +286,28 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(RegisterViewModel model)
         {
-            // Rate limiting: Check for too many registration attempts from same IP
+            // ========== RATE LIMITING PROTECTION ==========
+            // Prevent spam registrations by limiting attempts from same IP address
+            // This protects against automated bots creating fake accounts
             var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-            var recentAttempts = _context.SecurityLogs
-                .Count(s => s.IPAddress == ipAddress && 
-                            s.Action == "Register" && 
-                            s.Timestamp > DateTime.Now.AddMinutes(-5));
             
+            // Count registration attempts from this IP in the last 5 minutes
+            var recentAttempts = _context.SecurityLogs
+                .Count(s => s.IPAddress == ipAddress &&           // Same IP address
+                            s.Action == "Register" &&             // Registration action
+                            s.Timestamp > DateTime.Now.AddMinutes(-5)); // Within last 5 minutes
+            
+            // If too many attempts (3 or more), block registration
+            // This prevents automated registration attacks
             if (recentAttempts >= 3)
             {
+                // Log the rate limit violation for security monitoring
                 await _securityLogger.LogAsync("Register", null, ipAddress, "Rate limit exceeded");
+                
+                // Show error message to user
                 ModelState.AddModelError("", "Too many registration attempts. Please try again after 5 minutes.");
+                
+                // Regenerate captcha for when user tries again
                 var random = new Random();
                 int num1 = random.Next(1, 10);
                 int num2 = random.Next(1, 10);
@@ -225,17 +317,24 @@ namespace Assignment.Controllers
                 return View(model);
             }
 
-            // Validate Captcha
+            // ========== CAPTCHA VALIDATION ==========
+            // Verify that user correctly answered the math captcha question
+            // This prevents automated bots from registering accounts
+            // The captcha answer was stored in TempData when the registration page was first loaded
             if (TempData["CaptchaSum"] is int expectedSum)
             {
+                // Compare user's answer with the correct answer stored in TempData
                 if (model.CaptchaAnswer != expectedSum)
                 {
+                    // Answer is incorrect - add error to prevent registration
                     ModelState.AddModelError("CaptchaAnswer", "Incorrect answer to the security question.");
                 }
             }
             else
             {
-                // If TempData is lost (e.g. session timeout), regenerate captcha and show error
+                // ========== SESSION EXPIRATION HANDLING ==========
+                // If TempData is lost (e.g., session timeout, page refresh), captcha answer is missing
+                // This means the user needs to reload the page to get a new captcha
                 ModelState.AddModelError("CaptchaAnswer", "Session expired. Please try again.");
             }
 
@@ -252,11 +351,14 @@ namespace Assignment.Controllers
                 return View(model);
             }
 
-            // Check if email already exists
+            // ========== EMAIL UNIQUENESS CHECK ==========
+            // Verify that the email address is not already registered
+            // Each user must have a unique email address (used as username)
             if (await _context.Users.AnyAsync(u => u.Email == model.Email))
             {
                 ModelState.AddModelError("Email", "This email is already registered.");
-                // Regenerate captcha for retry
+                
+                // Regenerate captcha for retry (security: new captcha for each attempt)
                 var random = new Random();
                 int num1 = random.Next(1, 10);
                 int num2 = random.Next(1, 10);
@@ -266,13 +368,18 @@ namespace Assignment.Controllers
                 return View(model);
             }
 
-            // Validate phone number if provided
+            // ========== PHONE NUMBER VALIDATION ==========
+            // Validate phone number format if provided (phone number is optional)
+            // Accepts various formats: +60-12-345-6789, 012-345-6789, or 0123456789
             if (!string.IsNullOrWhiteSpace(model.PhoneNumber))
             {
+                // Regular expression pattern to validate phone number format
+                // Allows: international format (+country code), Malaysian format with dashes, or plain digits
                 var phonePattern = @"^(\+?[0-9]{1,4}[-]?[0-9]{2,4}[-]?[0-9]{3,4}[-]?[0-9]{3,4}|[0-9]{7,15})$";
                 if (!System.Text.RegularExpressions.Regex.IsMatch(model.PhoneNumber, phonePattern))
                 {
                     ModelState.AddModelError("PhoneNumber", "Please enter a valid phone number (e.g., +60-12-345-6789, 012-345-6789, or 0123456789).");
+                    
                     // Regenerate captcha for retry
                     var random = new Random();
                     int num1 = random.Next(1, 10);
@@ -284,51 +391,81 @@ namespace Assignment.Controllers
                 }
             }
 
-            // Create new user
+            // ========== CREATE NEW USER ACCOUNT ==========
+            // All validations passed, create the new user account in database
             var user = new User
             {
-                FullName = model.FullName,
-                Email = model.Email,
+                FullName = model.FullName,  // User's full name
+                Email = model.Email,         // Email address (used as username, must be unique)
+                
+                // Hash password using BCrypt before storing (NEVER store plain text passwords!)
+                // BCrypt automatically handles salting and is resistant to brute-force attacks
                 PasswordHash = PasswordService.HashPassword(model.Password),
-                // Encrypt phone number
+                
+                // Encrypt phone number before storing (privacy protection)
+                // Phone numbers are sensitive data and should be encrypted
                 PhoneNumber = EncryptionService.Encrypt(model.PhoneNumber ?? ""),
+                
+                // All new registrations are Customer role by default
+                // Admin/Manager/Staff accounts are created by administrators
                 Role = UserRole.Customer,
+                
+                // Email is not verified yet (user must verify via email)
                 IsEmailVerified = false,
+                
+                // New accounts are active by default (can log in after email verification)
                 IsActive = true,
+                
+                // Record when account was created
                 CreatedAt = DateTime.Now
             };
 
+            // Save user to database
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // Log successful registration
+            // ========== LOG REGISTRATION EVENT ==========
+            // Record successful registration for security audit trail
             await _securityLogger.LogAsync("Register", user.UserId, ipAddress, $"New user registered: {user.Email}");
 
-            // Generate email verification token
+            // ========== GENERATE EMAIL VERIFICATION CODE ==========
+            // Generate a 6-digit OTP (One-Time Password) code for email verification
+            // This code will be sent to user's email and must be entered to verify email
             var variant = new Random();
-            var otpCode = variant.Next(100000, 999999).ToString(); ;
+            var otpCode = variant.Next(100000, 999999).ToString(); // Generate random 6-digit code
+            
+            // Create security token to store the OTP code
+            // Token expires after 1 day and can only be used once
             var securityToken = new SecurityToken
             {
-                TokenValue = otpCode,
-                UserId = user.UserId,
-                Type = TokenType.EmailVerification,
-                ExpiryDate = DateTime.Now.AddDays(1),
-                IsUsed = false
+                TokenValue = otpCode,                    // The 6-digit code
+                UserId = user.UserId,                    // Link to the user
+                Type = TokenType.EmailVerification,      // Token type: email verification
+                ExpiryDate = DateTime.Now.AddDays(1),    // Expires in 24 hours
+                IsUsed = false                           // Not used yet
             };
 
+            // Save token to database
             _context.SecurityTokens.Add(securityToken);
             await _context.SaveChangesAsync();
 
-            // Send email verification link
+            // ========== SEND VERIFICATION EMAIL ==========
+            // Send the OTP code to user's email address
+            // User must enter this code to verify their email and activate account
             try
             {
+                // Send email with OTP code using MailKit SMTP service
                 SendEmailDirectly1(user.Email, otpCode);
                 TempData["SuccessMessage"] = $"Verification code sent to {user.Email}.";
             }
             catch (Exception ex)
             {
+                // If email sending fails, log error
+                // In development/testing, show code in warning message (for testing purposes only)
                 _logger.LogError($"Email failed: {ex.Message}");
-                // Fallback for testing ONLY
+                
+                // Fallback for testing ONLY - shows code in browser
+                // In production, this should redirect to error page instead
                 TempData["WarningMessage"] = $"Email failed. Code: {otpCode}";
             }
 

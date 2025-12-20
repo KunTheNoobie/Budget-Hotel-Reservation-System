@@ -104,9 +104,6 @@
                                 <tr class="@(booking.IsDeleted ? "deleted-row" : "")">
                                     <td>
                                         @booking.BookingId
-                                        @if(booking.IsDeleted) { 
-                                            <span class="badge bg-danger">DELETED</span> 
-                                        }
                                     </td>
                                     <td>@booking.User.FullName<br /><small>@booking.User.Email</small></td>
                                     <td>@booking.Room.RoomNumber<br /><small>@booking.Room.RoomType.Name</small></td>
@@ -114,9 +111,13 @@
                                     <td>@booking.CheckOutDate.ToString("MM/dd/yyyy")</td>
                                     <td>RM @booking.TotalPrice.ToString("F2")</td>
                                     <td>
-                                        <span class="badge @(booking.Status == BookingStatus.Confirmed ? "bg-success" : booking.Status == BookingStatus.Cancelled ? "bg-danger" : "bg-warning")">
-                                            @booking.Status
-                                        </span>
+                                        @if(booking.IsDeleted) { 
+                                            <span class="badge bg-danger">DELETED</span> 
+                                        }else{
+                                            <span class="badge @(booking.Status == BookingStatus.Confirmed ? "bg-success" : booking.Status == BookingStatus.Cancelled ? "bg-danger" : "bg-warning")">
+                                                @booking.Status
+                                            </span>
+                                        }
                                     </td>
                                     <td style="position: relative;">
                                         

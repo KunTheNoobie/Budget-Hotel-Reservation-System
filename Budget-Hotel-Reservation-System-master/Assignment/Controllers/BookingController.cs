@@ -219,17 +219,37 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Find available room using the correct room type
+            // ========== FIND AVAILABLE ROOM ==========
+            // Find a room that is:
+            // 1. Of the correct room type
+            // 2. Currently available (not occupied, under maintenance, or being cleaned)
+            // 3. Not already booked for the requested dates
+            
             var actualRoomTypeId = roomType.RoomTypeId;
+            
+            // Query for available rooms matching the room type
             var availableRoom = await _context.Rooms
+                // Filter by room type and status (must be Available)
                 .Where(r => r.RoomTypeId == actualRoomTypeId && r.Status == RoomStatus.Available)
+                
+                // Check for date conflicts with existing bookings
+                // A room is NOT available if there's a booking that:
+                // - Is not cancelled, checked out, or no-show (these statuses free up the room)
+                // - Has overlapping dates with the requested check-in/check-out dates
                 .Where(r => !_context.Bookings.Any(b => b.RoomId == r.RoomId &&
+                    // Exclude bookings that don't block the room (cancelled, checked out, no-show)
                     b.Status != BookingStatus.Cancelled &&
                     b.Status != BookingStatus.CheckedOut &&
                     b.Status != BookingStatus.NoShow &&
+                    // Check for date overlap in three scenarios:
+                    // Scenario 1: Existing booking starts before requested check-in and ends after requested check-in
+                    // Scenario 2: Existing booking starts before requested check-out and ends after requested check-out
+                    // Scenario 3: Existing booking is completely within requested dates
                     ((b.CheckInDate <= checkIn && b.CheckOutDate > checkIn) ||
                      (b.CheckInDate < checkOut && b.CheckOutDate >= checkOut) ||
                      (b.CheckInDate >= checkIn && b.CheckOutDate <= checkOut))))
+                
+                // Get the first available room (if any)
                 .FirstOrDefaultAsync();
 
             if (availableRoom == null)
@@ -293,51 +313,90 @@ namespace Assignment.Controllers
                 return View();
             }
 
-            // Calculate price
+            // ========== PRICE CALCULATION ==========
+            // Calculate the number of nights by subtracting check-in from check-out date
             var nights = (checkOut - checkIn).Days;
+            
+            // Calculate base price: room price per night multiplied by number of nights
             var basePrice = roomType.BasePrice * nights;
+            
+            // Initialize discount to zero (will be calculated if promotion is applied)
             decimal discount = 0;
 
+            // ========== PROMOTION VALIDATION ==========
             // If package is selected, promotions don't apply (package price is fixed)
+            // Only validate promotion if:
+            // 1. A promotion ID was provided
+            // 2. No package is being booked (packages have fixed prices)
             if (promotionId.HasValue && !packageId.HasValue)
             {
-                // Get user info for validation
+                // ========== GATHER USER INFORMATION FOR PROMOTION VALIDATION ==========
+                // Get user from database to access their phone number (needed for abuse prevention)
                 var user = await _context.Users.FindAsync(userId.Value);
+                
+                // Decrypt phone number for validation (phone numbers are encrypted in database)
                 var phoneNumber = user?.DecryptedPhoneNumber;
+                
+                // Get device fingerprint (unique identifier for the user's device/browser)
+                // Used to prevent same person using promotion multiple times from different devices
                 var deviceFingerprint = GetDeviceFingerprint();
+                
+                // Get client IP address (used for location-based abuse prevention)
                 var ipAddress = GetClientIpAddress();
 
-                // Validate promotion with abuse prevention
+                // ========== VALIDATE PROMOTION WITH COMPREHENSIVE ABUSE PREVENTION ==========
+                // This validation checks:
+                // - Promotion is active and within date range
+                // - Minimum nights and minimum amount requirements
+                // - Maximum total uses across all users
+                // - Per-phone-number limit (prevents same person using multiple times)
+                // - Per-payment-card limit (prevents same card being used multiple times)
+                // - Per-user-account limit (prevents same account using multiple times)
+                // - Per-device/IP limit (prevents same device/location using multiple times)
+                // Card number is null here because payment hasn't been processed yet
                 var (isValid, errorMessage) = await _promotionValidation.ValidatePromotionUsageAsync(
                     promotionId.Value,
                     userId.Value,
                     phoneNumber,
-                    null, // Card number not available at booking creation
+                    null, // Card number not available at booking creation (will be validated at payment)
                     deviceFingerprint,
                     ipAddress,
                     basePrice,
                     nights
                 );
 
+                // If promotion validation failed, add error to ModelState
+                // This will prevent booking creation and show error message to user
                 if (!isValid)
                 {
                     ModelState.AddModelError("PromotionId", errorMessage);
                 }
                 else
                 {
+                    // ========== CALCULATE DISCOUNT AMOUNT ==========
+                    // Promotion is valid, now calculate the discount amount
                     var promotion = await _context.Promotions.FindAsync(promotionId.Value);
                     if (promotion != null)
                     {
+                        // Check promotion type: Percentage or Fixed Amount
                         if (promotion.Type == DiscountType.Percentage)
                         {
+                            // Percentage discount: Calculate percentage of base price
+                            // Example: 10% off RM100 = RM10 discount
                             discount = basePrice * (promotion.Value / 100m);
-                            // Ensure discount doesn't exceed base price
+                            
+                            // Safety check: Ensure discount doesn't exceed base price
+                            // This prevents negative total prices
                             if (discount > basePrice) discount = basePrice;
                         }
                         else
                         {
+                            // Fixed amount discount: Use promotion value directly
+                            // Example: RM50 off = RM50 discount
                             discount = promotion.Value;
-                            // Ensure discount doesn't exceed base price
+                            
+                            // Safety check: Ensure discount doesn't exceed base price
+                            // This prevents negative total prices
                             if (discount > basePrice) discount = basePrice;
                         }
                     }
@@ -407,61 +466,107 @@ namespace Assignment.Controllers
                 return View();
             }
 
+            // ========== CALCULATE FINAL TOTAL PRICE ==========
             decimal totalPrice;
 
+            // Determine final price based on booking type (package vs regular)
             if (packageId.HasValue)
             {
+                // ========== PACKAGE BOOKING PRICING ==========
+                // Package bookings have fixed prices that include room + services
+                // Promotions do NOT apply to packages (packages already have discounted prices)
                 var package = await _context.Packages.FindAsync(packageId.Value);
                 if (package != null)
                 {
-                    // Use package price - promotions don't apply to packages
+                    // Use the fixed package price (already includes all services)
                     totalPrice = package.TotalPrice;
-                    promotionId = null; // Clear promotion for package bookings
+                    
+                    // Clear promotion ID because packages don't accept promotions
+                    // This ensures data consistency
+                    promotionId = null;
                 }
                 else
                 {
-                    // Package not found, use regular pricing
+                    // Package not found in database (shouldn't happen, but handle gracefully)
+                    // Fall back to regular pricing calculation
                     totalPrice = basePrice - discount;
                 }
             }
             else
             {
-                // Regular booking with optional promotion
+                // ========== REGULAR BOOKING PRICING ==========
+                // Regular room booking: base price minus any discount from promotion
+                // If no promotion was applied, discount will be 0, so totalPrice = basePrice
                 totalPrice = basePrice - discount;
             }
 
-            // Create booking
+            // ========== CREATE BOOKING RECORD ==========
+            // All validations passed, now create the booking in the database
             try
             {
+                // Create new Booking entity with all required information
                 var booking = new Booking
                 {
+                    // Link booking to the user who made it
                     UserId = userId.Value,
+                    
+                    // Link booking to the available room that was found
                     RoomId = availableRoom.RoomId,
+                    
+                    // Set check-in and check-out dates from user input
                     CheckInDate = checkIn,
                     CheckOutDate = checkOut,
+                    
+                    // Set total price (calculated above based on booking type)
                     TotalPrice = totalPrice,
+                    
+                    // Initial status is Pending (waiting for payment)
+                    // Status will change to Confirmed after payment is processed
                     Status = BookingStatus.Pending,
+                    
+                    // Link promotion if one was applied (null for package bookings or no promotion)
                     PromotionId = promotionId, // Will be null for package bookings
                     BookingDate = DateTime.Now
                 };
 
+                // Add booking to database context
                 _context.Bookings.Add(booking);
+                
+                // Generate unique QR token for check-in
+                // This token is used to verify booking identity when guest checks in via QR code
+                // QR code contains this token, which is more secure than using booking ID directly
                 booking.QRToken = Guid.NewGuid();
+                
+                // Save booking to database
+                // This creates the booking record and generates the BookingId
                 await _context.SaveChangesAsync();
 
+                // Log successful booking creation for audit trail
                 _logger.LogInformation("Booking created successfully: BookingId={BookingId}, UserId={UserId}, RoomId={RoomId}",
                     booking.BookingId, userId.Value, availableRoom.RoomId);
 
+                // Redirect to payment page to process payment
+                // Booking is created but status is still Pending until payment is completed
                 return RedirectToAction("Payment", new { bookingId = booking.BookingId });
             }
             catch (Exception ex)
             {
+                // ========== ERROR HANDLING ==========
+                // If an error occurs during booking creation, log it and show error to user
+                // This could happen due to database errors, concurrency issues, etc.
                 _logger.LogError(ex, "Error creating booking for UserId={UserId}, RoomId={RoomId}", userId.Value, availableRoom.RoomId);
+                
+                // Add error message to ModelState for display to user
                 ModelState.AddModelError("", "An error occurred while creating your booking. Please try again.");
 
+                // ========== RESTORE VIEW DATA ==========
+                // Restore ViewBag data so user can see the form again and retry
+                // This provides a better user experience than showing a blank page
                 ViewBag.RoomType = roomType;
                 ViewBag.CheckIn = checkIn;
                 ViewBag.CheckOut = checkOut;
+                
+                // Clean up invalid promotions and reload active promotions
                 await _promotionValidation.DeactivateInvalidPromotionsAsync();
                 ViewBag.Promotions = await _context.Promotions
                     .Where(p => p.StartDate <= DateTime.Now && p.EndDate >= DateTime.Now && p.IsActive)
@@ -490,28 +595,44 @@ namespace Assignment.Controllers
         [HttpGet]
         public async Task<IActionResult> Payment(int bookingId)
         {
+            // ========== LOAD BOOKING FOR PAYMENT ==========
+            // Get the booking that needs payment processing
             var userId = AuthenticationHelper.GetUserId(HttpContext);
+            
+            // Load booking with all related data needed for payment page
             var booking = await _context.Bookings
-                .Include(b => b.User)
-                .Include(b => b.Room)
-                    .ThenInclude(r => r.RoomType)
-                .Include(b => b.Promotion)
+                .Include(b => b.User)              // User information
+                .Include(b => b.Room)              // Room information
+                    .ThenInclude(r => r.RoomType)  // Room type details (price, name, etc.)
+                .Include(b => b.Promotion)         // Promotion details (if applied)
                 .FirstOrDefaultAsync(b => b.BookingId == bookingId);
 
+            // ========== SECURITY CHECK ==========
+            // Verify booking exists and belongs to current user
+            // Users can only pay for their own bookings
             if (booking == null || booking.UserId != userId)
             {
                 return NotFound();
             }
 
+            // ========== BOOKING STATUS CHECK ==========
+            // Only allow payment for Pending bookings
+            // If booking is already Confirmed, Cancelled, etc., payment has already been processed
             if (booking.Status != BookingStatus.Pending)
             {
                 TempData["Error"] = "This booking has already been processed.";
                 return RedirectToAction("MyBookings");
             }
 
-            // Detect if this is a package booking and load package information
-            var nights = (booking.CheckOutDate - booking.CheckInDate).Days;
-            var calculatedRoomPrice = booking.Room.RoomType.BasePrice * nights;
+            // ========== DETECT PACKAGE BOOKING ==========
+            // Determine if this is a package booking by comparing total price with calculated room price
+            // Package bookings have fixed prices that include services, so price won't match room price calculation
+            var nights = (booking.CheckOutDate - booking.CheckInDate).Days;  // Calculate number of nights
+            var calculatedRoomPrice = booking.Room.RoomType.BasePrice * nights;  // Calculate what room price should be
+            
+            // It's a package booking if:
+            // 1. Total price doesn't match calculated room price, AND
+            // 2. Either no promotion was applied OR total price is higher than room price (promotions reduce price, packages increase it)
             var isPackageBooking = booking.TotalPrice != calculatedRoomPrice &&
                                   (booking.Promotion == null || booking.TotalPrice > calculatedRoomPrice);
 
@@ -548,25 +669,36 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ProcessPayment(ViewModels.Booking.PaymentViewModel model)
         {
+            // ========== LOAD BOOKING ==========
+            // Get the booking that payment is being processed for
             var userId = AuthenticationHelper.GetUserId(HttpContext);
             var booking = await _context.Bookings
                 .FirstOrDefaultAsync(b => b.BookingId == model.BookingId);
 
+            // ========== SECURITY CHECK ==========
+            // Verify booking exists and belongs to current user
+            // Users can only pay for their own bookings
             if (booking == null || booking.UserId != userId)
             {
                 return NotFound();
             }
 
+            // ========== BOOKING STATUS CHECK ==========
+            // Only allow payment processing for Pending bookings
+            // If booking is already Confirmed, payment has already been processed
             if (booking.Status != BookingStatus.Pending)
             {
                 TempData["Error"] = "This booking has already been processed.";
                 return RedirectToAction("MyBookings");
             }
 
-            // Validate payment method specific fields
+            // ========== PAYMENT METHOD VALIDATION ==========
+            // Validate that user selected a payment method
             if (!model.PaymentMethod.HasValue)
             {
                 ModelState.AddModelError("PaymentMethod", "Please select a payment method.");
+                
+                // Reload booking data for view
                 model.Booking = await _context.Bookings
                     .Include(b => b.User)
                     .Include(b => b.Room)
@@ -576,12 +708,18 @@ namespace Assignment.Controllers
                 return View("Payment", model);
             }
 
+            // ========== CREDIT CARD VALIDATION ==========
+            // If payment method is Credit Card, validate all required card fields
             if (model.PaymentMethod.Value == PaymentMethod.CreditCard)
             {
+                // Check that all credit card fields are provided
+                // Required: Card Number, Cardholder Name, Expiry Month, Expiry Year, CVV
                 if (string.IsNullOrEmpty(model.CardNumber) || string.IsNullOrEmpty(model.CardholderName) ||
                     !model.ExpiryMonth.HasValue || !model.ExpiryYear.HasValue || string.IsNullOrEmpty(model.CVV))
                 {
                     ModelState.AddModelError("", "Please fill in all credit card details.");
+                    
+                    // Reload booking data for view
                     model.Booking = await _context.Bookings
                         .Include(b => b.User)
                         .Include(b => b.Room)
@@ -591,11 +729,16 @@ namespace Assignment.Controllers
                     return View("Payment", model);
                 }
             }
+            // ========== PAYPAL VALIDATION ==========
+            // If payment method is PayPal, validate PayPal email
             else if (model.PaymentMethod.Value == PaymentMethod.PayPal)
             {
+                // PayPal requires email address for payment processing
                 if (string.IsNullOrEmpty(model.PayPalEmail))
                 {
                     ModelState.AddModelError("", "Please enter your PayPal email.");
+                    
+                    // Reload booking data for view
                     model.Booking = await _context.Bookings
                         .Include(b => b.User)
                         .Include(b => b.Room)
@@ -605,12 +748,18 @@ namespace Assignment.Controllers
                     return View("Payment", model);
                 }
             }
+            // ========== BANK TRANSFER VALIDATION ==========
+            // If payment method is Bank Transfer, validate all required bank details
             else if (model.PaymentMethod.Value == PaymentMethod.BankTransfer)
             {
+                // Check that all bank transfer fields are provided
+                // Required: Bank Name, Account Number, Account Holder Name
                 if (string.IsNullOrEmpty(model.BankName) || string.IsNullOrEmpty(model.AccountNumber) ||
                     string.IsNullOrEmpty(model.AccountHolderName))
                 {
                     ModelState.AddModelError("", "Please fill in all bank transfer details.");
+                    
+                    // Reload booking data for view
                     model.Booking = await _context.Bookings
                         .Include(b => b.User)
                         .Include(b => b.Room)
@@ -621,6 +770,9 @@ namespace Assignment.Controllers
                 }
             }
 
+            // ========== FINAL VALIDATION CHECK ==========
+            // Check if there are any validation errors in ModelState
+            // If errors exist, reload booking data and return to payment page
             if (!ModelState.IsValid)
             {
                 model.Booking = await _context.Bookings
@@ -632,29 +784,43 @@ namespace Assignment.Controllers
                 return View("Payment", model);
             }
 
+            // ========== PROCESS PAYMENT ==========
+            // All validations passed, process the payment
             try
             {
-                // Auto-generate transaction ID
+                // ========== GENERATE TRANSACTION ID ==========
+                // Generate a unique transaction ID for this payment
+                // This ID is used for tracking and reference purposes
+                // Format varies by payment method (e.g., "CC-20231215-123456" for credit card)
                 var transactionId = GenerateTransactionId(model.PaymentMethod.Value);
 
-                // Update booking with payment information (Payment merged into Booking)
-                booking.PaymentAmount = booking.TotalPrice;
-                booking.PaymentMethod = model.PaymentMethod.Value;
-                booking.PaymentStatus = PaymentStatus.Completed;
-                booking.TransactionId = transactionId;
-                booking.PaymentDate = DateTime.Now;
-                booking.Status = BookingStatus.Confirmed;
+                // ========== UPDATE BOOKING WITH PAYMENT INFORMATION ==========
+                // Payment information is stored directly in the Booking table (not separate Payment table)
+                // This simplifies the data model and makes queries easier
+                booking.PaymentAmount = booking.TotalPrice;              // Amount paid (equals total price for full payment)
+                booking.PaymentMethod = model.PaymentMethod.Value;         // Payment method used (CreditCard, PayPal, BankTransfer)
+                booking.PaymentStatus = PaymentStatus.Completed;           // Mark payment as completed
+                booking.TransactionId = transactionId;                    // Store transaction ID for reference
+                booking.PaymentDate = DateTime.Now;                        // Record when payment was processed
+                booking.Status = BookingStatus.Confirmed;                  // Change booking status from Pending to Confirmed
+                
+                // Save payment information to database
                 await _context.SaveChangesAsync();
 
-                // Record promotion usage after successful payment
+                // ========== RECORD PROMOTION USAGE ==========
+                // If a promotion was used, record the usage for abuse prevention
+                // This tracks who used the promotion and prevents multiple uses
                 if (booking.PromotionId.HasValue)
                 {
+                    // Get user information for tracking
                     var bookingUser = await _context.Users.FindAsync(booking.UserId);
-                    var phoneNumber = bookingUser?.DecryptedPhoneNumber;
-                    var cardNumber = model.PaymentMethod.Value == PaymentMethod.CreditCard ? model.CardNumber : null;
-                    var deviceFingerprint = GetDeviceFingerprint();
-                    var ipAddress = GetClientIpAddress();
+                    var phoneNumber = bookingUser?.DecryptedPhoneNumber;  // Decrypt phone number for tracking
+                    var cardNumber = model.PaymentMethod.Value == PaymentMethod.CreditCard ? model.CardNumber : null;  // Get card number if credit card
+                    var deviceFingerprint = GetDeviceFingerprint();        // Get device identifier
+                    var ipAddress = GetClientIpAddress();                 // Get IP address
 
+                    // Record promotion usage with all tracking information
+                    // This information is stored in the Booking table for abuse prevention
                     await _promotionValidation.RecordPromotionUsageAsync(
                         booking.PromotionId.Value,
                         booking.BookingId,
@@ -666,17 +832,25 @@ namespace Assignment.Controllers
                     );
                 }
 
-                // Simulate email sending
+                // ========== SEND CONFIRMATION EMAIL ==========
+                // Simulate sending booking confirmation email to user
+                // In production, this would use EmailService to send real email
                 var user = await _context.Users.FindAsync(booking.UserId);
                 if (user != null)
                 {
+                    // Log email sending (for demonstration - in production, actually send email)
                     _logger.LogInformation("Email sent to {Email} for booking confirmation {BookingId}. Subject: Booking Confirmation - Booking #{BookingId}",
                         user.Email, booking.BookingId, booking.BookingId);
+                    
+                    // Show message to user about QR code for check-in
                     TempData["EmailSent"] = $"Booking confirmed by {user.FullName}. Show this QR when checking in!";
                 }
 
+                // Log successful payment processing
                 _logger.LogInformation("Payment processed successfully for booking {BookingId}", booking.BookingId);
-                //TempData["Success"] = "Payment processed successfully!";
+                
+                // Redirect to booking confirmation page
+                // This page shows booking details and QR code for check-in
                 return RedirectToAction("BookingConfirmation", new { bookingId = booking.BookingId });
             }
             catch (Exception ex)
@@ -693,16 +867,30 @@ namespace Assignment.Controllers
             }
         }
 
-        // Helper methods for device/IP tracking
+        // ========== HELPER METHODS FOR DEVICE/IP TRACKING ==========
+        // These methods are used for promotion abuse prevention
+        // They help identify unique devices and locations to prevent same person using promotions multiple times
+        
+        /// <summary>
+        /// Generates a device fingerprint based on browser headers.
+        /// Used for promotion abuse prevention (identifying unique devices).
+        /// </summary>
+        /// <returns>Device fingerprint string or null if generation fails.</returns>
         private string? GetDeviceFingerprint()
         {
             try
             {
-                var userAgent = Request.Headers["User-Agent"].ToString();
-                var acceptLanguage = Request.Headers["Accept-Language"].ToString();
-                var acceptEncoding = Request.Headers["Accept-Encoding"].ToString();
+                // ========== COLLECT BROWSER INFORMATION ==========
+                // Get browser headers that help identify the device/browser
+                // These headers are sent by the browser automatically
+                var userAgent = Request.Headers["User-Agent"].ToString();        // Browser and OS information
+                var acceptLanguage = Request.Headers["Accept-Language"].ToString(); // Preferred languages
+                var acceptEncoding = Request.Headers["Accept-Encoding"].ToString(); // Supported encodings
 
-                // Create a simple fingerprint (in production, use a more sophisticated method)
+                // ========== CREATE DEVICE FINGERPRINT ==========
+                // Combine headers to create a unique identifier for the device
+                // In production, use a more sophisticated fingerprinting library
+                // This simple method works for basic abuse prevention
                 var fingerprint = $"{userAgent}|{acceptLanguage}|{acceptEncoding}";
                 var hash = System.Text.Encoding.UTF8.GetBytes(fingerprint);
                 return Convert.ToBase64String(hash).Substring(0, Math.Min(50, Convert.ToBase64String(hash).Length));
@@ -713,43 +901,72 @@ namespace Assignment.Controllers
             }
         }
 
+        /// <summary>
+        /// Gets the client's IP address from request headers.
+        /// Handles proxies, load balancers, and direct connections.
+        /// Used for promotion abuse prevention (location-based tracking).
+        /// </summary>
+        /// <returns>Client IP address string or null if retrieval fails.</returns>
         private string? GetClientIpAddress()
         {
             try
             {
-                // Check for forwarded IP (if behind proxy/load balancer)
+                // ========== CHECK FOR FORWARDED IP ==========
+                // If application is behind a proxy or load balancer, real IP is in X-Forwarded-For header
+                // This is common in production environments (e.g., behind nginx, cloudflare, etc.)
                 var forwardedFor = Request.Headers["X-Forwarded-For"].FirstOrDefault();
                 if (!string.IsNullOrEmpty(forwardedFor))
                 {
+                    // X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2, ...)
+                    // Take the first one (original client IP)
                     var ip = forwardedFor.Split(',')[0].Trim();
                     return ip;
                 }
 
-                // Check for real IP
+                // ========== CHECK FOR REAL IP HEADER ==========
+                // Some proxies use X-Real-IP header instead
+                // This is another common way to get the real client IP
                 var realIp = Request.Headers["X-Real-IP"].FirstOrDefault();
                 if (!string.IsNullOrEmpty(realIp))
                 {
                     return realIp;
                 }
 
-                // Fallback to connection remote IP
+                // ========== FALLBACK TO DIRECT CONNECTION ==========
+                // If no proxy headers, get IP directly from connection
+                // This works for direct connections (development, local testing)
                 return HttpContext.Connection.RemoteIpAddress?.ToString();
             }
             catch
             {
+                // Return null if IP retrieval fails (fail gracefully)
                 return null;
             }
         }
 
+        /// <summary>
+        /// Generates a unique transaction ID for payment tracking.
+        /// Format: [PREFIX]-[DATE]-[RANDOM]
+        /// Example: "CC-20231215-123456" for credit card payment.
+        /// </summary>
+        /// <param name="paymentMethod">The payment method used (determines prefix).</param>
+        /// <returns>Unique transaction ID string.</returns>
         private string GenerateTransactionId(PaymentMethod paymentMethod)
         {
+            // ========== DETERMINE PREFIX BY PAYMENT METHOD ==========
+            // Each payment method gets a unique prefix for easy identification
+            // CC = Credit Card, PP = PayPal, BT = Bank Transfer, TXN = Unknown/Default
             var prefix = paymentMethod switch
             {
-                PaymentMethod.CreditCard => "CC",
-                PaymentMethod.PayPal => "PP",
-                PaymentMethod.BankTransfer => "BT",
-                _ => "TXN"
+                PaymentMethod.CreditCard => "CC",      // Credit Card prefix
+                PaymentMethod.PayPal => "PP",          // PayPal prefix
+                PaymentMethod.BankTransfer => "BT",    // Bank Transfer prefix
+                _ => "TXN"                             // Default/Unknown prefix
             };
+            // ========== GENERATE TRANSACTION ID ==========
+            // Format: [PREFIX]-[DATE]-[RANDOM]
+            // Example: "CC-20231215-1234567890"
+            // Prefix identifies payment method, date helps with tracking, ticks provide uniqueness
             return $"{prefix}-{DateTime.Now:yyyyMMdd}-{DateTime.Now.Ticks.ToString().Substring(10)}";
         }
 

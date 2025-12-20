@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Assignment.Migrations
 {
     [DbContext(typeof(HotelDbContext))]
-    [Migration("20251128102352_Hi")]
+    [Migration("20251216202900_Hi")]
     partial class Hi
     {
         /// <inheritdoc />
@@ -74,7 +74,13 @@ namespace Assignment.Migrations
                     b.Property<DateTime>("CheckInDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("CheckInTime")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CheckOutDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CheckOutTime")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -117,10 +123,16 @@ namespace Assignment.Migrations
                     b.Property<DateTime?>("PromotionUsedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("QRToken")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal?>("RefundAmount")
                         .HasColumnType("decimal(18, 2)");
 
                     b.Property<int>("RoomId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Source")
                         .HasColumnType("int");
 
                     b.Property<int>("Status")
@@ -204,6 +216,9 @@ namespace Assignment.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
 
                     b.Property<string>("City")
                         .IsRequired()
@@ -743,6 +758,9 @@ namespace Assignment.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int?>("HotelId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -778,6 +796,8 @@ namespace Assignment.Migrations
                         .HasColumnType("nvarchar(50)");
 
                     b.HasKey("UserId");
+
+                    b.HasIndex("HotelId");
 
                     b.ToTable("Users");
                 });
@@ -911,6 +931,15 @@ namespace Assignment.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Assignment.Models.User", b =>
+                {
+                    b.HasOne("Assignment.Models.Hotel", "Hotel")
+                        .WithMany()
+                        .HasForeignKey("HotelId");
+
+                    b.Navigation("Hotel");
                 });
 
             modelBuilder.Entity("Assignment.Models.Amenity", b =>

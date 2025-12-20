@@ -39,6 +39,18 @@ namespace Assignment.Models
     }
 
     /// <summary>
+    /// Enumeration representing the source/type of booking.
+    /// </summary>
+    public enum BookingSource
+    {
+        Direct,     // Direct booking through website
+        OTA,        // Online Travel Agency (Booking.com, Expedia, etc.)
+        Group,      // Group booking
+        Phone,      // Phone booking
+        WalkIn      // Walk-in booking
+    }
+
+    /// <summary>
     /// Represents a hotel room booking made by a user.
     /// Contains booking details, payment information, and cancellation data.
     /// Payment information is merged into this entity (previously separate Payment table).
@@ -101,6 +113,12 @@ namespace Assignment.Models
         /// Null if no promotion was used.
         /// </summary>
         public int? PromotionId { get; set; }
+
+        /// <summary>
+        /// Source/type of the booking (Direct, OTA, Group, Phone, WalkIn).
+        /// Defaults to Direct.
+        /// </summary>
+        public BookingSource Source { get; set; } = BookingSource.Direct;
 
         /// <summary>
         /// Navigation property - the user who made this booking.

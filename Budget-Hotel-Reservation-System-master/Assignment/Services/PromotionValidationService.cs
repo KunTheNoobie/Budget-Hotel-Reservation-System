@@ -54,23 +54,31 @@ namespace Assignment.Services
             decimal totalAmount,
             int nights)
         {
-            // Step 1: Clean up any invalid promotions (expired, max uses reached, etc.)
+            // ========== STEP 1: CLEANUP INVALID PROMOTIONS ==========
+            // Before validating, clean up any promotions that are expired or have reached max uses
+            // This ensures we're working with current, valid promotions
             await DeactivateInvalidPromotionsAsync();
 
-            // Step 2: Load the promotion
+            // ========== STEP 2: LOAD PROMOTION FROM DATABASE ==========
+            // Retrieve the promotion record from database using the promotion ID
             var promotion = await _context.Promotions
                 .FirstOrDefaultAsync(p => p.PromotionId == promotionId);
 
-            // Step 3: Check if promotion exists and is active
+            // ========== STEP 3: CHECK PROMOTION EXISTS AND IS ACTIVE ==========
+            // Verify that the promotion exists in database and is currently active
+            // Inactive promotions cannot be used even if they exist
             if (promotion == null || !promotion.IsActive)
             {
                 return (false, "Invalid or inactive promotion code.");
             }
 
-            // Step 4: Check date validity (must be within start and end dates)
+            // ========== STEP 4: CHECK DATE VALIDITY ==========
+            // Verify that current date is within promotion's valid date range
+            // Promotion must have started (StartDate <= Now) and not expired (EndDate >= Now)
             if (promotion.StartDate > DateTime.Now || promotion.EndDate < DateTime.Now)
             {
-                // Auto-deactivate if expired (for future requests)
+                // If promotion has expired, automatically deactivate it
+                // This prevents future validation attempts on expired promotions
                 if (promotion.EndDate < DateTime.Now)
                 {
                     promotion.IsActive = false;
@@ -79,92 +87,125 @@ namespace Assignment.Services
                 return (false, "The selected promotion is not valid for the current date.");
             }
 
-            // Step 5: Check minimum requirements (nights and amount)
+            // ========== STEP 5: CHECK MINIMUM REQUIREMENTS ==========
+            // Some promotions require minimum booking amount or minimum number of nights
+            // This ensures promotions are only used for qualifying bookings
+            
+            // Check minimum nights requirement (e.g., "Stay 3 nights or more")
             if (promotion.MinimumNights.HasValue && nights < promotion.MinimumNights.Value)
             {
                 return (false, $"This promotion requires a minimum stay of {promotion.MinimumNights.Value} night(s).");
             }
 
+            // Check minimum amount requirement (e.g., "Bookings over RM500")
             if (promotion.MinimumAmount.HasValue && totalAmount < promotion.MinimumAmount.Value)
             {
                 return (false, $"This promotion requires a minimum amount of RM {promotion.MinimumAmount.Value:F2}.");
             }
 
-            // Step 6: Check maximum total uses across all users
+            // ========== STEP 6: CHECK MAXIMUM TOTAL USES ==========
+            // Some promotions have a global limit (e.g., "First 100 customers only")
+            // Count how many times this promotion has been used across ALL users
             if (promotion.MaxTotalUses.HasValue)
             {
+                // Count bookings where this promotion was used (PromotionUsedAt is not null)
                 var totalUses = await _context.Bookings
                     .CountAsync(b => b.PromotionId == promotionId && b.PromotionUsedAt != null);
                 
+                // If maximum uses reached, promotion is no longer valid
                 if (totalUses >= promotion.MaxTotalUses.Value)
                 {
-                    // Auto-deactivate if max usage reached
+                    // Automatically deactivate promotion when max uses reached
+                    // This prevents further attempts to use an exhausted promotion
                     promotion.IsActive = false;
                     await _context.SaveChangesAsync();
                     return (false, "This promotion has reached its maximum usage limit.");
                 }
             }
 
-            // Step 7: Check per-phone-number limit (abuse prevention)
+            // ========== STEP 7: CHECK PER-PHONE-NUMBER LIMIT (ABUSE PREVENTION) ==========
+            // Prevent same person from using promotion multiple times with different accounts
+            // Phone number is encrypted before comparison (privacy protection)
             if (promotion.LimitPerPhoneNumber && !string.IsNullOrEmpty(phoneNumber))
             {
+                // Encrypt phone number to match format stored in database
                 var phoneHash = EncryptionService.Encrypt(phoneNumber);
+                
+                // Count how many times this promotion was used with this phone number
                 var phoneUses = await _context.Bookings
                     .CountAsync(b => b.PromotionId == promotionId && 
                                    b.PromotionPhoneNumberHash == phoneHash && 
                                    b.PromotionUsedAt != null);
                 
+                // If limit reached, prevent further use
                 if (phoneUses >= promotion.MaxUsesPerLimit)
                 {
                     return (false, "This promotion has already been used with this phone number.");
                 }
             }
 
-            // Step 8: Check per-payment-card limit (abuse prevention)
+            // ========== STEP 8: CHECK PER-PAYMENT-CARD LIMIT (ABUSE PREVENTION) ==========
+            // Prevent same payment card from being used multiple times with same promotion
+            // Card number is hashed (not stored in full) for security
             if (promotion.LimitPerPaymentCard && !string.IsNullOrEmpty(cardNumber))
             {
+                // Create card identifier (last 4 digits + hash of full number)
                 var cardIdentifier = GetCardIdentifier(cardNumber);
+                
+                // Count how many times this promotion was used with this payment card
                 var cardUses = await _context.Bookings
                     .CountAsync(b => b.PromotionId == promotionId && 
                                    b.PromotionCardIdentifier == cardIdentifier && 
                                    b.PromotionUsedAt != null);
                 
+                // If limit reached, prevent further use
                 if (cardUses >= promotion.MaxUsesPerLimit)
                 {
                     return (false, "This promotion has already been used with this payment card.");
                 }
             }
 
-            // Step 9: Check per-user-account limit (abuse prevention)
+            // ========== STEP 9: CHECK PER-USER-ACCOUNT LIMIT (ABUSE PREVENTION) ==========
+            // Prevent same user account from using promotion more than allowed times
+            // This is the simplest abuse prevention mechanism
             if (promotion.LimitPerUserAccount)
             {
+                // Count how many times this user has used this promotion
                 var userUses = await _context.Bookings
                     .CountAsync(b => b.PromotionId == promotionId && 
                                    b.UserId == userId && 
                                    b.PromotionUsedAt != null);
                 
+                // If limit reached, prevent further use
                 if (userUses >= promotion.MaxUsesPerLimit)
                 {
                     return (false, "This promotion has already been used with your account.");
                 }
             }
 
-            // Step 10: Check per-device/IP limit (abuse prevention)
+            // ========== STEP 10: CHECK PER-DEVICE/IP LIMIT (ABUSE PREVENTION) ==========
+            // Prevent same device or IP address from using promotion multiple times
+            // This catches users trying to bypass limits by creating multiple accounts
             if (promotion.LimitPerDevice)
             {
+                // Count bookings where same device fingerprint OR same IP address was used
+                // This catches both device-based and location-based abuse attempts
                 var deviceUses = await _context.Bookings
                     .Where(b => b.PromotionId == promotionId && b.PromotionUsedAt != null)
                     .Where(b => (deviceFingerprint != null && b.PromotionDeviceFingerprint == deviceFingerprint) ||
                                 (ipAddress != null && b.PromotionIpAddress == ipAddress))
                     .CountAsync();
                 
+                // If limit reached, prevent further use
                 if (deviceUses >= promotion.MaxUsesPerLimit)
                 {
                     return (false, "This promotion has already been used from this device or location.");
                 }
             }
 
-            // All validation checks passed
+            // ========== ALL VALIDATION CHECKS PASSED ==========
+            // Promotion is valid and can be used for this booking
+            // Return success with empty error message
             return (true, string.Empty);
         }
 
@@ -189,18 +230,33 @@ namespace Assignment.Services
             string? deviceFingerprint,
             string? ipAddress)
         {
-            // Update the booking with promotion usage tracking information
+            // ========== RECORD PROMOTION USAGE TRACKING ==========
+            // Store tracking information in the booking record for abuse prevention
+            // This information is used to enforce usage limits in future validations
             var booking = await _context.Bookings.FindAsync(bookingId);
             if (booking != null)
             {
+                // Link promotion to booking
                 booking.PromotionId = promotionId;
+                
+                // Store encrypted phone number (if provided) for per-phone-number limit checking
                 booking.PromotionPhoneNumberHash = !string.IsNullOrEmpty(phoneNumber) ? EncryptionService.Encrypt(phoneNumber) : null;
+                
+                // Store hashed card identifier (if provided) for per-card limit checking
+                // Card identifier includes last 4 digits + hash of full number (for security)
                 booking.PromotionCardIdentifier = !string.IsNullOrEmpty(cardNumber) ? GetCardIdentifier(cardNumber) : null;
+                
+                // Store device fingerprint for per-device limit checking
                 booking.PromotionDeviceFingerprint = deviceFingerprint;
+                
+                // Store IP address for per-location limit checking
                 booking.PromotionIpAddress = ipAddress;
+                
+                // Record timestamp when promotion was used
                 booking.PromotionUsedAt = DateTime.Now;
             }
 
+            // Save changes to database
             await _context.SaveChangesAsync();
 
             // After recording usage, check if promotion should be deactivated

@@ -174,52 +174,85 @@ namespace Assignment.Services
         }
 
         /// <summary>
-        /// Sends an email using SMTP.
+        /// Sends an email using SMTP (Simple Mail Transfer Protocol).
+        /// This is the core email sending method used by all email functions.
         /// </summary>
         /// <param name="toEmail">Recipient's email address.</param>
-        /// <param name="toName">Recipient's name.</param>
-        /// <param name="subject">Email subject.</param>
-        /// <param name="body">Email body (HTML format).</param>
+        /// <param name="toName">Recipient's name (display name).</param>
+        /// <param name="subject">Email subject line.</param>
+        /// <param name="body">Email body in HTML format (can include styling, links, etc.).</param>
         /// <returns>True if email was sent successfully, false otherwise.</returns>
         private async Task<bool> SendEmailAsync(string toEmail, string toName, string subject, string body)
         {
             try
             {
-                // Create email message
+                // ========== CREATE EMAIL MESSAGE ==========
+                // Create MIME message object (standard email format)
                 var message = new MimeMessage();
+                
+                // Set sender (From) address and display name
+                // Example: "Budget Hotel Reservation System" <noreply@hotel.com>
                 message.From.Add(new MailboxAddress(FromName, FromEmail));
+                
+                // Set recipient (To) address and display name
+                // Example: "John Smith" <john@example.com>
                 message.To.Add(new MailboxAddress(toName, toEmail));
+                
+                // Set email subject line
                 message.Subject = subject;
 
-                // Create HTML body
+                // ========== CREATE HTML EMAIL BODY ==========
+                // Create email body with HTML formatting
+                // HTML allows rich formatting (colors, fonts, buttons, links, etc.)
                 var bodyBuilder = new BodyBuilder
                 {
-                    HtmlBody = body
+                    HtmlBody = body  // Set HTML content (can include CSS styling)
                 };
                 message.Body = bodyBuilder.ToMessageBody();
 
-                // Send email using SMTP
+                // ========== SEND EMAIL VIA SMTP ==========
+                // Send email using SMTP (Simple Mail Transfer Protocol)
+                // SMTP is the standard protocol for sending emails
                 using (var client = new SmtpClient())
                 {
-                    // Connect to SMTP server
+                    // ========== CONNECT TO SMTP SERVER ==========
+                    // Connect to SMTP server (e.g., smtp.gmail.com, smtp-mail.outlook.com)
+                    // SecureSocketOptions.StartTls: Use TLS encryption for secure connection
+                    // This encrypts the connection to prevent email interception
                     await client.ConnectAsync(SmtpHost, SmtpPort, SecureSocketOptions.StartTls);
 
+                    // ========== AUTHENTICATE WITH SMTP SERVER ==========
                     // Authenticate if credentials are provided
+                    // Most SMTP servers require authentication to prevent spam
+                    // Credentials are read from appsettings.json (SmtpUsername, SmtpPassword)
                     if (!string.IsNullOrEmpty(SmtpUsername) && !string.IsNullOrEmpty(SmtpPassword))
                     {
+                        // Authenticate using username and password
+                        // For Gmail: Use App Password (not regular password)
                         await client.AuthenticateAsync(SmtpUsername, SmtpPassword);
                     }
 
-                    // Send email
+                    // ========== SEND EMAIL ==========
+                    // Send the email message to the recipient
                     await client.SendAsync(message);
+                    
+                    // ========== DISCONNECT ==========
+                    // Disconnect from SMTP server (cleanup)
+                    // true = disconnect gracefully (send QUIT command)
                     await client.DisconnectAsync(true);
 
+                    // ========== LOG SUCCESS ==========
+                    // Log successful email sending for monitoring
                     _logger.LogInformation($"Email sent successfully to {toEmail} with subject: {subject}");
                     return true;
                 }
             }
             catch (Exception ex)
             {
+                // ========== ERROR HANDLING ==========
+                // If email sending fails, log the error and return false
+                // Common failures: SMTP server unreachable, invalid credentials, network issues
+                // The calling code should handle the failure gracefully (e.g., show fallback message)
                 _logger.LogError(ex, $"Failed to send email to {toEmail}. Error: {ex.Message}");
                 return false;
             }

@@ -36,7 +36,75 @@
             font-family: var(--font-heading);
         }
         .admin-navbar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #7c3aed 100%) !important;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.25);
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .admin-navbar .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: white !important;
+            display: flex;
+            align-items: center;
+            letter-spacing: -0.5px;
+        }
+        
+        .admin-navbar .navbar-brand i {
+            font-size: 1.75rem;
+            margin-right: 0.5rem;
+        }
+        
+        .admin-navbar .nav-link {
+            color: rgba(255, 255, 255, 0.95) !important;
+            font-weight: 600;
+            padding: 0.6rem 1.2rem !important;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .admin-navbar .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white !important;
+            transform: translateY(-1px);
+        }
+        
+        .admin-navbar .dropdown-menu {
+            border-radius: 16px;
+            box-shadow: 0 12px 32px rgba(99, 102, 241, 0.15);
+            border: 1px solid var(--border);
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+        }
+        
+        .admin-navbar .dropdown-item {
+            border-radius: 12px;
+            margin: 0.25rem 0.5rem;
+            padding: 0.75rem 1.25rem;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .admin-navbar .dropdown-item:hover {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
+            color: var(--primary) !important;
+            transform: translateX(4px);
+        }
+        
+        .admin-navbar .dropdown-item i {
+            width: 20px;
+            text-align: center;
+            color: var(--primary);
+        }
+        
+        body {
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            min-height: 100vh;
+        }
+        
+        main {
+            background: transparent;
         }
     </style>
 </head>
@@ -177,9 +245,10 @@
         @RenderBody()
     </main>
 
-    <footer class="mt-auto py-3 bg-light border-top">
+    <footer class="mt-auto py-4" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-top: 2px solid var(--border);">
         <div class="container-fluid">
             <div class="text-center text-muted small">
+                <i class="bi bi-shield-check me-2" style="color: var(--primary);"></i>
                 &copy; 2025 BudgetStay Admin Panel. All rights reserved.
             </div>
         </div>
@@ -190,6 +259,35 @@
     <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
     <script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        // Initialize Toast Notifications from Server-Side TempData
+        $(document).ready(function() {
+            @if (TempData["Success"] != null)
+            {
+                <text>showToast('@Html.Raw(TempData["Success"])', 'success');</text>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <text>showToast('@Html.Raw(TempData["Error"])', 'error');</text>
+            }
+            @if (TempData["Info"] != null)
+            {
+                <text>showToast('@Html.Raw(TempData["Info"])', 'info');</text>
+            }
+            @if (TempData["Warning"] != null)
+            {
+                <text>showToast('@Html.Raw(TempData["Warning"])', 'warning');</text>
+            }
+            @if (TempData["NewsletterError"] != null)
+            {
+                <text>showToast('@Html.Raw(TempData["NewsletterError"])', 'error');</text>
+            }
+            @if (TempData["NewsletterSuccess"] != null)
+            {
+                <text>showToast('@Html.Raw(TempData["NewsletterSuccess"])', 'success');</text>
+            }
+        });
+    </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

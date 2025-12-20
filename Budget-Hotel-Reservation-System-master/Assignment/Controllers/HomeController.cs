@@ -43,139 +43,175 @@ namespace Assignment.Controllers
         /// <returns>The home page view with featured content.</returns>
         public async Task<IActionResult> Index()
         {
-            // Redirect Admin/Manager/Staff to admin panel
+            // ========== ROLE-BASED REDIRECTION ==========
+            // Admin, Manager, and Staff should use the admin panel, not the public home page
+            // Only customers see the public home page with featured rooms
             if (AuthenticationHelper.IsAuthenticated(HttpContext))
             {
                 var role = AuthenticationHelper.GetUserRole(HttpContext);
                 if (role == UserRole.Admin || role == UserRole.Manager || role == UserRole.Staff)
                 {
+                    // Redirect admin users to admin dashboard
                     return RedirectToAction("Index", "Admin");
                 }
             }
 
+            // ========== LOAD ALL ROOM TYPES ==========
+            // Load all room types with related data for featured rooms selection
+            // Include Hotel (for location), RoomImages (for photos), Rooms (for availability), Bookings, and Reviews
             var allRooms = await _context.RoomTypes
-                .Include(rt => rt.Hotel)
-                .Include(rt => rt.RoomImages)
-                .Include(rt => rt.Rooms)
-                    .ThenInclude(r => r.Bookings)
-                        .ThenInclude(b => b.Reviews)
+                .Include(rt => rt.Hotel)                    // Hotel information
+                .Include(rt => rt.RoomImages)               // Room photos
+                .Include(rt => rt.Rooms)                    // Physical rooms
+                    .ThenInclude(r => r.Bookings)           // Booking history
+                        .ThenInclude(b => b.Reviews)         // Reviews for bookings
                 .ToListAsync();
             
-            // Randomly select exactly 3 different rooms that change on each refresh/user
+            // ========== SELECT FEATURED ROOMS ==========
+            // Randomly select exactly 3 different rooms that change on each page refresh
+            // This makes the home page dynamic and shows different rooms each time
             // Use Random with current time as seed for better randomization per request
             var random = new Random((int)DateTime.Now.Ticks);
             var featuredRooms = allRooms
-                .OrderBy(r => random.Next())
-                .Take(3)
+                .OrderBy(r => random.Next())  // Randomize order
+                .Take(3)                      // Take first 3
                 .ToList();
             
-            // Ensure we have exactly 3 rooms (if less than 3 available, take what we have)
+            // ========== ENSURE MINIMUM FEATURED ROOMS ==========
+            // If we have less than 3 rooms but more rooms available, add more to reach 3
+            // This ensures the home page always shows 3 featured rooms (if available)
             if (featuredRooms.Count < 3 && allRooms.Count > featuredRooms.Count)
             {
                 var remainingRooms = allRooms.Except(featuredRooms).OrderBy(r => random.Next()).Take(3 - featuredRooms.Count);
                 featuredRooms.AddRange(remainingRooms);
             }
 
+            // ========== CALCULATE REVIEW DATA ==========
+            // For each featured room, calculate review statistics (count and average rating)
+            // This data is displayed on the home page to show room popularity
             var reviewData = new Dictionary<int, RoomReviewInfo>();
             foreach (var room in featuredRooms)
             {
+                // Get all reviews for this room type (from all bookings of all rooms of this type)
                 var reviews = room.Rooms
-                    .SelectMany(r => r.Bookings)
-                    .SelectMany(b => b.Reviews)
+                    .SelectMany(r => r.Bookings)      // Get all bookings for all rooms of this type
+                    .SelectMany(b => b.Reviews)        // Get all reviews for those bookings
                     .ToList();
 
+                // Store review statistics for this room type
                 reviewData[room.RoomTypeId] = new RoomReviewInfo
                 {
-                    ReviewCount = reviews.Count,
-                    AverageRating = reviews.Any() ? reviews.Average(r => r.Rating) : 4.5
+                    ReviewCount = reviews.Count,                                    // Total number of reviews
+                    AverageRating = reviews.Any() ? reviews.Average(r => r.Rating) : 4.5  // Average rating (default 4.5 if no reviews)
                 };
             }
 
-            var hotelCount = await _context.Hotels.CountAsync();
-            var happyGuestsCount = await _context.Bookings.Select(b => b.UserId).Distinct().CountAsync();
+            // ========== CALCULATE STATISTICS ==========
+            // Calculate statistics to display on home page (builds trust and credibility)
+            var hotelCount = await _context.Hotels.CountAsync();                    // Total number of hotels
+            var happyGuestsCount = await _context.Bookings.Select(b => b.UserId).Distinct().CountAsync();  // Unique customers who have booked
             var averageRating = await _context.Reviews.AnyAsync()
-                ? Math.Round(await _context.Reviews.AverageAsync(r => r.Rating), 1)
-                : 4.6;
+                ? Math.Round(await _context.Reviews.AverageAsync(r => r.Rating), 1)  // Average rating from all reviews
+                : 4.6;                                                              // Default rating if no reviews exist
             
+            // ========== CREATE STATISTICS VIEW MODEL ==========
+            // Package statistics for display on home page
             var stats = new HomeStatsViewModel
             {
                 // Use actual count if higher than minimum, otherwise use minimum for display
-                HotelCount = hotelCount >= 10 ? hotelCount : 10,
-                HappyGuests = happyGuestsCount >= 2 ? happyGuestsCount : 2,
-                ActiveBookings = await _context.Bookings.CountAsync(b => b.Status != BookingStatus.Cancelled),
+                // This ensures statistics always look good (minimum values for marketing)
+                HotelCount = hotelCount >= 10 ? hotelCount : 10,                    // At least 10 hotels
+                HappyGuests = happyGuestsCount >= 2 ? happyGuestsCount : 2,        // At least 2 happy guests
+                ActiveBookings = await _context.Bookings.CountAsync(b => b.Status != BookingStatus.Cancelled),  // Active bookings (not cancelled)
                 AverageRating = averageRating
             };
 
-            // Get all active packages and randomize them - show only 3 random packages
+            // ========== LOAD AND SELECT FEATURED PACKAGES ==========
+            // Get all active packages and randomly select 3 to feature on home page
+            // Packages include room types and services bundled together
             var allPackages = await _context.Packages
-                .Where(p => p.IsActive)
+                .Where(p => p.IsActive)                    // Only active packages
+                .Include(p => p.PackageItems)              // Include package items
+                    .ThenInclude(pi => pi.Service)         // Include service details
                 .Include(p => p.PackageItems)
-                    .ThenInclude(pi => pi.Service)
-                .Include(p => p.PackageItems)
-                    .ThenInclude(pi => pi.RoomType)
+                    .ThenInclude(pi => pi.RoomType)       // Include room type details
                 .ToListAsync();
             
             // Randomly select exactly 3 packages (or all if less than 3 available)
+            // This makes the home page dynamic - different packages shown each time
             var packages = allPackages
-                .OrderBy(p => random.Next())
-                .Take(Math.Min(3, allPackages.Count))
+                .OrderBy(p => random.Next())              // Randomize order
+                .Take(Math.Min(3, allPackages.Count))    // Take up to 3 packages
                 .ToList();
 
+            // ========== CREATE PACKAGE SUMMARIES ==========
+            // Convert packages to view models with highlights for display
             var packageSummaries = packages.Select(p => new PackageSummaryViewModel
             {
                 PackageId = p.PackageId,
                 Name = p.Name,
-                Description = p.Description ?? "Curated stay with hand-picked perks.",
+                Description = p.Description ?? "Curated stay with hand-picked perks.",  // Default description if none
                 TotalPrice = p.TotalPrice,
                 ImageUrl = p.ImageUrl,
+                // Create highlights list showing what's included in the package
+                // Format: "Service Name xQuantity" or "Room Type Name xQuantity"
                 Highlights = p.PackageItems
                     .Select(pi => pi.Service != null
-                        ? $"{pi.Service.Name} x{pi.Quantity}"
+                        ? $"{pi.Service.Name} x{pi.Quantity}"      // Service highlight
                         : pi.RoomType != null
-                            ? $"{pi.RoomType.Name} x{pi.Quantity}"
+                            ? $"{pi.RoomType.Name} x{pi.Quantity}"  // Room type highlight
                             : string.Empty)
-                    .Where(h => !string.IsNullOrWhiteSpace(h))
-                    .Distinct()
+                    .Where(h => !string.IsNullOrWhiteSpace(h))      // Remove empty highlights
+                    .Distinct()                                     // Remove duplicates
                     .ToList(),
-                RoomTypeId = p.PackageItems.FirstOrDefault(pi => pi.RoomType != null)?.RoomTypeId
+                RoomTypeId = p.PackageItems.FirstOrDefault(pi => pi.RoomType != null)?.RoomTypeId  // Get room type ID for booking link
             }).ToList();
 
-            // Get all services and randomize them - show only 3 random services
+            // ========== LOAD AND SELECT FEATURED SERVICES ==========
+            // Get all services and randomly select 4 to feature on home page
+            // Services are additional amenities customers can purchase
             var allServices = await _context.Services.ToListAsync();
             
             // Randomly select exactly 4 services (or all if less than 4 available)
             var services = allServices
-                .OrderBy(s => random.Next())
-                .Take(Math.Min(4, allServices.Count))
+                .OrderBy(s => random.Next())              // Randomize order
+                .Take(Math.Min(4, allServices.Count))    // Take up to 4 services
                 .ToList();
 
+            // ========== GET DESTINATIONS ==========
+            // Get list of unique destinations (City, Country) for search/filter dropdown
+            // This helps users find hotels in specific locations
             var destinations = await _context.Hotels
-                .Select(h => h.City + ", " + h.Country)
-                .Distinct()
-                .OrderBy(d => d)
+                .Select(h => h.City + ", " + h.Country)  // Format: "Kuala Lumpur, Malaysia"
+                .Distinct()                              // Remove duplicates
+                .OrderBy(d => d)                         // Sort alphabetically
                 .ToListAsync();
 
-            // Get customer reviews for testimonials section - show only 3 random reviews
-            // Include reviews with comments, or if no comments exist, show reviews with ratings
-            // Review is linked to Booking, user info from Booking.User
+            // ========== LOAD CUSTOMER REVIEWS FOR TESTIMONIALS ==========
+            // Get customer reviews to display in testimonials section on home page
+            // Reviews are linked to Booking (not directly to User), so we get user info from Booking.User
             var allReviews = await _context.Reviews
+                .Include(r => r.Booking)                 // Include booking
+                    .ThenInclude(b => b.User)            // Include user (for reviewer name)
                 .Include(r => r.Booking)
-                    .ThenInclude(b => b.User)
-                .Include(r => r.Booking)
-                    .ThenInclude(b => b.Room)
-                        .ThenInclude(rm => rm.RoomType)
-                .Where(r => r.Booking != null && r.Booking.User != null) // Ensure booking and user exist
-                .OrderByDescending(r => r.ReviewDate) // Get most recent first
+                    .ThenInclude(b => b.Room)            // Include room
+                        .ThenInclude(rm => rm.RoomType)  // Include room type (for room name)
+                .Where(r => r.Booking != null && r.Booking.User != null)  // Ensure booking and user exist
+                .OrderByDescending(r => r.ReviewDate)    // Get most recent reviews first
                 .ToListAsync();
             
-            // Filter to reviews with comments, or if none exist, show any reviews
+            // ========== FILTER REVIEWS ==========
+            // Prefer reviews with comments (more meaningful testimonials)
+            // If no reviews with comments exist, show any reviews
             var reviewsWithComments = allReviews.Where(r => !string.IsNullOrWhiteSpace(r.Comment)).ToList();
             var reviewsToShow = reviewsWithComments.Any() ? reviewsWithComments : allReviews;
             
+            // ========== SELECT FEATURED REVIEWS ==========
             // Randomly select exactly 3 reviews (or all if less than 3 available)
+            // This makes testimonials section dynamic
             var customerReviews = reviewsToShow
-                .OrderBy(r => random.Next())
-                .Take(Math.Min(3, reviewsToShow.Count))
+                .OrderBy(r => random.Next())              // Randomize order
+                .Take(Math.Min(3, reviewsToShow.Count))  // Take up to 3 reviews
                 .ToList();
 
             var model = new HomeViewModel

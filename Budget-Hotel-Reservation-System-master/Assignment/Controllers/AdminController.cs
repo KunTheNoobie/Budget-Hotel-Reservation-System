@@ -112,18 +112,41 @@ namespace Assignment.Controllers
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
         }
 
-        public IActionResult Index(string period = "7days")
+        public IActionResult Index(string period = "7days", string startDate = null, string endDate = null, string timeframe = "daily")
         {
             var accessibleHotelIds = GetUserAccessibleHotelIds();
             
             // Build base query for bookings filtered by accessible hotels
+            // Include all bookings (including deleted ones for chart purposes, but we can filter later if needed)
             var bookingsQuery = _context.Bookings
                 .Include(b => b.Room)
                     .ThenInclude(r => r.RoomType)
                         .ThenInclude(rt => rt.Hotel)
+                .Where(b => !b.IsDeleted) // Exclude soft-deleted bookings
                 .AsQueryable();
 
+            // Apply date range filter if provided
+            DateTime? filterStartDate = null;
+            DateTime? filterEndDate = null;
+            if (!string.IsNullOrEmpty(startDate) && DateTime.TryParse(startDate, out var parsedStart))
+            {
+                filterStartDate = parsedStart;
+            }
+            if (!string.IsNullOrEmpty(endDate) && DateTime.TryParse(endDate, out var parsedEnd))
+            {
+                filterEndDate = parsedEnd;
+            }
+            
+            // Apply period filter if no custom dates are provided
+            // Only apply period filter if it's explicitly set (not just the default)
+            // For "Bookings by Hotel" chart, we want to show all bookings by default
+            // Period filter is mainly for revenue trend chart grouping
+            // So we'll only apply it if custom dates are provided OR if period is explicitly changed from default
+            // For now, don't apply period filter to bookings query - show all bookings for hotel chart
+
             // Filter by accessible hotels if not admin
+            // Note: We'll filter after materialization to avoid EF Core translation issues with navigation properties
+            bool needsHotelFilter = false;
             if (accessibleHotelIds != null)
             {
                 if (accessibleHotelIds.Count == 0)
@@ -141,174 +164,567 @@ namespace Assignment.Controllers
                     ViewBag.Stats = emptyStats;
                     ViewBag.HotelLabels = new string[0];
                     ViewBag.HotelData = new int[0];
+                    ViewBag.HotelPercentages = new decimal[0];
+                    ViewBag.HotelCategories = new string[0];
+                    ViewBag.HotelStatusData = new object[0];
                     ViewBag.RevenueLabels = new string[0];
                     ViewBag.RevenueData = new decimal[0];
+                    ViewBag.RevenueBySource = new object[0];
+                    ViewBag.AvgBookingValue = new decimal[0];
                     ViewBag.Period = period;
+                    ViewBag.StartDate = startDate;
+                    ViewBag.EndDate = endDate;
+                    ViewBag.Timeframe = timeframe;
                     return View();
                 }
                 else
                 {
-                    bookingsQuery = bookingsQuery.Where(b => accessibleHotelIds.Contains(b.Room.RoomType.HotelId));
+                    needsHotelFilter = true;
                 }
             }
 
-            // Calculate stats filtered by accessible hotels
+            // Hotel category filter removed - no longer filtering by category
+
+            // Apply date range filter ONLY if custom date range is provided
+            // If no date range is provided, show all bookings for the chart
+            if (filterStartDate.HasValue && filterEndDate.HasValue)
+            {
+                bookingsQuery = bookingsQuery.Where(b => b.BookingDate >= filterStartDate.Value && b.BookingDate <= filterEndDate.Value);
+            }
+            else if (filterStartDate.HasValue)
+            {
+                bookingsQuery = bookingsQuery.Where(b => b.BookingDate >= filterStartDate.Value);
+            }
+            else if (filterEndDate.HasValue)
+            {
+                bookingsQuery = bookingsQuery.Where(b => b.BookingDate <= filterEndDate.Value);
+            }
+            // If no date filter is provided, show all bookings (no date restriction)
+
+            // ========== CALCULATE STATISTICS FILTERED BY ACCESSIBLE HOTELS ==========
+            // Build queries for statistics, applying hotel access restrictions
+            // Admin sees all hotels, Manager/Staff see only their assigned hotel
+            
+            // ========== HOTELS QUERY ==========
+            // Count total hotels (filtered by access)
             var hotelsQuery = _context.Hotels.AsQueryable();
             if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
             {
+                // Manager/Staff: Only count hotels they have access to
                 hotelsQuery = hotelsQuery.Where(h => accessibleHotelIds.Contains(h.HotelId));
             }
+            // Admin: No filter (sees all hotels)
 
+            // ========== ROOMS QUERY ==========
+            // Count total rooms (filtered by hotel access)
             var roomsQuery = _context.Rooms
-                .Include(r => r.RoomType)
+                .Include(r => r.RoomType)  // Need room type to get hotel ID
                 .AsQueryable();
             if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
             {
+                // Manager/Staff: Only count rooms in hotels they have access to
                 roomsQuery = roomsQuery.Where(r => accessibleHotelIds.Contains(r.RoomType.HotelId));
             }
+            // Admin: No filter (sees all rooms)
 
-            // Calculate TotalUsers filtered by accessible hotels (similar to Users() method)
+            // ========== USERS QUERY ==========
+            // Count total users (filtered by hotel access)
+            // For Manager/Staff: Count their hotel staff + customers who booked at their hotel
+            // For Admin: Count all users
             var usersQuery = _context.Users.AsQueryable();
             var role = AuthenticationHelper.GetUserRole(HttpContext);
             if (role == UserRole.Manager || role == UserRole.Staff)
             {
+                // Manager/Staff can only see:
+                // 1. Staff/Managers assigned to their hotel
+                // 2. Customers who have made bookings at their hotel
                 if (accessibleHotelIds != null && accessibleHotelIds.Count > 0)
                 {
-                    // Get user IDs from bookings at their hotel
+                    // Get list of customer user IDs who have bookings at accessible hotels
                     var bookingUserIds = _context.Bookings
-                .Include(b => b.Room)
-                .ThenInclude(r => r.RoomType)
+                        .Include(b => b.Room)
+                        .ThenInclude(r => r.RoomType)
                         .Where(b => accessibleHotelIds.Contains(b.Room.RoomType.HotelId))
                         .Select(b => b.UserId)
                         .Distinct();
 
-                    // Count users from accessible hotels (Manager/Staff assigned to hotel OR customers who booked there)
+                    // Filter users: hotel staff OR customers with bookings at their hotel
                     usersQuery = usersQuery.Where(u => 
-                        (u.HotelId.HasValue && accessibleHotelIds.Contains(u.HotelId.Value)) ||
-                        (u.Role == UserRole.Customer && bookingUserIds.Contains(u.UserId))
+                        (u.HotelId.HasValue && accessibleHotelIds.Contains(u.HotelId.Value)) ||  // Hotel staff
+                        (u.Role == UserRole.Customer && bookingUserIds.Contains(u.UserId))        // Customers with bookings
                     );
                 }
                 else
                 {
-                    // No hotel access - return 0
+                    // No hotel access - return empty query (no users visible)
                     usersQuery = usersQuery.Where(u => false);
                 }
             }
-            // Admin can see all users, so no filtering needed
+            // Admin: No filter (sees all users)
 
+            // ========== CALCULATE DASHBOARD STATISTICS ==========
+            // Count various metrics for display on admin dashboard
             var stats = new
             {
-                TotalUsers = usersQuery.Count(),
-                TotalHotels = hotelsQuery.Count(),
-                TotalRooms = roomsQuery.Count(),
-                TotalBookings = bookingsQuery.Count(),
-                PendingBookings = bookingsQuery.Count(b => b.Status == BookingStatus.Pending),
-                ConfirmedBookings = bookingsQuery.Count(b => b.Status == BookingStatus.Confirmed)
+                TotalUsers = usersQuery.Count(),                                    // Total users (filtered by access)
+                TotalHotels = hotelsQuery.Count(),                                  // Total hotels (filtered by access)
+                TotalRooms = roomsQuery.Count(),                                    // Total rooms (filtered by access)
+                TotalBookings = bookingsQuery.Count(),                               // Total bookings (filtered by access)
+                PendingBookings = bookingsQuery.Count(b => b.Status == BookingStatus.Pending),    // Bookings waiting for payment
+                ConfirmedBookings = bookingsQuery.Count(b => b.Status == BookingStatus.Confirmed)  // Bookings with completed payment
             };
 
-            // Data for Charts
-            // 1. Bookings by Hotel (Bar Chart)
-            var bookingsByHotel = bookingsQuery
-                .GroupBy(b => b.Room.RoomType.Hotel.Name)
-                .Select(g => new { HotelName = g.Key, Count = g.Count() })
-                .OrderByDescending(x => x.Count)
-                .ToList();
+            // ========== CHART DATA PREPARATION ==========
+            // Prepare data for "Bookings by Room Type" chart
+            // This chart shows which room types are most popular
+            var roomTypeLabels = new List<string>();        // Room type names for chart labels
+            var roomTypeData = new List<int>();             // Booking counts for each room type
+            var roomTypePercentages = new List<decimal>(); // Percentage of total bookings
+            var roomTypeStatusData = new List<object>();    // Status breakdown (Pending, Confirmed, etc.)
+            var roomTypeDetails = new List<object>();      // Additional details for tooltips
+            int totalBookingsInQuery = 0;                   // Total bookings count for percentage calculation
+            
+            try
+            {
+                // ========== BUILD ROOM TYPE QUERY WITH EXPLICIT JOINS ==========
+                // Use explicit SQL-style joins instead of navigation properties
+                // This is more reliable and avoids EF Core translation issues with GroupBy
+                // Join chain: Bookings → Rooms → RoomTypes → Hotels
+                var roomTypeQuery = from booking in _context.Bookings
+                                   join room in _context.Rooms on booking.RoomId equals room.RoomId
+                                   join roomType in _context.RoomTypes on room.RoomTypeId equals roomType.RoomTypeId
+                                   join hotel in _context.Hotels on roomType.HotelId equals hotel.HotelId
+                                   where !booking.IsDeleted  // Exclude soft-deleted bookings
+                                   select new
+                                   {
+                                       Booking = booking,              // Full booking object
+                                       RoomTypeId = roomType.RoomTypeId,    // Room type ID
+                                       RoomTypeName = roomType.Name,        // Room type name
+                                       HotelId = hotel.HotelId,            // Hotel ID
+                                       HotelName = hotel.Name,              // Hotel name
+                                       HotelCategory = hotel.Category       // Hotel category (Budget, MidRange, Luxury)
+                                   };
+                
+                // ========== APPLY DATE FILTER ==========
+                // Filter bookings by date range if user specified custom dates
+                // This allows viewing statistics for specific time periods
+                if (filterStartDate.HasValue && filterEndDate.HasValue)
+                {
+                    // Both start and end dates provided - filter to date range
+                    roomTypeQuery = roomTypeQuery.Where(x => x.Booking.BookingDate >= filterStartDate.Value && x.Booking.BookingDate <= filterEndDate.Value);
+                }
+                else if (filterStartDate.HasValue)
+                {
+                    // Only start date provided - show bookings from this date onwards
+                    roomTypeQuery = roomTypeQuery.Where(x => x.Booking.BookingDate >= filterStartDate.Value);
+                }
+                else if (filterEndDate.HasValue)
+                {
+                    // Only end date provided - show bookings up to this date
+                    roomTypeQuery = roomTypeQuery.Where(x => x.Booking.BookingDate <= filterEndDate.Value);
+                }
+                // No date filter: show all bookings
+                
+                // ========== APPLY HOTEL ACCESS FILTER ==========
+                // Filter by accessible hotels if user is Manager/Staff (not Admin)
+                if (needsHotelFilter && accessibleHotelIds != null && accessibleHotelIds.Count > 0)
+                {
+                    // Only show bookings for hotels the user has access to
+                    roomTypeQuery = roomTypeQuery.Where(x => accessibleHotelIds.Contains(x.HotelId));
+                }
+                // Admin: No filter (sees all hotels)
+                
+                // ========== COUNT TOTAL BOOKINGS ==========
+                // Get total count for percentage calculations
+                totalBookingsInQuery = roomTypeQuery.Count();
+                
+                // ========== GROUP BY ROOM TYPE ==========
+                // Group bookings by room type to count bookings per room type
+                // This creates one group per unique room type
+                var roomTypeGroups = roomTypeQuery
+                    .GroupBy(x => new { 
+                        RoomTypeId = x.RoomTypeId,        // Group by room type ID
+                        RoomTypeName = x.RoomTypeName,    // Room type name for display
+                        HotelId = x.HotelId,              // Hotel ID (for filtering)
+                        HotelName = x.HotelName,          // Hotel name for display
+                        HotelCategory = x.HotelCategory    // Hotel category
+                    })
+                    .Select(g => new { 
+                        RoomTypeId = g.Key.RoomTypeId,
+                        RoomTypeName = g.Key.RoomTypeName,
+                        HotelId = g.Key.HotelId,
+                        HotelName = g.Key.HotelName,
+                        HotelCategory = g.Key.HotelCategory,
+                        TotalCount = g.Count(),           // Total bookings for this room type
+                        Confirmed = g.Count(x => x.Booking.Status == BookingStatus.Confirmed),  // Confirmed bookings
+                        Pending = g.Count(x => x.Booking.Status == BookingStatus.Pending),
+                        Cancelled = g.Count(x => x.Booking.Status == BookingStatus.Cancelled),
+                        CheckedIn = g.Count(x => x.Booking.Status == BookingStatus.CheckedIn),
+                        CheckedOut = g.Count(x => x.Booking.Status == BookingStatus.CheckedOut),
+                        NoShow = g.Count(x => x.Booking.Status == BookingStatus.NoShow),
+                        TotalRevenue = g.Where(x => x.Booking.PaymentStatus == PaymentStatus.Completed).Sum(x => x.Booking.PaymentAmount ?? 0)
+                    })
+                    .OrderByDescending(x => x.TotalCount)
+                    .ToList();
+                
+                System.Diagnostics.Debug.WriteLine($"Bookings by room type - Total in query: {totalBookingsInQuery}, Groups found: {roomTypeGroups.Count}");
+                
+                // Process data directly (no reflection needed)
+                if (roomTypeGroups.Any())
+                {
+                    var totalBookings = roomTypeGroups.Sum(x => x.TotalCount);
+                    roomTypeLabels = roomTypeGroups.Select(x => x.RoomTypeName).ToList();
+                    roomTypeData = roomTypeGroups.Select(x => x.TotalCount).ToList();
+                    roomTypePercentages = roomTypeGroups.Select(x => totalBookings > 0 ? Math.Round((x.TotalCount / (decimal)totalBookings) * 100, 1) : 0).ToList();
+                    
+                    roomTypeStatusData = roomTypeGroups.Select(x => new
+                    {
+                        Confirmed = x.Confirmed,
+                        Pending = x.Pending,
+                        Cancelled = x.Cancelled,
+                        CheckedIn = x.CheckedIn,
+                        CheckedOut = x.CheckedOut,
+                        NoShow = x.NoShow
+                    }).Cast<object>().ToList();
+                    
+                    roomTypeDetails = roomTypeGroups.Select(x => new
+                    {
+                        RoomTypeName = x.RoomTypeName,
+                        Revenue = x.TotalRevenue,
+                        HotelName = x.HotelName
+                    }).Cast<object>().ToList();
+                    
+                    System.Diagnostics.Debug.WriteLine($"Room type labels count: {roomTypeLabels.Count}, First label: {(roomTypeLabels.Any() ? roomTypeLabels.First() : "none")}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("No room type groups found after query execution");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error and set empty data
+                System.Diagnostics.Debug.WriteLine($"Error in bookings by room type query: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Inner exception: {ex.InnerException.Message}");
+                }
+            }
 
-            ViewBag.HotelLabels = bookingsByHotel.Select(x => x.HotelName).ToArray();
-            ViewBag.HotelData = bookingsByHotel.Select(x => x.Count).ToArray();
+            // Process Room Type data (primary display - as shown in user's drawing)
+            // Variables are already declared and populated above (or left empty if catch block executed)
 
-            // 2. Revenue Trend with period selector
+            // Use Room Type data for the chart (as per user's drawing)
+            // Ensure arrays are always set (even if empty)
+            ViewBag.HotelLabels = roomTypeLabels != null && roomTypeLabels.Any() ? roomTypeLabels.ToArray() : new string[0];
+            ViewBag.HotelData = roomTypeData != null && roomTypeData.Any() ? roomTypeData.ToArray() : new int[0];
+            ViewBag.HotelPercentages = roomTypePercentages != null && roomTypePercentages.Any() ? roomTypePercentages.ToArray() : new decimal[0];
+            ViewBag.HotelCategories = new string[0]; // Not needed for room type chart
+            ViewBag.HotelStatusData = roomTypeStatusData != null && roomTypeStatusData.Any() ? roomTypeStatusData.ToArray() : new object[0];
+            ViewBag.HotelDetails = roomTypeDetails != null && roomTypeDetails.Any() ? roomTypeDetails.ToArray() : new object[0];
+            
+            // Debug info for troubleshooting - use actual array lengths after conversion
+            var finalLabelsCount = (ViewBag.HotelLabels as string[])?.Length ?? roomTypeLabels?.Count ?? 0;
+            var finalStatusDataCount = (ViewBag.HotelStatusData as object[])?.Length ?? roomTypeStatusData?.Count ?? 0;
+            ViewBag.DebugInfo = new
+            {
+                TotalBookingsInQuery = totalBookingsInQuery,
+                BookingsByRoomTypeCount = finalLabelsCount,
+                HasDateFilter = filterStartDate.HasValue || filterEndDate.HasValue,
+                RoomTypeLabelsCount = finalLabelsCount,
+                RoomTypeStatusDataCount = finalStatusDataCount
+            };
+
+            // Enhanced Revenue Trend Chart Data
             var revenueData = new List<decimal>();
             var dateLabels = new List<string>();
-            DateTime startDate;
+            var revenueBySource = new Dictionary<string, List<decimal>>();
+            var avgBookingValues = new List<decimal>();
+            DateTime chartStartDate;
             string dateFormat;
 
-            switch (period.ToLower())
+            // Initialize revenue by source
+            foreach (var source in Enum.GetValues(typeof(BookingSource)).Cast<BookingSource>())
             {
-                case "month":
-                    startDate = DateTime.Today.AddMonths(-1);
+                revenueBySource[source.ToString()] = new List<decimal>();
+            }
+
+            // Determine timeframe
+            if (filterStartDate.HasValue && filterEndDate.HasValue)
+            {
+                chartStartDate = filterStartDate.Value;
+                var chartEndDate = filterEndDate.Value;
+                
+                if (timeframe == "weekly")
+                {
                     dateFormat = "MMM dd";
-                    for (var date = startDate; date <= DateTime.Today; date = date.AddDays(1))
-            {
-                        var dailyRevenue = bookingsQuery
-                    .Where(b => b.PaymentDate.HasValue && 
-                               b.PaymentDate.Value.Date == date && 
-                               b.PaymentStatus == PaymentStatus.Completed)
-                    .Sum(b => b.PaymentAmount ?? 0);
-                        revenueData.Add(dailyRevenue);
-                        dateLabels.Add(date.ToString(dateFormat));
-                    }
-                    break;
-                case "year":
-                    startDate = DateTime.Today.AddYears(-1);
-                    dateFormat = "MMM yyyy";
-                    for (var date = startDate; date <= DateTime.Today; date = date.AddMonths(1))
+                    for (var date = chartStartDate; date <= chartEndDate; date = date.AddDays(7))
                     {
-                        var monthStart = new DateTime(date.Year, date.Month, 1);
-                        var monthEnd = monthStart.AddMonths(1).AddDays(-1);
-                        var monthlyRevenue = bookingsQuery
+                        var weekEnd = date.AddDays(6) > chartEndDate ? chartEndDate : date.AddDays(6);
+                        var weekRevenue = bookingsQuery
+                            .Where(b => b.PaymentDate.HasValue && 
+                                       b.PaymentDate.Value.Date >= date && 
+                                       b.PaymentDate.Value.Date <= weekEnd && 
+                                       b.PaymentStatus == PaymentStatus.Completed)
+                            .Sum(b => b.PaymentAmount ?? 0);
+                        var weekBookings = bookingsQuery
+                            .Where(b => b.PaymentDate.HasValue && 
+                                       b.PaymentDate.Value.Date >= date && 
+                                       b.PaymentDate.Value.Date <= weekEnd && 
+                                       b.PaymentStatus == PaymentStatus.Completed)
+                            .Count();
+                        revenueData.Add(weekRevenue);
+                        avgBookingValues.Add(weekBookings > 0 ? weekRevenue / weekBookings : 0);
+                        dateLabels.Add($"{date:MMM dd} - {weekEnd:MMM dd}");
+                        
+                        // Revenue by source
+                        foreach (var source in Enum.GetValues(typeof(BookingSource)).Cast<BookingSource>())
+                        {
+                            var sourceRevenue = bookingsQuery
+                                .Where(b => b.PaymentDate.HasValue && 
+                                           b.PaymentDate.Value.Date >= date && 
+                                           b.PaymentDate.Value.Date <= weekEnd && 
+                                           b.PaymentStatus == PaymentStatus.Completed &&
+                                           b.Source == source)
+                                .Sum(b => b.PaymentAmount ?? 0);
+                            revenueBySource[source.ToString()].Add(sourceRevenue);
+                        }
+                    }
+                }
+                else if (timeframe == "monthly")
+                {
+                    dateFormat = "MMM yyyy";
+                    for (var date = new DateTime(chartStartDate.Year, chartStartDate.Month, 1); 
+                         date <= chartEndDate; 
+                         date = date.AddMonths(1))
+                    {
+                        var monthStart = date;
+                        var monthEnd = date.AddMonths(1).AddDays(-1) > chartEndDate ? chartEndDate : date.AddMonths(1).AddDays(-1);
+                        var monthRevenue = bookingsQuery
                             .Where(b => b.PaymentDate.HasValue && 
                                        b.PaymentDate.Value.Date >= monthStart && 
                                        b.PaymentDate.Value.Date <= monthEnd && 
                                        b.PaymentStatus == PaymentStatus.Completed)
                             .Sum(b => b.PaymentAmount ?? 0);
-                        revenueData.Add(monthlyRevenue);
+                        var monthBookings = bookingsQuery
+                            .Where(b => b.PaymentDate.HasValue && 
+                                       b.PaymentDate.Value.Date >= monthStart && 
+                                       b.PaymentDate.Value.Date <= monthEnd && 
+                                       b.PaymentStatus == PaymentStatus.Completed)
+                            .Count();
+                        revenueData.Add(monthRevenue);
+                        avgBookingValues.Add(monthBookings > 0 ? monthRevenue / monthBookings : 0);
                         dateLabels.Add(date.ToString(dateFormat));
-                    }
-                    break;
-                case "alltime":
-                    var allBookings = bookingsQuery
-                        .Where(b => b.PaymentDate.HasValue && b.PaymentStatus == PaymentStatus.Completed)
-                        .OrderBy(b => b.PaymentDate)
-                        .ToList();
-                    
-                    if (allBookings.Any())
-                    {
-                        var firstBooking = allBookings.First();
-                        var lastBooking = allBookings.Last();
                         
-                        if (firstBooking.PaymentDate.HasValue && lastBooking.PaymentDate.HasValue)
+                        // Revenue by source
+                        foreach (var source in Enum.GetValues(typeof(BookingSource)).Cast<BookingSource>())
                         {
-                            var firstDate = firstBooking.PaymentDate.Value.Date;
-                            var lastDate = lastBooking.PaymentDate.Value.Date;
-                            dateFormat = "MMM yyyy";
-                            
-                            for (var date = new DateTime(firstDate.Year, firstDate.Month, 1); 
-                                 date <= lastDate; 
-                                 date = date.AddMonths(1))
-                            {
-                                var monthStart = date;
-                                var monthEnd = date.AddMonths(1).AddDays(-1);
-                                var monthlyRevenue = allBookings
-                                    .Where(b => b.PaymentDate.HasValue && 
-                                               b.PaymentDate.Value.Date >= monthStart && 
-                                               b.PaymentDate.Value.Date <= monthEnd)
-                                    .Sum(b => b.PaymentAmount ?? 0);
-                                revenueData.Add(monthlyRevenue);
-                                dateLabels.Add(date.ToString(dateFormat));
-                            }
+                            var sourceRevenue = bookingsQuery
+                                .Where(b => b.PaymentDate.HasValue && 
+                                           b.PaymentDate.Value.Date >= monthStart && 
+                                           b.PaymentDate.Value.Date <= monthEnd && 
+                                           b.PaymentStatus == PaymentStatus.Completed &&
+                                           b.Source == source)
+                                .Sum(b => b.PaymentAmount ?? 0);
+                            revenueBySource[source.ToString()].Add(sourceRevenue);
                         }
                     }
-                    break;
-                default: // 7days
-                    var last7Days = Enumerable.Range(0, 7).Select(i => DateTime.Today.AddDays(-i)).Reverse().ToList();
+                }
+                else // daily
+                {
                     dateFormat = "MMM dd";
-                    foreach (var date in last7Days)
+                    for (var date = chartStartDate; date <= chartEndDate; date = date.AddDays(1))
                     {
                         var dailyRevenue = bookingsQuery
                             .Where(b => b.PaymentDate.HasValue && 
                                        b.PaymentDate.Value.Date == date && 
                                        b.PaymentStatus == PaymentStatus.Completed)
                             .Sum(b => b.PaymentAmount ?? 0);
-                revenueData.Add(dailyRevenue);
+                        var dailyBookings = bookingsQuery
+                            .Where(b => b.PaymentDate.HasValue && 
+                                       b.PaymentDate.Value.Date == date && 
+                                       b.PaymentStatus == PaymentStatus.Completed)
+                            .Count();
+                        revenueData.Add(dailyRevenue);
+                        avgBookingValues.Add(dailyBookings > 0 ? dailyRevenue / dailyBookings : 0);
                         dateLabels.Add(date.ToString(dateFormat));
+                        
+                        // Revenue by source
+                        foreach (var source in Enum.GetValues(typeof(BookingSource)).Cast<BookingSource>())
+                        {
+                            var sourceRevenue = bookingsQuery
+                                .Where(b => b.PaymentDate.HasValue && 
+                                           b.PaymentDate.Value.Date == date && 
+                                           b.PaymentStatus == PaymentStatus.Completed &&
+                                           b.Source == source)
+                                .Sum(b => b.PaymentAmount ?? 0);
+                            revenueBySource[source.ToString()].Add(sourceRevenue);
+                        }
                     }
-                    break;
+                }
+            }
+            else
+            {
+                // Use period selector (backward compatibility)
+                switch (period.ToLower())
+                {
+                    case "month":
+                        chartStartDate = DateTime.Today.AddMonths(-1);
+                        dateFormat = "MMM dd";
+                        for (var date = chartStartDate; date <= DateTime.Today; date = date.AddDays(1))
+                        {
+                            var dailyRevenue = bookingsQuery
+                                .Where(b => b.PaymentDate.HasValue && 
+                                           b.PaymentDate.Value.Date == date && 
+                                           b.PaymentStatus == PaymentStatus.Completed)
+                                .Sum(b => b.PaymentAmount ?? 0);
+                            var dailyBookings = bookingsQuery
+                                .Where(b => b.PaymentDate.HasValue && 
+                                           b.PaymentDate.Value.Date == date && 
+                                           b.PaymentStatus == PaymentStatus.Completed)
+                                .Count();
+                            revenueData.Add(dailyRevenue);
+                            avgBookingValues.Add(dailyBookings > 0 ? dailyRevenue / dailyBookings : 0);
+                            dateLabels.Add(date.ToString(dateFormat));
+                            
+                            foreach (var source in Enum.GetValues(typeof(BookingSource)).Cast<BookingSource>())
+                            {
+                                var sourceRevenue = bookingsQuery
+                                    .Where(b => b.PaymentDate.HasValue && 
+                                               b.PaymentDate.Value.Date == date && 
+                                               b.PaymentStatus == PaymentStatus.Completed &&
+                                               b.Source == source)
+                                    .Sum(b => b.PaymentAmount ?? 0);
+                                revenueBySource[source.ToString()].Add(sourceRevenue);
+                            }
+                        }
+                        break;
+                    case "year":
+                        chartStartDate = DateTime.Today.AddYears(-1);
+                        dateFormat = "MMM yyyy";
+                        for (var date = chartStartDate; date <= DateTime.Today; date = date.AddMonths(1))
+                        {
+                            var monthStart = new DateTime(date.Year, date.Month, 1);
+                            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+                            var monthlyRevenue = bookingsQuery
+                                .Where(b => b.PaymentDate.HasValue && 
+                                           b.PaymentDate.Value.Date >= monthStart && 
+                                           b.PaymentDate.Value.Date <= monthEnd && 
+                                           b.PaymentStatus == PaymentStatus.Completed)
+                                .Sum(b => b.PaymentAmount ?? 0);
+                            var monthBookings = bookingsQuery
+                                .Where(b => b.PaymentDate.HasValue && 
+                                           b.PaymentDate.Value.Date >= monthStart && 
+                                           b.PaymentDate.Value.Date <= monthEnd && 
+                                           b.PaymentStatus == PaymentStatus.Completed)
+                                .Count();
+                            revenueData.Add(monthlyRevenue);
+                            avgBookingValues.Add(monthBookings > 0 ? monthlyRevenue / monthBookings : 0);
+                            dateLabels.Add(date.ToString(dateFormat));
+                            
+                            foreach (var source in Enum.GetValues(typeof(BookingSource)).Cast<BookingSource>())
+                            {
+                                var sourceRevenue = bookingsQuery
+                                    .Where(b => b.PaymentDate.HasValue && 
+                                               b.PaymentDate.Value.Date >= monthStart && 
+                                               b.PaymentDate.Value.Date <= monthEnd && 
+                                               b.PaymentStatus == PaymentStatus.Completed &&
+                                               b.Source == source)
+                                    .Sum(b => b.PaymentAmount ?? 0);
+                                revenueBySource[source.ToString()].Add(sourceRevenue);
+                            }
+                        }
+                        break;
+                    default: // 7days
+                        chartStartDate = DateTime.Today.AddDays(-6);
+                        var last7Days = Enumerable.Range(0, 7).Select(i => DateTime.Today.AddDays(-i)).Reverse().ToList();
+                        dateFormat = "MMM dd";
+                        foreach (var date in last7Days)
+                        {
+                            var dailyRevenue = bookingsQuery
+                                .Where(b => b.PaymentDate.HasValue && 
+                                           b.PaymentDate.Value.Date == date && 
+                                           b.PaymentStatus == PaymentStatus.Completed)
+                                .Sum(b => b.PaymentAmount ?? 0);
+                            var dailyBookings = bookingsQuery
+                                .Where(b => b.PaymentDate.HasValue && 
+                                           b.PaymentDate.Value.Date == date && 
+                                           b.PaymentStatus == PaymentStatus.Completed)
+                                .Count();
+                            revenueData.Add(dailyRevenue);
+                            avgBookingValues.Add(dailyBookings > 0 ? dailyRevenue / dailyBookings : 0);
+                            dateLabels.Add(date.ToString(dateFormat));
+                            
+                            foreach (var source in Enum.GetValues(typeof(BookingSource)).Cast<BookingSource>())
+                            {
+                                var sourceRevenue = bookingsQuery
+                                    .Where(b => b.PaymentDate.HasValue && 
+                                               b.PaymentDate.Value.Date == date && 
+                                               b.PaymentStatus == PaymentStatus.Completed &&
+                                               b.Source == source)
+                                    .Sum(b => b.PaymentAmount ?? 0);
+                                revenueBySource[source.ToString()].Add(sourceRevenue);
+                            }
+                        }
+                        break;
+                }
+            }
+
+            // Year-over-year and month-over-month comparison
+            var currentPeriodRevenue = revenueData.Sum();
+            var previousPeriodRevenue = 0m;
+            if (timeframe == "monthly" || period == "year")
+            {
+                // Compare with previous year
+                var previousYearStart = chartStartDate.AddYears(-1);
+                var previousYearEnd = filterEndDate?.AddYears(-1) ?? DateTime.Today.AddYears(-1);
+                previousPeriodRevenue = bookingsQuery
+                    .Where(b => b.PaymentDate.HasValue && 
+                               b.PaymentDate.Value.Date >= previousYearStart && 
+                               b.PaymentDate.Value.Date <= previousYearEnd && 
+                               b.PaymentStatus == PaymentStatus.Completed)
+                    .Sum(b => b.PaymentAmount ?? 0);
+            }
+            else
+            {
+                // Compare with previous month
+                var previousMonthStart = chartStartDate.AddMonths(-1);
+                var previousMonthEnd = filterEndDate?.AddMonths(-1) ?? DateTime.Today.AddMonths(-1);
+                previousPeriodRevenue = bookingsQuery
+                    .Where(b => b.PaymentDate.HasValue && 
+                               b.PaymentDate.Value.Date >= previousMonthStart && 
+                               b.PaymentDate.Value.Date <= previousMonthEnd && 
+                               b.PaymentStatus == PaymentStatus.Completed)
+                    .Sum(b => b.PaymentAmount ?? 0);
+            }
+
+            var revenueChange = previousPeriodRevenue > 0 
+                ? Math.Round(((currentPeriodRevenue - previousPeriodRevenue) / previousPeriodRevenue) * 100, 1)
+                : 0;
+
+            // Simple forecasting (linear trend)
+            var forecastData = new List<decimal>();
+            if (revenueData.Count >= 2)
+            {
+                var trend = (revenueData.Last() - revenueData.First()) / revenueData.Count;
+                for (int i = 0; i < 7; i++)
+                {
+                    forecastData.Add(Math.Max(0, revenueData.Last() + trend * (i + 1)));
+                }
             }
 
             ViewBag.RevenueLabels = dateLabels.ToArray();
             ViewBag.RevenueData = revenueData.ToArray();
+            ViewBag.RevenueBySource = revenueBySource;
+            ViewBag.AvgBookingValue = avgBookingValues.ToArray();
+            ViewBag.RevenueChange = revenueChange;
+            ViewBag.PreviousPeriodRevenue = previousPeriodRevenue;
+            ViewBag.ForecastData = forecastData.ToArray();
             ViewBag.Period = period;
+            ViewBag.StartDate = startDate;
+            ViewBag.EndDate = endDate;
+            ViewBag.Timeframe = timeframe;
 
             ViewBag.Stats = stats;
             return View();

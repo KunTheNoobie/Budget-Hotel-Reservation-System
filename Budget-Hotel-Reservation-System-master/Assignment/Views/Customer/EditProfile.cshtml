@@ -91,40 +91,7 @@
                     <small class="form-text text-muted">Maximum 500 characters</small>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="PreferredLanguage" class="form-label">
-                            Preferred Language
-                            <span asp-validation-for="PreferredLanguage" class="text-danger"></span>
-                        </label>
-                        <select asp-for="PreferredLanguage" class="form-select">
-                            <option value="en-US">English (US)</option>
-                            <option value="en-GB">English (UK)</option>
-                            <option value="ms-MY">Bahasa Malaysia</option>
-                            <option value="zh-CN">Chinese (Simplified)</option>
-                            <option value="zh-TW">Chinese (Traditional)</option>
-                            <option value="ja-JP">Japanese</option>
-                            <option value="ko-KR">Korean</option>
-                            <option value="th-TH">Thai</option>
-                            <option value="vi-VN">Vietnamese</option>
-                            <option value="id-ID">Indonesian</option>
-                        </select>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="Theme" class="form-label">
-                            Theme
-                            <span asp-validation-for="Theme" class="text-danger"></span>
-                        </label>
-                        <select asp-for="Theme" class="form-select">
-                            <option value="Default">Default</option>
-                            <option value="Dark">Dark</option>
-                            <option value="Light">Light</option>
-                            <option value="Auto">Auto (System)</option>
-                        </select>
-                    </div>
-                </div>
-
+                
                 <div class="mb-3">
                     <label for="newPassword" class="form-label">
                         New Password (leave blank to keep current)

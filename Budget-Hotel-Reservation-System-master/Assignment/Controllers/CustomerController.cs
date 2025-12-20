@@ -67,7 +67,9 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Decrypt for display
+            // ========== DECRYPT SENSITIVE DATA FOR DISPLAY ==========
+            // Phone numbers are encrypted in database for privacy
+            // Decrypt before displaying to user
             user.PhoneNumber = EncryptionService.Decrypt(user.PhoneNumber ?? "");
 
             return View(user);
@@ -76,14 +78,19 @@ namespace Assignment.Controllers
         [HttpGet]
         public async Task<IActionResult> EditProfile()
         {
+            // ========== AUTHENTICATION CHECK ==========
+            // Only authenticated users can edit their profile
             var userId = AuthenticationHelper.GetUserId(HttpContext);
             if (userId == null)
             {
                 return RedirectToAction("Login", "Security");
             }
 
+            // ========== LOAD USER DATA ==========
+            // Load user data for editing
+            // Use AsNoTracking() because we're just reading data (not updating yet)
             var user = await _context.Users
-                .AsNoTracking()
+                .AsNoTracking()  // Read-only query (better performance, no change tracking)
                 .FirstOrDefaultAsync(u => u.UserId == userId.Value);
 
             if (user == null)
@@ -91,17 +98,20 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Decrypt for display
+            // ========== DECRYPT SENSITIVE DATA FOR DISPLAY ==========
+            // Phone numbers are encrypted in database - decrypt for editing
             user.PhoneNumber = EncryptionService.Decrypt(user.PhoneNumber ?? "");
 
-            // Set defaults if not set
+            // ========== SET DEFAULT VALUES ==========
+            // Set default values for preferences if not already set
+            // This ensures the form always has valid values
             if (string.IsNullOrWhiteSpace(user.PreferredLanguage))
             {
-                user.PreferredLanguage = "en-US";
+                user.PreferredLanguage = "en-US";  // Default to English (US)
             }
             if (string.IsNullOrWhiteSpace(user.Theme))
             {
-                user.Theme = "Default";
+                user.Theme = "Default";  // Default theme
             }
 
             // Log for debugging
@@ -128,36 +138,47 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Remove PasswordHash from validation since we handle it separately
+            // ========== VALIDATION ==========
+            // Remove PasswordHash from validation since we handle password changes separately
+            // PasswordHash is not part of the form model, so we exclude it from validation
             ModelState.Remove("PasswordHash");
 
-            // Validate required fields
+            // ========== VALIDATE REQUIRED FIELDS ==========
+            // Full name is required - cannot be empty
             if (string.IsNullOrWhiteSpace(user.FullName))
             {
                 ModelState.AddModelError("FullName", "Full name is required.");
             }
 
-            // Validate email format (even though it's read-only, we should validate it's valid)
+            // ========== VALIDATE EMAIL ==========
+            // Email is read-only (cannot be changed), but we still validate format
+            // This ensures data integrity even if someone tries to modify it
             if (string.IsNullOrWhiteSpace(user.Email))
             {
                 ModelState.AddModelError("Email", "Email is required.");
             }
             else if (!System.Text.RegularExpressions.Regex.IsMatch(user.Email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
             {
+                // Validate email format using regular expression
                 ModelState.AddModelError("Email", "Please enter a valid email address.");
             }
 
-            // Email cannot be changed - but we should verify it matches the existing email
+            // ========== EMAIL IMMUTABILITY CHECK ==========
+            // Email address cannot be changed after account creation
+            // This is a security feature - email is used for login and password reset
             if (existingUser.Email != user.Email)
             {
                 ModelState.AddModelError("Email", "Email cannot be changed.");
-                // Restore original email
+                // Restore original email to prevent unauthorized changes
                 user.Email = existingUser.Email;
             }
 
-            // Validate phone number if provided
+            // ========== VALIDATE PHONE NUMBER ==========
+            // Phone number is optional, but if provided, must be in valid format
+            // Accepts various formats: international (+country code), Malaysian format, or plain digits
             if (!string.IsNullOrWhiteSpace(user.PhoneNumber))
             {
+                // Regular expression pattern for phone number validation
                 var phonePattern = @"^(\+?[0-9]{1,4}[-]?[0-9]{2,4}[-]?[0-9]{3,4}[-]?[0-9]{3,4}|[0-9]{7,15})$";
                 if (!System.Text.RegularExpressions.Regex.IsMatch(user.PhoneNumber, phonePattern))
                 {

@@ -76,13 +76,13 @@
                                     <div class="btn-group" role="group">
                                         @if (!message.IsRead)
                                         {
-                                            <form asp-action="MarkAsRead" method="post" style="display: inline;">
+                                            <form asp-action="MarkAsRead" method="post" class="d-inline">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="id" value="@message.MessageId" />
                                                 <button type="submit" class="btn btn-sm btn-success">Mark as Read</button>
                                             </form>
                                         }
-                                        <form asp-action="DeleteContactMessage" asp-route-id="@message.MessageId" method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this message?');">
+                                        <form asp-action="DeleteContactMessage" asp-route-id="@message.MessageId" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this message?');">
                                             @Html.AntiForgeryToken()
                                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                                         </form>

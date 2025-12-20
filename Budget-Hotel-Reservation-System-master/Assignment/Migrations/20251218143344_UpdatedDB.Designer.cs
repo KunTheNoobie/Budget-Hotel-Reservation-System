@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Assignment.Migrations
 {
     [DbContext(typeof(HotelDbContext))]
-    [Migration("20251205070014_AddHotelIdToUser")]
-    partial class AddHotelIdToUser
+    [Migration("20251218143344_UpdatedDB")]
+    partial class UpdatedDB
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -74,7 +74,13 @@ namespace Assignment.Migrations
                     b.Property<DateTime>("CheckInDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("CheckInTime")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CheckOutDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CheckOutTime")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("DeletedAt")
@@ -117,10 +123,16 @@ namespace Assignment.Migrations
                     b.Property<DateTime?>("PromotionUsedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("QRToken")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal?>("RefundAmount")
                         .HasColumnType("decimal(18, 2)");
 
                     b.Property<int>("RoomId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Source")
                         .HasColumnType("int");
 
                     b.Property<int>("Status")
@@ -204,6 +216,9 @@ namespace Assignment.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
 
                     b.Property<string>("City")
                         .IsRequired()

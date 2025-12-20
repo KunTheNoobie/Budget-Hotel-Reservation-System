@@ -1,24 +1,17 @@
-@* 
-    Payment View
-    Displays the payment form for completing a booking.
-    Supports multiple payment methods: Credit Card, PayPal, and Bank Transfer.
-    Shows booking summary, price breakdown, and payment form with validation.
-*@
 @model Assignment.ViewModels.Booking.PaymentViewModel
 @{
-    ViewData["Title"] = "Payment";
+    ViewData["Title"] = "Secure Checkout";
     var booking = Model.Booking!;
     var nights = (booking.CheckOutDate - booking.CheckInDate).Days;
+    
+    // Calculate Base Price for display
     var basePrice = booking.Room.RoomType.BasePrice * nights;
     
-    // Check if this is a package booking (package price is usually higher than room price)
-    // If TotalPrice is significantly different from calculated basePrice, it's likely a package
-    var isPackageBooking = booking.TotalPrice != basePrice && 
-                          (booking.Promotion == null || booking.TotalPrice > basePrice);
+    // Check if this is a package booking
+    var isPackageBooking = booking.Promotion == null && booking.TotalPrice != basePrice;
     
+    // Calculate discount for display (if not a package)
     var discount = isPackageBooking ? 0 : (basePrice - booking.TotalPrice);
-    
-    // Ensure discount is not negative (which would indicate package booking)
     if (discount < 0) discount = 0;
     
     // Get package information from ViewBag
@@ -26,248 +19,362 @@
     var packageServices = ViewBag.PackageServices as List<Assignment.Models.PackageItem> ?? new List<Assignment.Models.PackageItem>();
 }
 
-<div class="container mt-4">
-    <h2 class="mb-4">Payment</h2>
+<!-- Custom CSS for the Payment Options -->
+<style>
+    .payment-option-card {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        padding: 15px;
+    }
+    
+    .payment-option-card:hover {
+        border-color: #cbd5e0;
+        background-color: #f8f9fa;
+    }
 
+    /* Hide the actual radio button */
+    .payment-option-input {
+        display: none;
+    }
+
+    /* Style for when an option is selected */
+    .payment-option-input:checked + .payment-option-card {
+        border-color: #0d6efd; /* Bootstrap Primary Color */
+        background-color: #f0f7ff;
+        box-shadow: 0 4px 6px rgba(13, 110, 253, 0.1);
+    }
+    
+    .payment-option-input:checked + .payment-option-card .check-icon {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    .check-icon {
+        opacity: 0;
+        transform: scale(0.5);
+        transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        color: #0d6efd;
+        font-size: 1.2rem;
+    }
+    
+    /* Sticky Sidebar fix */
+    .sticky-sidebar {
+        position: -webkit-sticky;
+        position: sticky;
+        top: 20px;
+        z-index: 100;
+    }
+    
+    .detail-label {
+        font-weight: 600;
+        color: #495057;
+        width: 100px;
+        display: inline-block;
+    }
+</style>
+
+<div class="container mt-4 mb-5 pb-5"> 
     <div class="row">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">Booking #@booking.BookingId</h4>
+        <!-- LEFT COLUMN: Booking Details & Payment Form -->
+        <div class="col-lg-8 mb-4">
+            <h2 class="mb-4 fw-bold text-dark">Payment</h2>
+            
+            <!-- 1. DETAILED BOOKING INFO CARD (Restored Details) -->
+            <div class="card shadow-sm border-0 mb-4 rounded-3 overflow-hidden">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-bookmark-star me-2"></i>Booking #@booking.BookingId</h5>
                 </div>
-                <div class="card-body">
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <h5>Room Information</h5>
-                            <p><strong>Room:</strong> @booking.Room.RoomNumber (@booking.Room.RoomType.Name)</p>
-                            <p><strong>Check-In:</strong> @booking.CheckInDate.ToString("dd/MM/yyyy")</p>
-                            <p><strong>Check-Out:</strong> @booking.CheckOutDate.ToString("dd/MM/yyyy")</p>
-                            <p><strong>Nights:</strong> @nights</p>
-                        </div>
-                        <div class="col-md-6">
-                            <h5>Price Breakdown</h5>
-                            <div class="table-responsive">
-                                <table class="table table-sm">
-                                    @if (isPackageBooking && package != null)
-                                    {
-                                        var roomPrice = booking.Room.RoomType.BasePrice * nights;
-                                        var servicesTotal = packageServices.Sum(pi => pi.Service != null ? (pi.Service.Price * pi.Quantity) : 0);
-                                        
-                                        <tr>
-                                            <td>Room (@nights night(s) × RM @booking.Room.RoomType.BasePrice.ToString("F2")):</td>
-                                            <td class="text-end">RM @roomPrice.ToString("F2")</td>
-                                        </tr>
-                                        @if (packageServices.Any())
-                                        {
-                                            @foreach (var serviceItem in packageServices)
-                                            {
-                                                if (serviceItem.Service != null)
-                                                {
-                                                    var serviceTotal = serviceItem.Service.Price * serviceItem.Quantity;
-                                                    <tr>
-                                                        <td class="ps-3">
-                                                            <small>• @serviceItem.Service.Name
-                                                            @if (serviceItem.Quantity > 1)
-                                                            {
-                                                                <text> (x@(serviceItem.Quantity))</text>
-                                                            }
-                                                            </small>
-                                                        </td>
-                                                        <td class="text-end"><small>RM @serviceTotal.ToString("F2")</small></td>
-                                                    </tr>
-                                                }
-                                            }
-                                            <tr>
-                                                <td><strong>Services Total:</strong></td>
-                                                <td class="text-end"><strong>RM @servicesTotal.ToString("F2")</strong></td>
-                                            </tr>
-                                        }
-                                        <tr class="table-active">
-                                            <td><strong>Package Total:</strong></td>
-                                            <td class="text-end"><strong class="text-primary">RM @booking.TotalPrice.ToString("F2")</strong></td>
-                                        </tr>
-                                    }
-                                    else
-                                    {
-                                        <tr>
-                                            <td>Base Price (@nights nights × RM @booking.Room.RoomType.BasePrice.ToString("F2")):</td>
-                                            <td class="text-end">RM @basePrice.ToString("F2")</td>
-                                        </tr>
-                                        @if (booking.Promotion != null && discount > 0)
-                                        {
-                                            <tr>
-                                                <td>Promotion (@booking.Promotion.Code):</td>
-                                                <td class="text-end text-danger">-RM @discount.ToString("F2")</td>
-                                            </tr>
-                                        }
-                                        <tr class="table-active">
-                                            <td><strong>Total Amount:</strong></td>
-                                            <td class="text-end"><strong class="price-display">RM @booking.TotalPrice.ToString("F2")</strong></td>
-                                        </tr>
-                                    }
-                                </table>
+                <div class="card-body p-4">
+                    <div class="row g-4">
+                        <!-- Left Side: Room Information -->
+                        <div class="col-md-6 border-end-md">
+                            <h5 class="fw-bold mb-3 text-dark border-bottom pb-2">Room Information</h5>
+                            
+                            <div class="mb-2">
+                                <span class="detail-label">Room:</span>
+                                <span>@booking.Room.RoomNumber <span class="text-muted">(@booking.Room.RoomType.Name)</span></span>
                             </div>
+                            
+                            <div class="mb-2">
+                                <span class="detail-label text-primary">Check-In:</span>
+                                <span class="fw-bold">@booking.CheckInDate.ToString("dd/MM/yyyy")</span>
+                            </div>
+                            
+                            <div class="mb-2">
+                                <span class="detail-label">Check-Out:</span>
+                                <span>@booking.CheckOutDate.ToString("dd/MM/yyyy")</span>
+                            </div>
+                            
+                            <div class="mb-2">
+                                <span class="detail-label">Nights:</span>
+                                <span>@nights</span>
+                            </div>
+                            
+                            <div class="mt-3 p-2 bg-light rounded">
+                                <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Guest Details</small><br>
+                                <strong>@booking.User.FullName</strong><br>
+                                <small>@booking.User.Email</small>
+                            </div>
+                        </div>
+
+                        <!-- Right Side: Price Breakdown (Restored Table) -->
+                        <div class="col-md-6">
+                            <h5 class="fw-bold mb-3 text-dark border-bottom pb-2">Price Breakdown</h5>
+                            
+                            <table class="table table-sm table-borderless">
+                                @if (isPackageBooking && package != null)
+                                {
+                                    <!-- Package Logic -->
+                                    <tr>
+                                        <td>Room (@nights nights):</td>
+                                        <td class="text-end">RM @((booking.Room.RoomType.BasePrice * nights).ToString("F2"))</td>
+                                    </tr>
+                                    @foreach (var item in packageServices)
+                                    {
+                                         <tr>
+                                            <td class="text-muted small ps-2">+ @item.Service.Name (x@item.Quantity)</td>
+                                            <td class="text-end small">RM @((item.Service.Price * item.Quantity).ToString("F2"))</td>
+                                        </tr>
+                                    }
+                                    <tr class="border-top">
+                                        <td><strong>Package Total:</strong></td>
+                                        <td class="text-end text-primary fw-bold">RM @booking.TotalPrice.ToString("F2")</td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    <!-- Standard Booking Logic -->
+                                    <tr>
+                                        <td>Base Price <br><small class="text-muted">(@nights nights × RM @booking.Room.RoomType.BasePrice.ToString("F2"))</small></td>
+                                        <td class="text-end align-middle">RM @basePrice.ToString("F2")</td>
+                                    </tr>
+                                    
+                                    @if (booking.Promotion != null && discount > 0)
+                                    {
+                                        <tr>
+                                            <td class="text-success">Promotion (@booking.Promotion.Code)</td>
+                                            <td class="text-end text-success">-RM @discount.ToString("F2")</td>
+                                        </tr>
+                                    }
+                                    
+                                    <tr class="border-top mt-2">
+                                        <td class="pt-3 align-middle"><h5 class="mb-0 fw-bold">Total Amount:</h5></td>
+                                        <td class="text-end pt-3"><h4 class="mb-0 fw-bold text-dark">RM @booking.TotalPrice.ToString("F2")</h4></td>
+                                    </tr>
+                                }
+                            </table>
                         </div>
                     </div>
-
-                    <hr />
-
-                    <form asp-action="ProcessPayment" method="post">
-                        <input type="hidden" asp-for="BookingId" />
-                        @if (!ViewData.ModelState.IsValid)
-                        {
-                        <div asp-validation-summary="All" class="alert alert-danger"></div>
-                        }
-
-                        <h5 class="mb-3">Payment Method</h5>
-                        <div class="mb-3">
-                            <select asp-for="PaymentMethod" id="paymentMethod" class="form-select" required>
-                                <option value="">-- Select Payment Method --</option>
-                                <option value="0">Credit/Debit Card</option>
-                                <option value="1">PayPal</option>
-                                <option value="2">Bank Transfer</option>
-                            </select>
-                            <span asp-validation-for="PaymentMethod" class="text-danger"></span>
-                        </div>
-
-                        <!-- Credit Card Fields -->
-                        <div id="creditCardFields" style="display: none;">
-                            <h6 class="mt-4 mb-3">Card Information</h6>
-                            <div class="row">
-                                <div class="col-md-12 mb-3">
-                                    <label asp-for="CardNumber" class="form-label"></label>
-                                    <input asp-for="CardNumber" class="form-control" placeholder="1234 5678 9012 3456" maxlength="19" />
-                                    <span asp-validation-for="CardNumber" class="text-danger"></span>
-                                </div>
-                                <div class="col-md-12 mb-3">
-                                    <label asp-for="CardholderName" class="form-label"></label>
-                                    <input asp-for="CardholderName" class="form-control" placeholder="Name on card" />
-                                    <span asp-validation-for="CardholderName" class="text-danger"></span>
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label asp-for="ExpiryMonth" class="form-label">Expiry Month</label>
-                                    <select asp-for="ExpiryMonth" class="form-select">
-                                        <option value="">Month</option>
-                                        @for (int i = 1; i <= 12; i++)
-                                        {
-                                            <option value="@i">@i.ToString("00")</option>
-                                        }
-                                    </select>
-                                    <span asp-validation-for="ExpiryMonth" class="text-danger"></span>
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label asp-for="ExpiryYear" class="form-label">Expiry Year</label>
-                                    <select asp-for="ExpiryYear" class="form-select">
-                                        <option value="">Year</option>
-                                        @for (int i = DateTime.Now.Year; i <= DateTime.Now.Year + 10; i++)
-                                        {
-                                            <option value="@i">@i</option>
-                                        }
-                                    </select>
-                                    <span asp-validation-for="ExpiryYear" class="text-danger"></span>
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label asp-for="CVV" class="form-label"></label>
-                                    <input asp-for="CVV" class="form-control" placeholder="123" maxlength="4" />
-                                    <span asp-validation-for="CVV" class="text-danger"></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- PayPal Fields -->
-                        <div id="paypalFields" style="display: none;">
-                            <h6 class="mt-4 mb-3">PayPal Account</h6>
-                            <div class="mb-3">
-                                <label asp-for="PayPalEmail" class="form-label"></label>
-                                <input asp-for="PayPalEmail" type="email" class="form-control" placeholder="your.email@example.com" />
-                                <span asp-validation-for="PayPalEmail" class="text-danger"></span>
-                                <small class="form-text text-muted">You will be redirected to PayPal to complete the payment.</small>
-                            </div>
-                        </div>
-
-                        <!-- Bank Transfer Fields -->
-                        <div id="bankTransferFields" style="display: none;">
-                            <h6 class="mt-4 mb-3">Bank Transfer Details</h6>
-                            <div class="mb-3">
-                                <label asp-for="BankName" class="form-label"></label>
-                                <select asp-for="BankName" class="form-select">
-                                    <option value="">-- Select Bank --</option>
-                                    <option value="Maybank">Maybank</option>
-                                    <option value="CIMB Bank">CIMB Bank</option>
-                                    <option value="Public Bank">Public Bank</option>
-                                    <option value="RHB Bank">RHB Bank</option>
-                                    <option value="Hong Leong Bank">Hong Leong Bank</option>
-                                    <option value="AmBank">AmBank</option>
-                                    <option value="UOB">UOB</option>
-                                    <option value="OCBC Bank">OCBC Bank</option>
-                                    <option value="Standard Chartered">Standard Chartered</option>
-                                    <option value="HSBC Bank">HSBC Bank</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                                <span asp-validation-for="BankName" class="text-danger"></span>
-                            </div>
-                            <div class="mb-3">
-                                <label asp-for="AccountNumber" class="form-label"></label>
-                                <input asp-for="AccountNumber" class="form-control" placeholder="Enter account number" />
-                                <span asp-validation-for="AccountNumber" class="text-danger"></span>
-                            </div>
-                            <div class="mb-3">
-                                <label asp-for="AccountHolderName" class="form-label"></label>
-                                <input asp-for="AccountHolderName" class="form-control" placeholder="Account holder name" />
-                                <span asp-validation-for="AccountHolderName" class="text-danger"></span>
-                            </div>
-                            <div class="mb-3">
-                                <label asp-for="ReferenceNumber" class="form-label">Transaction Reference Number (Optional)</label>
-                                <input asp-for="ReferenceNumber" class="form-control" placeholder="Enter reference number if available" />
-                                <span asp-validation-for="ReferenceNumber" class="text-danger"></span>
-                            </div>
-                            <div class="alert alert-info">
-                                <strong>Bank Transfer Instructions:</strong><br />
-                                Please transfer RM @booking.TotalPrice.ToString("F2") to:<br />
-                                <strong>Account:</strong> BudgetHotel Sdn Bhd<br />
-                                <strong>Account Number:</strong> 1234567890<br />
-                                <strong>Bank:</strong> Maybank<br />
-                                <strong>Reference:</strong> Booking #@booking.BookingId
-                            </div>
-                        </div>
-
-                        <div class="mt-4">
-                            <button type="submit" class="btn btn-success btn-lg w-100">
-                                <i class="bi bi-lock-fill me-2"></i>Complete Payment
-                            </button>
-                            <a asp-action="MyBookings" class="btn btn-secondary w-100 mt-2">Cancel</a>
-                        </div>
-                    </form>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Payment Summary</h5>
-                </div>
-                <div class="card-body">
-                    <p><strong>Booking ID:</strong> #@booking.BookingId</p>
-                    <p><strong>Room:</strong> @booking.Room.RoomNumber</p>
-                    <p><strong>Check-In:</strong> @booking.CheckInDate.ToString("dd/MM/yyyy")</p>
-                    <p><strong>Check-Out:</strong> @booking.CheckOutDate.ToString("dd/MM/yyyy")</p>
-                    <hr />
-                    <div class="d-flex justify-content-between">
-                        <strong>Total Amount:</strong>
-                        <strong class="price-display">RM @booking.TotalPrice.ToString("F2")</strong>
+
+            <!-- 2. PAYMENT FORM (Modern Design) -->
+            <form asp-action="ProcessPayment" method="post" id="paymentForm">
+                <input type="hidden" asp-for="BookingId" />
+                
+                @if (!ViewData.ModelState.IsValid)
+                {
+                    <div asp-validation-summary="All" class="alert alert-danger rounded-3 mb-4"></div>
+                }
+
+                <div class="card shadow-sm border-0 rounded-3">
+                    <div class="card-body p-4">
+                        <h5 class="fw-bold mb-4">Payment Method</h5>
+                        
+                        <!-- Payment Method Selection Grid -->
+                        <div class="row g-3 mb-4">
+                            <!-- Credit Card -->
+                            <div class="col-md-4">
+                                <label class="w-100">
+                                    <input type="radio" asp-for="PaymentMethod" value="0" class="payment-option-input" data-target="#creditCardFields" />
+                                    <div class="payment-option-card text-center h-100 d-flex flex-column justify-content-center align-items-center">
+                                        <div class="d-flex justify-content-between w-100 mb-2">
+                                            <span></span>
+                                            <i class="bi bi-check-circle-fill check-icon"></i>
+                                        </div>
+                                        <i class="bi bi-credit-card-2-front fs-1 text-secondary mb-2"></i>
+                                        <span class="fw-bold d-block">Credit Card</span>
+                                        <small class="text-muted">Visa, Mastercard</small>
+                                    </div>
+                                </label>
+                            </div>
+                            
+                            <!-- PayPal -->
+                            <div class="col-md-4">
+                                <label class="w-100">
+                                    <input type="radio" asp-for="PaymentMethod" value="1" class="payment-option-input" data-target="#paypalFields" />
+                                    <div class="payment-option-card text-center h-100 d-flex flex-column justify-content-center align-items-center">
+                                        <div class="d-flex justify-content-between w-100 mb-2">
+                                            <span></span>
+                                            <i class="bi bi-check-circle-fill check-icon"></i>
+                                        </div>
+                                        <i class="bi bi-paypal fs-1 text-primary mb-2"></i>
+                                        <span class="fw-bold d-block">PayPal</span>
+                                        <small class="text-muted">Secure Checkout</small>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- Bank Transfer -->
+                            <div class="col-md-4">
+                                <label class="w-100">
+                                    <input type="radio" asp-for="PaymentMethod" value="2" class="payment-option-input" data-target="#bankTransferFields" />
+                                    <div class="payment-option-card text-center h-100 d-flex flex-column justify-content-center align-items-center">
+                                        <div class="d-flex justify-content-between w-100 mb-2">
+                                            <span></span>
+                                            <i class="bi bi-check-circle-fill check-icon"></i>
+                                        </div>
+                                        <i class="bi bi-bank fs-1 text-success mb-2"></i>
+                                        <span class="fw-bold d-block">Bank Transfer</span>
+                                        <small class="text-muted">Direct Deposit</small>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        <span asp-validation-for="PaymentMethod" class="text-danger d-block mb-3"></span>
+
+                        <!-- Dynamic Fields Container -->
+                        <div class="bg-light p-4 rounded-3 border" id="paymentDetailsContainer" style="display:none;">
+                            
+                            <!-- Credit Card Fields -->
+                            <div id="creditCardFields" class="payment-section">
+                                <h6 class="fw-bold mb-3"><i class="bi bi-shield-lock me-2"></i>Enter Card Details</h6>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label asp-for="CardNumber" class="form-label small text-muted">Card Number</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-white"><i class="bi bi-credit-card"></i></span>
+                                            <input asp-for="CardNumber" class="form-control" placeholder="0000 0000 0000 0000" maxlength="19" />
+                                        </div>
+                                        <span asp-validation-for="CardNumber" class="text-danger small"></span>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="CardholderName" class="form-label small text-muted">Cardholder Name</label>
+                                        <input asp-for="CardholderName" class="form-control" placeholder="As shown on card" />
+                                        <span asp-validation-for="CardholderName" class="text-danger small"></span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label asp-for="ExpiryMonth" class="form-label small text-muted">Month</label>
+                                        <select asp-for="ExpiryMonth" class="form-select">
+                                            <option value="" selected disabled>MM</option>
+                                            @for (int i = 1; i <= 12; i++) { <option value="@i">@i.ToString("00")</option> }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label asp-for="ExpiryYear" class="form-label small text-muted">Year</label>
+                                        <select asp-for="ExpiryYear" class="form-select">
+                                            <option value="" selected disabled>YY</option>
+                                            @for (int i = DateTime.Now.Year; i <= DateTime.Now.Year + 10; i++) { <option value="@i">@i</option> }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label asp-for="CVV" class="form-label small text-muted">CVV</label>
+                                        <div class="input-group">
+                                            <input asp-for="CVV" class="form-control" placeholder="123" maxlength="4" />
+                                            <span class="input-group-text bg-white text-muted" data-bs-toggle="tooltip" title="3 digits on back"><i class="bi bi-question-circle"></i></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- PayPal Fields -->
+                            <div id="paypalFields" class="payment-section" style="display:none;">
+                                <div class="text-center py-3">
+                                    <i class="bi bi-paypal text-primary fs-1 mb-2"></i>
+                                    <h5>Pay with PayPal</h5>
+                                    <p class="text-muted small mb-3">Enter your PayPal email to proceed.</p>
+                                </div>
+                                <div class="form-floating mb-3">
+                                    <input asp-for="PayPalEmail" type="email" class="form-control" placeholder="name@example.com" />
+                                    <label asp-for="PayPalEmail">PayPal Email Address</label>
+                                </div>
+                                <span asp-validation-for="PayPalEmail" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Bank Transfer Fields -->
+                            <div id="bankTransferFields" class="payment-section" style="display:none;">
+                                <div class="alert alert-info border-0 d-flex align-items-center mb-3">
+                                    <i class="bi bi-info-circle-fill me-3 fs-4"></i>
+                                    <div>
+                                        <small class="d-block fw-bold">Transfer Instructions</small>
+                                        <small>Please transfer <strong>RM @booking.TotalPrice.ToString("F2")</strong> to Maybank <strong>1234567890</strong> (BudgetHotel Sdn Bhd)</small>
+                                    </div>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label asp-for="BankName" class="form-label small text-muted">Your Bank</label>
+                                        <select asp-for="BankName" class="form-select">
+                                            <option value="">Select Bank</option>
+                                            <option value="Maybank">Maybank</option>
+                                            <option value="CIMB">CIMB Bank</option>
+                                            <option value="Public Bank">Public Bank</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                        <span asp-validation-for="BankName" class="text-danger small"></span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label asp-for="AccountNumber" class="form-label small text-muted">Account No.</label>
+                                        <input asp-for="AccountNumber" class="form-control" placeholder="Your account number" />
+                                        <span asp-validation-for="AccountNumber" class="text-danger small"></span>
+                                    </div>
+                                    <div class="col-12">
+                                        <label asp-for="AccountHolderName" class="form-label small text-muted">Account Holder Name</label>
+                                        <input asp-for="AccountHolderName" class="form-control" placeholder="Name as per bank record" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-success w-100 py-3 fw-bold shadow-sm text-uppercase">
+                                <i class="bi bi-lock-fill me-2"></i>Complete Payment
+                            </button>
+                            <div class="text-center mt-3">
+                                <a asp-action="MyBookings" class="text-decoration-none text-muted small"><i class="bi bi-x-circle me-1"></i>Cancel</a>
+                            </div>
+                        </div>
                     </div>
-                    @if (isPackageBooking)
-                    {
-                        <div class="alert alert-info mt-3 mb-0">
-                            <i class="bi bi-box-seam me-2"></i>Package Booking
+                </div>
+            </form>
+        </div>
+
+        <!-- RIGHT COLUMN: Compact Summary (Sticky) -->
+        <div class="col-lg-4">
+            <div class="sticky-sidebar">
+                <div class="card shadow-sm border-0 rounded-3 bg-white">
+                    <div class="card-header bg-light border-bottom">
+                        <h6 class="mb-0 fw-bold">Payment Summary</h6>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <span class="text-muted d-block small text-uppercase fw-bold">Booking ID</span>
+                            <span class="fw-bold text-dark">#@booking.BookingId</span>
                         </div>
-                    }
-                    else if (booking.Promotion != null && discount > 0)
-                    {
-                        <div class="alert alert-success mt-3 mb-0">
-                            <i class="bi bi-tag-fill me-2"></i>Promotion Applied: @booking.Promotion.Code
+                        
+                        <div class="mb-3">
+                            <span class="text-muted d-block small text-uppercase fw-bold">Room</span>
+                            <span class="text-dark">@booking.Room.RoomNumber</span>
                         </div>
-                    }
+                        
+                        <div class="mb-3">
+                            <span class="text-muted d-block small text-uppercase fw-bold">Date</span>
+                            <span class="text-dark">@booking.CheckInDate.ToString("dd/MM") - @booking.CheckOutDate.ToString("dd/MM")</span>
+                        </div>
+
+                        <hr class="my-3">
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="h6 mb-0 text-muted">Total Amount</span>
+                            <span class="h5 mb-0 fw-bold text-dark">RM @booking.TotalPrice.ToString("F2")</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-3">
+                    <small class="text-muted"><i class="bi bi-shield-check me-1"></i>SSL Encrypted Payment</small>
                 </div>
             </div>
         </div>
@@ -278,55 +385,31 @@
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
     <script>
         $(document).ready(function() {
-                // Hide validation summary if no errors
-                var validationSummary = $('.alert-danger');
-                if (validationSummary.length > 0 && validationSummary.text().trim() === '') {
-                    validationSummary.hide();
-                }
+            // Logic to handle the radio button selection
+            $('.payment-option-input').on('change', function() {
+                var targetId = $(this).data('target');
                 
-                // Ensure all fields are hidden by default
-                $('#creditCardFields').hide();
-                $('#paypalFields').hide();
-                $('#bankTransferFields').hide();
+                // Show container
+                $('#paymentDetailsContainer').slideDown(300);
                 
-                // Remove required attributes by default
-                $('input[name="CardNumber"], input[name="CardholderName"], select[name="ExpiryMonth"], select[name="ExpiryYear"], input[name="CVV"]').prop('required', false);
-                $('input[name="PayPalEmail"]').prop('required', false);
-                $('select[name="BankName"], input[name="AccountNumber"], input[name="AccountHolderName"]').prop('required', false);
+                // Hide all sections first
+                $('.payment-section').hide();
                 
-            $('#paymentMethod').on('change', function() {
-                var method = $(this).val();
-                
-                // Hide all fields
-                $('#creditCardFields').hide();
-                $('#paypalFields').hide();
-                $('#bankTransferFields').hide();
-                
-                    // Remove all required attributes first
-                    $('input[name="CardNumber"], input[name="CardholderName"], select[name="ExpiryMonth"], select[name="ExpiryYear"], input[name="CVV"]').prop('required', false);
-                    $('input[name="PayPalEmail"]').prop('required', false);
-                    $('select[name="BankName"], input[name="AccountNumber"], input[name="AccountHolderName"]').prop('required', false);
-                    
-                    // Show relevant fields based on selected method
-                    if (method === '0' || method === 'CreditCard') {
-                        $('#creditCardFields').show();
-                        $('input[name="CardNumber"], input[name="CardholderName"], select[name="ExpiryMonth"], select[name="ExpiryYear"], input[name="CVV"]').prop('required', true);
-                }
-                
-                    if (method === '1' || method === 'PayPal') {
-                    $('#paypalFields').show();
-                    $('input[name="PayPalEmail"]').prop('required', true);
-                }
-                
-                    if (method === '2' || method === 'BankTransfer') {
-                    $('#bankTransferFields').show();
-                    $('select[name="BankName"], input[name="AccountNumber"], input[name="AccountHolderName"]').prop('required', true);
-                }
+                // Show specific section
+                $(targetId).fadeIn(300);
             });
-            
-            // Format card number
+
+            // If page reloads with error, check which radio is checked
+            if ($('.payment-option-input:checked').length > 0) {
+                 var targetId = $('.payment-option-input:checked').data('target');
+                 $('#paymentDetailsContainer').show();
+                 $('.payment-section').hide();
+                 $(targetId).show();
+            }
+
+            // Card formatting
             $('input[name="CardNumber"]').on('input', function() {
-                var value = $(this).val().replace(/\s/g, '');
+                var value = $(this).val().replace(/\D/g, '');
                 var formatted = value.match(/.{1,4}/g)?.join(' ') || value;
                 $(this).val(formatted);
             });

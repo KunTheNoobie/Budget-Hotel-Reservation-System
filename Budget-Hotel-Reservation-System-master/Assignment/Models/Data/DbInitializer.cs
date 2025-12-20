@@ -21,30 +21,44 @@ namespace Assignment.Models.Data
         /// <param name="context">The database context to seed.</param>
         public static void Initialize(HotelDbContext context)
         {
+            // ========== DATABASE SEEDING LOGIC ==========
+            // This method seeds the database with initial sample data if it doesn't already exist
+            // It checks for existing data to avoid duplicates and allows partial seeding
+            
             // Don't use EnsureCreated() - let migrations handle database creation
+            // Migrations are more reliable and maintain schema history
             // context.Database.EnsureCreated();
 
-            // Check if we need to seed - check each component independently
-            // This allows partial seeding if some data already exists
-            bool hasUsers = context.Users.Any();
-            bool hasHotels = context.Hotels.Any();
-            bool hasPackages = context.Packages.Any();
-            bool hasServices = context.Services.Any();
-            bool hasReviews = context.Reviews.Any();
+            // ========== CHECK FOR EXISTING DATA ==========
+            // Check if data already exists in database
+            // This allows partial seeding if some data exists but other data is missing
+            // This is useful when database is partially populated (e.g., from SQL scripts)
+            bool hasUsers = context.Users.Any();        // Check if users exist
+            bool hasHotels = context.Hotels.Any();      // Check if hotels exist
+            bool hasPackages = context.Packages.Any();  // Check if packages exist
+            bool hasServices = context.Services.Any();   // Check if services exist
+            bool hasReviews = context.Reviews.Any();    // Check if reviews exist
             
-            // If basic data exists but reviews don't, we'll seed reviews at the end
+            // ========== DETERMINE IF SEEDING IS NEEDED ==========
+            // If basic data (users, hotels, packages, services) exists, skip main seeding
+            // Reviews are seeded separately at the end if needed
             bool shouldSkipMainSeeding = hasUsers && hasHotels && hasPackages && hasServices;
             
+            // ========== SKIP SEEDING IF ALL DATA EXISTS ==========
             // If everything exists including reviews, skip seeding entirely
+            // This prevents duplicate data and unnecessary database operations
             if (shouldSkipMainSeeding && hasReviews)
             {
-                return;
+                return;  // Exit early - no seeding needed
             }
 
+            // ========== SEED DATA IF NEEDED ==========
             // Only run main seeding if data doesn't exist
+            // This ensures we don't create duplicate data
             if (!shouldSkipMainSeeding)
             {
-            // Seeding Hotels
+            // ========== SEED HOTELS ==========
+            // Create sample hotels across Malaysia for demonstration
             var hotels = new Hotel[]
             {
                 new Hotel
